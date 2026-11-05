@@ -680,6 +680,8 @@ public class IkonFitur extends View {
                 return KECEPATAN;
             case 24:
                 return GRAVITASI;
+            case 27:
+                return SKIN;
             default:
                 return PENGATURAN;
         }
@@ -704,6 +706,8 @@ public class IkonFitur extends View {
                 return KOTORAN;
             if (n.contains("makanan"))
                 return MAKANAN;
+            if (n.contains("skin"))
+                return SKIN;
             // Setelan memakai nomor negatif. Nama dicek supaya ikonnya benar walau
             // nomornya berbeda, dan fitur game tidak ikut terpengaruh.
             if (fitur < 0) {

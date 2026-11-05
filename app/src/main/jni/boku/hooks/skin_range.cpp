@@ -27,15 +27,20 @@ constexpr int kMaksSumbu = 8;
 constexpr int kSlotRentang = 2;
 int32_t skinDasar[kSlotRentang][kMaksSumbu] = {};
 int32_t skinDiperlebar[kSlotRentang][kMaksSumbu] = {};
+int32_t skinBatas[kSlotRentang][kMaksSumbu] = {};
 
 // Refresh__Step mengatur ulang slider X/Y ke -5..+5 lalu menurunkan steps_Half,
 // steps_W, dan per_Step dari steps_Max. Hanya sumbu yang masih -5..+5 yang
 // dilebarkan (sumbu rotasi dibiarkan) dan nilai turunannya disusun ulang supaya
-// Value__To__Step melihat rentang -25..+25 yang baru pada lintasan Refresh() yang
-// sama.
+// Value__To__Step melihat rentang -batas..+batas pada lintasan Refresh() yang
+// sama. Batas datang dari slider menu: 5 berarti tidak berubah, 25 adalah
+// bawaan lama, dan 100 adalah geseran terjauh.
 void perlebarRentang(void* self, const Field& fieldPemilik, const Field& fieldPos, int slot) {
-    if (!fitur().rentangSkin)
-        return;
+    int32_t batas = fitur().rentangSkin.load();
+    if (batas < 5)
+        batas = 5;
+    if (batas > 100)
+        batas = 100;
     if (!fieldPemilik.field || !fieldPos.field || !fieldLangkahMaks.field ||
         !fieldLangkahSetengah.field || !fieldLebarLangkah.field || !fieldLebarPos.field ||
         !fieldNilaiPos.field || !fieldNilaiMin.field || !fieldNilaiMaks.field ||
@@ -74,7 +79,14 @@ void perlebarRentang(void* self, const Field& fieldPemilik, const Field& fieldPo
 
         float batasMin = bacaFloat(nilai, fieldNilaiMin);
         float batasMaks = bacaFloat(nilai, fieldNilaiMaks);
-        if (!dekatNilai(batasMin, -5.0f) || !dekatNilai(batasMaks, 5.0f))
+        bool masihBawaan = dekatNilai(batasMin, -5.0f) && dekatNilai(batasMaks, 5.0f);
+        // Sebagian jalur Refresh mengatur ulang min/max ke -5..+5, sebagian
+        // lagi mempertahankan nilai yang sudah ditulis. Keduanya diterima supaya
+        // batas baru tetap terpakai pada lintasan mana pun.
+        bool bekasKita = skinBatas[slot][i] != 0 &&
+                         dekatNilai(batasMin, -static_cast<float>(skinBatas[slot][i])) &&
+                         dekatNilai(batasMaks, static_cast<float>(skinBatas[slot][i]));
+        if (!masihBawaan && !bekasKita)
             continue;
 
         char* alamatMaks = dataArray(langkahMaks) + i * sizeof(int32_t);
@@ -84,26 +96,35 @@ void perlebarRentang(void* self, const Field& fieldPemilik, const Field& fieldPo
             LOGE("Rentang skin: sumbu %d punya steps_Max=%d, dilewati", i, sekarang);
             continue;
         }
-        if (sekarang > INT32_MAX / 5) {
-            LOGE("Rentang skin: sumbu %d punya steps_Max=%d, dilewati", i, sekarang);
-            continue;
-        }
 
+        // steps_Max bisa sedang bernilai dasar (sesudah game mengatur ulang)
+        // atau nilai perluasan dari pembacaan sebelumnya. Keduanya menunjuk
+        // dasar yang sama, jadi batas slider boleh berubah tanpa kehilangan
+        // nilai asli game.
         int32_t dasar;
-        int32_t diperlebar;
-        if (skinDasar[slot][i] != 0 && sekarang == skinDasar[slot][i]) {
+        if (skinDasar[slot][i] != 0 &&
+            (sekarang == skinDasar[slot][i] || sekarang == skinDiperlebar[slot][i])) {
             dasar = skinDasar[slot][i];
-            diperlebar = skinDiperlebar[slot][i];
-        } else if (skinDiperlebar[slot][i] != 0 && sekarang == skinDiperlebar[slot][i]) {
-            dasar = skinDasar[slot][i];
-            diperlebar = skinDiperlebar[slot][i];
         } else {
             dasar = sekarang;
-            diperlebar = sekarang * 5;
+        }
+
+        int64_t lebarBaru = static_cast<int64_t>(dasar) * batas / 5;
+        if (lebarBaru > INT32_MAX) {
+            LOGE("Rentang skin: sumbu %d punya %d langkah, dilewati", i, dasar);
+            continue;
+        }
+        int32_t diperlebar = static_cast<int32_t>(lebarBaru);
+        if (diperlebar < dasar)
+            diperlebar = dasar;
+
+        if (skinDasar[slot][i] != dasar || skinDiperlebar[slot][i] != diperlebar) {
             skinDasar[slot][i] = dasar;
             skinDiperlebar[slot][i] = diperlebar;
-            LOGI("Rentang skin: sumbu %d dilebarkan %d -> %d langkah", i, dasar, diperlebar);
+            LOGI("Rentang skin: sumbu %d -%d..%d, %d -> %d langkah", i, batas, batas, dasar,
+                 diperlebar);
         }
+        skinBatas[slot][i] = batas;
 
         *ptrMaks = diperlebar;
         if (i < jumlahSetengah) {
@@ -115,8 +136,8 @@ void perlebarRentang(void* self, const Field& fieldPemilik, const Field& fieldPo
             *reinterpret_cast<float*>(alamatLebar) = lebarPos / static_cast<float>(diperlebar);
         }
 
-        tulisFloat(nilai, fieldNilaiMin, -25.0f);
-        tulisFloat(nilai, fieldNilaiMaks, 25.0f);
+        tulisFloat(nilai, fieldNilaiMin, -static_cast<float>(batas));
+        tulisFloat(nilai, fieldNilaiMaks, static_cast<float>(batas));
         tulisFloat(nilai, fieldNilaiPerLangkah, 10.0f / static_cast<float>(dasar));
     }
 }

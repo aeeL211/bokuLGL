@@ -11,7 +11,9 @@ struct Fitur {
     std::atomic<bool> iap{true};
     std::atomic<bool> slot{true};
     std::atomic<bool> inputTeks{true};
-    std::atomic<bool> rentangSkin{true};
+    // Batas geser skin dalam satuan game: 5 berarti -5..+5 seperti bawaan,
+    // 25 berarti -25..+25. Menu mengirim 5..100.
+    std::atomic<int32_t> rentangSkin{25};
     std::atomic<bool> kataKasar{true};
     std::atomic<bool> simpanDunia{true};
     std::atomic<bool> ukuranRoom{true};
@@ -22,7 +24,10 @@ struct Fitur {
     std::atomic<bool> busterPenuh{true};
     std::atomic<bool> kotoran{true};
     std::atomic<bool> makanan{true};
-    std::atomic<bool> efek{true};
+    // Getar kamera dan puing tile dipisah karena getar hanya mengganggu
+    // tampilan, sedangkan puing ikut menentukan beban gambar di layar.
+    std::atomic<bool> getar{true};
+    std::atomic<bool> pecahan{true};
     std::atomic<bool> terpental{true};
     std::atomic<bool> noClip{false};
     // Nilai slider dikirim menu sebagai bilangan bulat: kecepatan 5..50 berarti

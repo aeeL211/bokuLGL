@@ -49,7 +49,9 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 **Nama dan Profil**
 
 - Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
-- Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
+- **Jarak geser skin** 5 sampai 100 dengan bawaan 25, berlaku untuk slider posisi X/Y model dan
+  potret. Nilai 25 berarti -25..+25 seperti sebelumnya, 5 berarti rentang bawaan game -5..+5,
+  dan 100 adalah geseran terjauh. Nilai baru dipakai saat editor skin atau potret dibuka lagi.
 - Kata terlarang tidak disaring lagi di perangkat ini.
 - Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
 - **Tampilkan detail akun yang disembunyikan** membuat baris privasi akun menampilkan detail
@@ -71,7 +73,10 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
 **Performa**
 
-- Getar kamera dan serpihan tile dimatikan.
+- **Getar kamera dimatikan** membuang dua titik masuk getar, jadi layar tidak bergetar saat
+  ledakan atau tembakan.
+- **Pecahan tile dimatikan** membuang pemunculan puing saat tile pecah; tile dan rekamannya tetap
+  utuh. Kedua sakelar berdiri sendiri, jadi getar bisa dimatikan tanpa menghilangkan pecahan.
 
 **Gerak**
 

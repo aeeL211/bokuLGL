@@ -25,7 +25,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
             OBFUSCATE("Collapse_Nama dan Profil"),
             OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
-            OBFUSCATE("CollapseAdd_3_Toggle_True_Posisi skin bisa digeser jauh"),
+            OBFUSCATE("CollapseAdd_27_SeekBar_Jarak geser skin_5_100_25_0"),
             OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
             OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
 
@@ -41,7 +41,8 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("CollapseAdd_16_Toggle_True_Tidak terpental saat meledak"),
 
             OBFUSCATE("Collapse_Performa"),
-            OBFUSCATE("CollapseAdd_15_Toggle_True_Getar dan pecahan dimatikan"),
+            OBFUSCATE("CollapseAdd_15_Toggle_True_Getar kamera dimatikan"),
+            OBFUSCATE("CollapseAdd_28_Toggle_True_Pecahan tile dimatikan"),
 
             OBFUSCATE("Collapse_Gerak"),
             OBFUSCATE("CollapseAdd_19_Toggle_Tembus dinding"),
@@ -86,9 +87,6 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 2:
             sakelar.inputTeks = boolean;
             break;
-        case 3:
-            sakelar.rentangSkin = boolean;
-            break;
         case 4:
             sakelar.kataKasar = boolean;
             break;
@@ -118,7 +116,7 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             sakelar.makanan = boolean;
             break;
         case 15:
-            sakelar.efek = boolean;
+            sakelar.getar = boolean;
             break;
         case 16:
             sakelar.terpental = boolean;
@@ -146,6 +144,12 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             break;
         case 26:
             sakelar.gravitasiPemain.store(10);
+            break;
+        case 27:
+            sakelar.rentangSkin.store(value);
+            break;
+        case 28:
+            sakelar.pecahan = boolean;
             break;
         default:
             break;
