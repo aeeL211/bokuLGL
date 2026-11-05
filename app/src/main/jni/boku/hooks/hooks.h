@@ -22,7 +22,6 @@ void pasangHookKotoran();
 void pasangHookTangan();
 void pasangHookSlot();
 void pasangHookSpoof();
-void pasangHookTendang();
 void pasangHookRoom();
 void pasangHookPemain();
 

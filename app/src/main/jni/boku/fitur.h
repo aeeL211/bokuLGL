@@ -18,7 +18,6 @@ struct Fitur {
     std::atomic<bool> sandiRoom{true};
     std::atomic<bool> privasi{true};
     std::atomic<bool> chatPribadi{true};
-    std::atomic<bool> tombolTendang{true};
     std::atomic<bool> tembakOtomatis{true};
     std::atomic<bool> busterPenuh{true};
     std::atomic<bool> kotoran{true};

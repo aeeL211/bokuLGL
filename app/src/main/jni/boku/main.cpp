@@ -88,7 +88,6 @@ void* pekerja(void*) {
     pasangHookSkin();
     pasangHookSlot();
     pasangHookSpoof();
-    pasangHookTendang();
     pasangHookRoom();
     pasangHookPemain();
     segarkanModul();

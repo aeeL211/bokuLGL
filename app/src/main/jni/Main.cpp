@@ -34,7 +34,6 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
             OBFUSCATE("Collapse_Chat"),
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
-            OBFUSCATE("CollapseAdd_10_Toggle_True_Tombol tendang di daftar pemain"),
 
             OBFUSCATE("Collapse_Senjata dan Item"),
             OBFUSCATE("CollapseAdd_11_Toggle_True_Tembak terus selama ditahan"),
@@ -104,9 +103,6 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             break;
         case 9:
             sakelar.chatPribadi = boolean;
-            break;
-        case 10:
-            sakelar.tombolTendang = boolean;
             break;
         case 11:
             sakelar.tembakOtomatis = boolean;

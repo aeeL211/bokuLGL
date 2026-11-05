@@ -103,7 +103,6 @@ set(MOD_SOURCES
   "${BOKU_ROOT}/hooks/skin.cpp"
   "${BOKU_ROOT}/hooks/slots.cpp"
   "${BOKU_ROOT}/hooks/spoof.cpp"
-  "${BOKU_ROOT}/hooks/kick_ui.cpp"
   "${BOKU_ROOT}/hooks/room.cpp"
   "${BOKU_ROOT}/hooks/pemain.cpp"
 )
