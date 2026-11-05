@@ -26,13 +26,13 @@ dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat ga
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
 Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
-**Ekonomi**
+**Belanja**
 
-- Pembelian IAP disimulasikan tanpa Play Billing, dan semua tile, model, serta melody langsung
-  terbuka.
+- Item bisa dibeli tanpa Play Billing dan tanpa biaya, dan semua tile, model, serta melody
+  langsung terbuka.
 - Semua jenis slot penyimpanan terbuka tanpa batas.
 
-**Input dan profil**
+**Nama dan profil**
 
 - Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
 - Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
@@ -54,16 +54,16 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - **Tendang** mengirim paket tendang dan paket penghapusan tamu sebagai host, sama seperti tombol
   tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
 
-**Akun dan privasi**
+**Akun**
 
 - Baris privasi akun tidak lagi menyembunyikan detail yang dipilih pemiliknya.
 
-**Chat dan sosial**
+**Chat**
 
 - Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
 - Tombol tendang muncul di panel tamu.
 
-**Aksi pemain**
+**Senjata dan item**
 
 - Pistol dan buster menembak berulang selama tombol interaksi ditahan.
 - Buster selalu memakai amunisi terkuat.
@@ -71,16 +71,17 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - Gingerbread dan hot cross bun tetap di tangan setelah dimakan.
 - Ledakan tidak lagi membuat pemain terpental.
 
-**Optimisasi**
+**Performa**
 
 - Getar kamera dan serpihan tile dimatikan.
 
 **Gerak**
 
-- **No Clip** mematikan `Collider2D` pemain bila ada, atau membuat `Rigidbody2D`-nya
-  kinematik bila hanya komponen itu yang ada. Game ini memakai fisika tile sendiri, jadi bila
-  pemain tidak membawa komponen Unity tersebut, fitur tidak berefek dan alasannya dicatat di log.
-- **Teleport** memindahkan pemain ke koordinat X/Y yang diisi di menu. Tombol hanya menitipkan
+- **No Clip** (tembus dinding dan benda) mematikan `Collider2D` pemain bila ada, atau membuat
+  `Rigidbody2D`-nya kinematik bila hanya komponen itu yang ada. Game ini memakai fisika tile
+  sendiri, jadi bila pemain tidak membawa komponen Unity tersebut, fitur tidak berefek dan
+  alasannya dicatat di log.
+- **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Tombol hanya menitipkan
   permintaan; posisi baru dipasang di hook update pemain pada thread game.
 
 ## Batasan

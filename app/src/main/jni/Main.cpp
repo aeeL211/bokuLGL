@@ -15,42 +15,42 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     // CollapseAdd_, jadi seluruh section tertutup saat menu dibuka dan tinggal
     // dibuka satu per satu. Nomor fitur ditulis eksplisit di isi section.
     const char *features[] = {
-            OBFUSCATE("Collapse_Ekonomi"),
-            OBFUSCATE("CollapseAdd_0_Toggle_True_Simulasi pembelian"),
-            OBFUSCATE("CollapseAdd_1_Toggle_True_Slot penyimpanan tanpa batas"),
+            OBFUSCATE("Collapse_Belanja"),
+            OBFUSCATE("CollapseAdd_0_Toggle_True_Beli item tanpa bayar"),
+            OBFUSCATE("CollapseAdd_1_Toggle_True_Slot simpan tanpa batas"),
 
-            OBFUSCATE("Collapse_Input dan Profil"),
-            OBFUSCATE("CollapseAdd_2_Toggle_True_Batas input dan profil"),
-            OBFUSCATE("CollapseAdd_3_Toggle_True_Rentang slider skin"),
-            OBFUSCATE("CollapseAdd_4_Toggle_True_Bebas kata terlarang"),
+            OBFUSCATE("Collapse_Nama dan Profil"),
+            OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
+            OBFUSCATE("CollapseAdd_3_Toggle_True_Posisi skin bisa digeser jauh"),
+            OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
 
             OBFUSCATE("Collapse_Room dan Dunia"),
-            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan ukuran room"),
-            OBFUSCATE("CollapseAdd_6_Toggle_True_Sandi room kosong"),
-            OBFUSCATE("CollapseAdd_PlayerList_Tamu di room"),
+            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
+            OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
+            OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
-            OBFUSCATE("Collapse_Akun dan Privasi"),
-            OBFUSCATE("CollapseAdd_7_Toggle_True_Privasi akun"),
+            OBFUSCATE("Collapse_Akun"),
+            OBFUSCATE("CollapseAdd_7_Toggle_True_Detail akun selalu terbuka"),
 
-            OBFUSCATE("Collapse_Chat dan Sosial"),
-            OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi di chat room"),
-            OBFUSCATE("CollapseAdd_10_Toggle_True_Tombol tendang tamu"),
+            OBFUSCATE("Collapse_Chat"),
+            OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
+            OBFUSCATE("CollapseAdd_10_Toggle_True_Tombol tendang di daftar pemain"),
 
-            OBFUSCATE("Collapse_Aksi Pemain"),
-            OBFUSCATE("CollapseAdd_11_Toggle_True_Tembak otomatis"),
-            OBFUSCATE("CollapseAdd_12_Toggle_True_Buster amunisi penuh"),
-            OBFUSCATE("CollapseAdd_13_Toggle_True_Kotoran di tangan"),
-            OBFUSCATE("CollapseAdd_14_Toggle_True_Makanan di tangan"),
-            OBFUSCATE("CollapseAdd_16_Toggle_True_Tanpa terpental"),
+            OBFUSCATE("Collapse_Senjata dan Item"),
+            OBFUSCATE("CollapseAdd_11_Toggle_True_Tembak terus selama ditahan"),
+            OBFUSCATE("CollapseAdd_12_Toggle_True_Buster selalu peluru terkuat"),
+            OBFUSCATE("CollapseAdd_13_Toggle_True_Kotoran bisa dilempar berulang"),
+            OBFUSCATE("CollapseAdd_14_Toggle_True_Makanan tetap di tangan"),
+            OBFUSCATE("CollapseAdd_16_Toggle_True_Tidak terpental saat meledak"),
 
-            OBFUSCATE("Collapse_Optimisasi"),
-            OBFUSCATE("CollapseAdd_15_Toggle_True_Matikan getar dan puing"),
+            OBFUSCATE("Collapse_Performa"),
+            OBFUSCATE("CollapseAdd_15_Toggle_True_Getar dan pecahan dimatikan"),
 
             OBFUSCATE("Collapse_Gerak"),
             OBFUSCATE("CollapseAdd_19_Toggle_No Clip"),
-            OBFUSCATE("CollapseAdd_20_InputValue_600_X"),
-            OBFUSCATE("CollapseAdd_21_InputValue_300_Y"),
-            OBFUSCATE("CollapseAdd_22_Button_Teleport"),
+            OBFUSCATE("CollapseAdd_20_InputValue_600_Titik X tujuan"),
+            OBFUSCATE("CollapseAdd_21_InputValue_300_Titik Y tujuan"),
+            OBFUSCATE("CollapseAdd_22_Button_Pindahkan pemain"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
