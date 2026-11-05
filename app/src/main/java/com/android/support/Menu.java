@@ -28,6 +28,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
@@ -1953,8 +1954,74 @@ public class Menu {
                     Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
         }
         dialog.show();
-        if (dialog.getWindow() != null)
+        if (dialog.getWindow() != null) {
+            gayaDialog(dialog);
             Theme.applyFont(dialog.getWindow().getDecorView());
+        }
+    }
+
+    /**
+     * Dialog bawaan bertema putih dan tidak memakai palet kayu. Latar, judul,
+     * tombol, dan kolom isian disamakan dengan panel menu; font tetap diurus
+     * {@link Theme#applyFont(View)}.
+     */
+    private void gayaDialog(AlertDialog dialog) {
+        Window window = dialog.getWindow();
+        if (window == null)
+            return;
+        window.setBackgroundDrawable(Theme.dialogPanel(getContext));
+
+        View akar = window.getDecorView();
+        gayaIsiDialog(akar);
+
+        int idJudul = getContext.getResources().getIdentifier("alertTitle", "id", "android");
+        TextView judul = idJudul == 0 ? null : (TextView) dialog.findViewById(idJudul);
+        if (judul == null)
+            judul = (TextView) dialog.findViewById(android.R.id.title);
+        if (judul != null) {
+            judul.setTextColor(Theme.TITLE_TEXT);
+            judul.setBackground(Theme.dialogTitle(getContext()));
+            judul.setPadding(dp(12), dp(8), dp(12), dp(8));
+        }
+
+        TextView pesan = (TextView) dialog.findViewById(android.R.id.message);
+        if (pesan != null)
+            pesan.setTextColor(Theme.TEXT);
+
+        int[] jenis = {AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE,
+                AlertDialog.BUTTON_NEUTRAL};
+        for (int i : jenis) {
+            Button tombol = dialog.getButton(i);
+            if (tombol == null)
+                continue;
+            tombol.setTextColor(Theme.TITLE_TEXT);
+            tombol.setAllCaps(false);
+            tombol.setBackground(Theme.tombolKecil(getContext()));
+            tombol.setPadding(dp(12), dp(8), dp(12), dp(8));
+        }
+    }
+
+    private void gayaIsiDialog(View view) {
+        if (view instanceof EditText) {
+            EditText isian = (EditText) view;
+            isian.setTextColor(Theme.TEXT);
+            isian.setHintTextColor(Theme.MUTED);
+            isian.setBackground(Theme.dialogInput(getContext()));
+            isian.setPadding(dp(10), dp(8), dp(10), dp(8));
+        } else if (view instanceof Button) {
+            Button tombol = (Button) view;
+            tombol.setTextColor(Theme.TITLE_TEXT);
+            tombol.setAllCaps(false);
+            tombol.setBackground(Theme.tombolKecil(getContext()));
+        } else if (view instanceof TextView) {
+            ((TextView) view).setTextColor(Theme.TEXT);
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup grup = (ViewGroup) view;
+            for (int i = 0; i < grup.getChildCount(); i++)
+                gayaIsiDialog(grup.getChildAt(i));
+        }
     }
 
     private boolean isViewCollapsed() {

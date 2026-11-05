@@ -205,6 +205,21 @@ public final class Theme {
         return kotak(ROW, RADIUS_ROW, 0f, ROW, context);
     }
 
+    /** Latar dialog: panel BODY dengan garis tebal ICON_BOX seperti panel menu. */
+    public static Drawable dialogPanel(Context context) {
+        return kotak(BODY, RADIUS_ROW, TEBAL_PANEL, ICON_BOX, context);
+    }
+
+    /** Judul dialog: pita HEADER membulat, senada dengan kepala section. */
+    public static Drawable dialogTitle(Context context) {
+        return kotak(HEADER, RADIUS_ROW, 0f, HEADER, context);
+    }
+
+    /** Kolom isian dialog: baris ROW dengan garis tipis, bukan garis bawah bawaan. */
+    public static Drawable dialogInput(Context context) {
+        return kotak(ROW, RADIUS_ROW, 1f, STROKE_KONTROL, context);
+    }
+
     public static Drawable kartu(Context context) {
         return kotak(ROW, RADIUS_ROW, 0f, ROW, context);
     }
