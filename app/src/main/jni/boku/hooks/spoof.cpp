@@ -29,9 +29,7 @@ void* hookKunci(void* sendiri, void* metode) {
 // Kedua getter kunci melempar NullReferenceException selama room belum punya
 // objek photon, dan eksepsi yang keluar dari hook mematikan proses. Pemeriksaan
 // ini memakai field, bukan getter, jadi tidak bisa melempar apa pun.
-bool photonSiap(void* multi) {
-    return multi && fieldPhoton.field && bacaPtr(multi, fieldPhoton);
-}
+bool photonSiap(void* multi) { return multi && fieldPhoton.field && bacaPtr(multi, fieldPhoton); }
 
 } // namespace
 
