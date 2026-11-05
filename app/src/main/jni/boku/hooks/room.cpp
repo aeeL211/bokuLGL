@@ -39,17 +39,18 @@ Field fieldPipeTransfer = {};
 Field fieldManajerTamu = {};
 std::atomic<bool> siapMenu{false};
 
-// Daftar tamu untuk menu. Diisi di thread game tiap kJedaDaftar dan dibaca
+// Daftar pemain untuk menu. Diisi di thread game tiap kJedaDaftar dan dibaca
 // thread UI; kuncinya hanya teks, jadi room yang berganti di antaranya tidak
 // meninggalkan pointer yang menggantung.
-struct TamuRingkas {
+struct PemainRingkas {
     char nama[kKarakterNama];
     char kunci[kKarakterKunci];
+    char peran[8];
 };
 
 pthread_mutex_t kunciDaftar = PTHREAD_MUTEX_INITIALIZER;
-TamuRingkas daftarTamu[kMaksPemain] = {};
-int jumlahTamu = 0;
+PemainRingkas daftarPemain[kMaksPemain] = {};
+int jumlahPemain = 0;
 double berikutDaftar = 0.0;
 
 enum class JenisAksi { Tendang, Salin };
@@ -131,8 +132,9 @@ int32_t tamuDiRoom(void* manajerTamu) {
     return jumlah > 0 && jumlah <= kapasitas ? jumlah : 0;
 }
 
-// Salinan daftar tamu untuk menu, diperbarui di thread game. Host dan pemain
-// sendiri dilewati karena menendang keduanya mengakhiri room.
+// Salinan daftar pemain untuk menu, diperbarui di thread game. Host dan pemain
+// sendiri ikut ditampilkan dengan perannya, tetapi menu hanya menawarkan tendang
+// untuk tamu: menendang keduanya mengakhiri room.
 void segarkanDaftar(void* manajerTamu) {
     double sekarang = sekarangDetik();
     if (sekarang < berikutDaftar)
@@ -148,7 +150,7 @@ void segarkanDaftar(void* manajerTamu) {
     void* host = multi ? kunciHostDari(multi) : nullptr;
     void* sendiri = jumlah > 0 ? kunciPemainAman(bacaPtr(manajer, fieldPemainManajer)) : nullptr;
 
-    TamuRingkas baru[kMaksPemain] = {};
+    PemainRingkas baru[kMaksPemain] = {};
     void* item = bacaPtr(daftar, fieldItemTamu);
     char* data = item ? dataArray(item) : nullptr;
     int terisi = 0;
@@ -157,18 +159,22 @@ void segarkanDaftar(void* manajerTamu) {
         if (!tamu)
             continue;
         void* kunci = bacaPtr(tamu, fieldKunciTamu);
-        if (samaString(kunci, sendiri) || samaString(kunci, host))
-            continue;
         teksDari(kunci, baru[terisi].kunci, kKarakterKunci, "");
         if (!baru[terisi].kunci[0])
             continue;
         salinNama(tamu, baru[terisi].nama, kKarakterNama, baru[terisi].kunci);
+        if (samaString(kunci, host))
+            snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "host");
+        else if (samaString(kunci, sendiri))
+            snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "kamu");
+        else
+            snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "tamu");
         terisi++;
     }
 
     pthread_mutex_lock(&kunciDaftar);
-    memcpy(daftarTamu, baru, sizeof(TamuRingkas) * static_cast<size_t>(terisi));
-    jumlahTamu = terisi;
+    memcpy(daftarPemain, baru, sizeof(PemainRingkas) * static_cast<size_t>(terisi));
+    jumlahPemain = terisi;
     pthread_mutex_unlock(&kunciDaftar);
 }
 
@@ -305,17 +311,17 @@ void salinDaftarPemain(char* keluaran, size_t ukuran) {
         return;
     keluaran[0] = '\0';
 
-    TamuRingkas salinan[kMaksPemain] = {};
+    PemainRingkas salinan[kMaksPemain] = {};
     int jumlah = 0;
     pthread_mutex_lock(&kunciDaftar);
-    jumlah = jumlahTamu;
-    memcpy(salinan, daftarTamu, sizeof(TamuRingkas) * static_cast<size_t>(jumlah));
+    jumlah = jumlahPemain;
+    memcpy(salinan, daftarPemain, sizeof(PemainRingkas) * static_cast<size_t>(jumlah));
     pthread_mutex_unlock(&kunciDaftar);
 
     size_t posisi = 0;
     for (int i = 0; i < jumlah; i++) {
-        int ditulis = snprintf(keluaran + posisi, ukuran - posisi, "%s%s\t%s", i ? "\n" : "",
-                               salinan[i].nama, salinan[i].kunci);
+        int ditulis = snprintf(keluaran + posisi, ukuran - posisi, "%s%s\t%s\t%s", i ? "\n" : "",
+                               salinan[i].nama, salinan[i].kunci, salinan[i].peran);
         if (ditulis < 0 || static_cast<size_t>(ditulis) >= ukuran - posisi)
             break;
         posisi += static_cast<size_t>(ditulis);

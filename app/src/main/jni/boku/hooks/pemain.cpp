@@ -10,23 +10,12 @@
 
 namespace {
 
-// Vector3 adalah tiga float berurutan, jadi arm64 mengembalikannya di s0-s2 dan
-// menerimanya di s0-s2, sama seperti method IL2CPP yang dibangkitkan game.
-struct Vektor3 {
-    float x;
-    float y;
-    float z;
-};
-
 // Vector2 hanya dua float berurutan, ditulis langsung ke field struct milik game.
 struct Vektor2 {
     float x;
     float y;
 };
 
-using FnTransform = void* (*)(void*, void*);
-using FnAmbilPosisi = Vektor3 (*)(void*, void*);
-using FnSetPosisi = void (*)(void*, Vektor3, void*);
 using FnDeteksi = void (*)(void*, void**, int32_t, float, float, void*);
 
 // Batas yang dipakai No Clip. Nilainya jauh di luar ukuran dunia mana pun, jadi
@@ -36,41 +25,34 @@ constexpr float kBatasBebas = 1.0e9f;
 Field fieldAktorPemain = {};
 Field fieldPemainLokal = {};
 Field fieldDeteksiAktor = {};
-Field fieldRoot = {};
 
-// Fisika tile milik game menyimpan posisi sendiri, terpisah dari Transform
-// Unity. Transform hanya gambar yang ditulis ulang tiap frame, jadi teleport
-// harus menggeser posisi fisika dengan selisih yang sama.
+// Posisi tile milik game disimpan di Physics.pos, terpisah dari Transform Unity.
+// Transform hanya gambar yang ditulis ulang tiap frame, jadi teleport menulis
+// posisi fisika beserta seluruh titik jejaknya.
 Field fieldFisika = {};
 Field fieldPosisi = {};
 Field fieldDunia = {};
 Field fieldJejak = {};
 Field fieldJejakPrev = {};
 Field fieldJejakCheck = {};
+Field fieldJejakBaru = {};
+Field fieldJejakAkhir = {};
+Field fieldSegar = {};
 Field fieldKecepatan = {};
 Field fieldKecepatanX = {};
 Field fieldKecepatanY = {};
 
 // Margin adalah kotak gerak yang dihitung ulang tiap frame dari tile di sekitar
-// badan. Sisi kiri dan kanannya yang dilonggarkan, sedangkan atas dan bawah
-// dibiarkan supaya lantai tetap dipijak.
+// badan. Sisi kiri, kanan, dan atas dibuka, sedangkan bawah dibiarkan supaya
+// lantai tetap dipijak.
 Field fieldMargin = {};
+Field fieldMarginAtas = {};
 Field fieldMarginKiri = {};
 Field fieldMarginKanan = {};
 
 bool pemainLokal(void* manajer) {
     void* global = bacaPtr(manajer, fieldAktorPemain);
     return global && bacaPtr(global, fieldPemainLokal) == manajer;
-}
-
-Vektor2 bacaVektor(void* objek, Field bidang) {
-    Vektor2 hasil = {};
-    if (!objek || !bidang.field)
-        return hasil;
-    hasil.x = bacaFloat(objek, bidang);
-    bidang.offset += sizeof(float);
-    hasil.y = bacaFloat(objek, bidang);
-    return hasil;
 }
 
 void tulisVektor(void* objek, Field bidang, const Vektor2& nilai) {
@@ -81,31 +63,35 @@ void tulisVektor(void* objek, Field bidang, const Vektor2& nilai) {
     tulisFloat(objek, bidang, nilai.y);
 }
 
-// Posisi fisika digeser sebesar selisih transform lama dan titik tujuan, lalu
-// kecepatan serta jejak posisi dibersihkan supaya pemain tidak langsung
-// terlempar kembali.
-bool geserFisika(void* manajer, float geserX, float geserY, Vektor2& akhir) {
-    void* fisika = bacaPtr(manajer, fieldFisika);
-    void* posisi = fisika ? bacaPtr(fisika, fieldPosisi) : nullptr;
+// Posisi fisika ditulis langsung ke titik tujuan. Game menyalin
+// Physics.pos._world.end ke Physics.pos.world di akhir tiap update, jadi semua
+// titik jejak ikut dipindah agar teleport tidak ditarik kembali ke posisi lama.
+bool tulisPosisiFisika(void* fisika, float x, float y, Vektor2& akhir) {
+    void* posisi = bacaPtr(fisika, fieldPosisi);
     if (!posisi || !fieldDunia.field)
         return false;
 
-    akhir = bacaVektor(posisi, fieldDunia);
-    akhir.x += geserX;
-    akhir.y += geserY;
+    akhir.x = x;
+    akhir.y = y;
     tulisVektor(posisi, fieldDunia, akhir);
+
+    void* jejak = bacaPtr(posisi, fieldJejak);
+    if (jejak) {
+        tulisVektor(jejak, fieldJejakPrev, akhir);
+        tulisVektor(jejak, fieldJejakCheck, akhir);
+        tulisVektor(jejak, fieldJejakBaru, akhir);
+        tulisVektor(jejak, fieldJejakAkhir, akhir);
+    }
 
     void* kecepatan = bacaPtr(fisika, fieldKecepatan);
     if (kecepatan) {
         tulisFloat(kecepatan, fieldKecepatanX, 0.0f);
         tulisFloat(kecepatan, fieldKecepatanY, 0.0f);
     }
-
-    void* jejak = bacaPtr(posisi, fieldJejak);
-    if (jejak) {
-        tulisVektor(jejak, fieldJejakPrev, akhir);
-        tulisVektor(jejak, fieldJejakCheck, akhir);
-    }
+    // Game memakai flag ini untuk membangun ulang tile di sekitar badan, jadi
+    // tile tujuan langsung dipakai pada frame berikutnya.
+    if (fieldSegar.field)
+        tulisBool(fisika, fieldSegar, true);
     return true;
 }
 
@@ -114,36 +100,25 @@ void terapkanTeleport(void* manajer) {
     if (!permintaan.menunggu.exchange(false))
         return;
 
-    void* root = bacaPtr(manajer, fieldRoot);
-    auto ambilTransform = reinterpret_cast<FnTransform>(target(T_GAMEOBJECT_TRANSFORM).addr);
-    auto ambilPosisi = reinterpret_cast<FnAmbilPosisi>(target(T_TRANSFORM_GET_POSITION).addr);
-    auto setPosisi = reinterpret_cast<FnSetPosisi>(target(T_TRANSFORM_SET_POSITION).addr);
-    if (!root || !ambilTransform || !ambilPosisi || !setPosisi) {
-        LOGE("Teleport: Transform pemain tidak siap");
+    void* fisika = bacaPtr(manajer, fieldFisika);
+    if (!fisika) {
+        LOGE("Teleport: fisika pemain tidak ditemukan");
         return;
     }
 
-    void* transform = ambilTransform(root, target(T_GAMEOBJECT_TRANSFORM).method);
-    if (!transform) {
-        LOGE("Teleport: Transform pemain tidak ditemukan");
+    float tujuanX = static_cast<float>(permintaan.x.load());
+    float tujuanY = static_cast<float>(permintaan.y.load());
+    Vektor2 akhir = {};
+    if (!tulisPosisiFisika(fisika, tujuanX, tujuanY, akhir)) {
+        LOGE("Teleport: posisi fisika tidak terbaca");
         return;
     }
-
-    Vektor3 sekarang = ambilPosisi(transform, target(T_TRANSFORM_GET_POSITION).method);
-    Vektor3 tujuan = {static_cast<float>(permintaan.x.load()),
-                      static_cast<float>(permintaan.y.load()), sekarang.z};
-    Vektor2 fisika = {};
-    bool ikut = geserFisika(manajer, tujuan.x - sekarang.x, tujuan.y - sekarang.y, fisika);
-    setPosisi(transform, tujuan, target(T_TRANSFORM_SET_POSITION).method);
-
-    if (ikut)
-        LOGI("Teleport ke %.0f, %.0f (fisika %.0f, %.0f)", tujuan.x, tujuan.y, fisika.x, fisika.y);
-    else
-        LOGI("Teleport ke %.0f, %.0f (posisi fisika tidak terbaca)", tujuan.x, tujuan.y);
+    LOGI("Teleport ke %.0f, %.0f (fisika %.0f, %.0f)", tujuanX, tujuanY, akhir.x, akhir.y);
 }
 
-// Kotak gerak dari tile dipakai pemain saat melangkah, jadi sisi kiri dan
-// kanannya dibuka selebar mungkin. Lantai dan langit-langit tetap dihitung.
+// Kotak gerak dari tile dipakai pemain saat melangkah, jadi sisi kiri, kanan,
+// dan atas dibuka selebar mungkin. Sisi bawah dibiarkan supaya lantai tetap
+// dipijak.
 void bebaskanDinding(void* fisika) {
     void* margin = fisika ? bacaPtr(fisika, fieldMargin) : nullptr;
     if (!margin)
@@ -154,6 +129,7 @@ void bebaskanDinding(void* fisika) {
         void* entri = *reinterpret_cast<void**>(data + static_cast<size_t>(i) * sizeof(void*));
         if (!entri)
             continue;
+        tulisFloat(entri, fieldMarginAtas, kBatasBebas);
         tulisFloat(entri, fieldMarginKiri, -kBatasBebas);
         tulisFloat(entri, fieldMarginKanan, kBatasBebas);
     }
@@ -182,21 +158,37 @@ void hookDeteksiFisika(void* sendiri, void** fisika, int32_t waktu, float posX, 
 }
 
 bool cariFieldFisika(void* kelasManajer) {
-    return cariField(kelasManajer, "phy", fieldFisika) &&
-           cariField(kelasField(fieldFisika), "pos", fieldPosisi) &&
-           cariField(kelasField(fieldPosisi), "world", fieldDunia) &&
-           cariField(kelasField(fieldPosisi), "_world", fieldJejak) &&
-           cariField(kelasField(fieldJejak), "prev", fieldJejakPrev) &&
-           cariField(kelasField(fieldJejak), "check", fieldJejakCheck) &&
-           cariField(kelasField(fieldFisika), "speed", fieldKecepatan) &&
-           cariField(kelasField(fieldKecepatan), "x", fieldKecepatanX) &&
-           cariField(kelasField(fieldKecepatan), "y", fieldKecepatanY);
+    if (!cariField(kelasManajer, "phy", fieldFisika))
+        return false;
+    void* kelasFisika = kelasField(fieldFisika);
+    if (!cariField(kelasFisika, "pos", fieldPosisi) ||
+        !cariField(kelasFisika, "speed", fieldKecepatan) ||
+        !cariField(kelasFisika, "refresh", fieldSegar) ||
+        !cariField(kelasFisika, "margin", fieldMargin))
+        return false;
+
+    void* kelasPosisi = kelasField(fieldPosisi);
+    if (!cariField(kelasPosisi, "world", fieldDunia) ||
+        !cariField(kelasPosisi, "_world", fieldJejak))
+        return false;
+
+    void* kelasJejak = kelasField(fieldJejak);
+    if (!cariField(kelasJejak, "prev", fieldJejakPrev) ||
+        !cariField(kelasJejak, "check", fieldJejakCheck) ||
+        !cariField(kelasJejak, "new_", fieldJejakBaru) ||
+        !cariField(kelasJejak, "end", fieldJejakAkhir))
+        return false;
+
+    void* kelasKecepatan = kelasField(fieldKecepatan);
+    return cariField(kelasKecepatan, "x", fieldKecepatanX) &&
+           cariField(kelasKecepatan, "y", fieldKecepatanY);
 }
 
-bool cariFieldMargin(void* kelasFisika) {
-    return cariField(kelasFisika, "margin", fieldMargin) &&
-           cariField(kelasElemenField(fieldMargin), "left", fieldMarginKiri) &&
-           cariField(kelasElemenField(fieldMargin), "right", fieldMarginKanan);
+bool cariFieldMargin() {
+    void* kelasMargin = kelasElemenField(fieldMargin);
+    return cariField(kelasMargin, "top", fieldMarginAtas) &&
+           cariField(kelasMargin, "left", fieldMarginKiri) &&
+           cariField(kelasMargin, "right", fieldMarginKanan);
 }
 
 } // namespace
@@ -204,7 +196,7 @@ bool cariFieldMargin(void* kelasFisika) {
 // Dipanggil di akhir update pemain lokal, di thread game, karena posisi dan
 // fisika game tidak boleh disentuh dari thread menu.
 void saatUpdatePemain(void* manajer) {
-    if (!fieldAktorPemain.field || !fieldPemainLokal.field || !fieldRoot.field)
+    if (!fieldAktorPemain.field || !fieldPemainLokal.field || !fieldFisika.field)
         return;
     if (!pemainLokal(manajer))
         return;
@@ -213,22 +205,19 @@ void saatUpdatePemain(void* manajer) {
 
 void pasangHookPemain() {
     void* kelasManajer = kelasDari("Player__Manager");
-    bool siap = cariField(kelasManajer, "a", fieldAktorPemain) &&
-                cariField(kelasField(fieldAktorPemain), "player", fieldPemainLokal) &&
-                cariField(kelasManajer, "root", fieldRoot);
-    if (!siap) {
-        LOGE("Field pemain tidak lengkap, Teleport nonaktif");
+    if (!cariField(kelasManajer, "a", fieldAktorPemain) ||
+        !cariField(kelasField(fieldAktorPemain), "player", fieldPemainLokal)) {
+        LOGE("Field pemain tidak lengkap, Teleport dan No Clip nonaktif");
         return;
     }
-    if (cariFieldFisika(kelasManajer))
-        LOGI("Field pemain OK");
-    else
-        LOGE("Field fisika pemain tidak lengkap, Teleport hanya menggeser gambar");
+    if (!cariFieldFisika(kelasManajer)) {
+        LOGE("Field fisika pemain tidak lengkap, Teleport dan No Clip nonaktif");
+        return;
+    }
+    LOGI("Field pemain OK");
 
     void* kelasDeteksi = cariKelas("Physics__Detect");
-    void* kelasFisika = kelasField(fieldFisika);
-    bool siapDinding = kelasFisika && cariField(kelasDeteksi, "a", fieldDeteksiAktor) &&
-                       cariFieldMargin(kelasFisika);
+    bool siapDinding = cariField(kelasDeteksi, "a", fieldDeteksiAktor) && cariFieldMargin();
     if (!siapDinding || !target(T_DETECT_SET).addr) {
         LOGE("Field tembus dinding tidak lengkap; No Clip nonaktif");
         return;

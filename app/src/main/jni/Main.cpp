@@ -30,7 +30,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
             OBFUSCATE("Collapse_Akun"),
-            OBFUSCATE("CollapseAdd_7_Toggle_True_Detail akun selalu terbuka"),
+            OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
 
             OBFUSCATE("Collapse_Chat"),
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),

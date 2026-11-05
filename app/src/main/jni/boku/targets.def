@@ -83,11 +83,11 @@ T_DATA_MODEL_NAME|Data__Model|File__Write__Name|2|
 T_KICK_SEND|Net__Multi__Transfer__Pipe|Host__Client__Connect__Kick__Send|1|
 T_GUEST_UPDATE|Guest__Manager|_Update|0|
 T_HOST_KEY|Net__Multi|Host__Key|0|
-# Unity objects. These are only called, never hooked: Teleport memakai transform
-# pemain.
-T_GAMEOBJECT_TRANSFORM|GameObject|get_transform|0|
-T_TRANSFORM_GET_POSITION|Transform|get_position|0|
-T_TRANSFORM_SET_POSITION|Transform|set_position|1|
+# Model tamu. Init__Model menerima string skin yang sama dengan argumen Add,
+# sedangkan Model__To__Str mengembalikan string dari model yang sudah dipakai
+# tamu. Keduanya dipakai salin skin saat cache Add kosong.
+T_GUEST_INIT_MODEL|Guest__Main|Init__Model|1|
+T_MODEL_TO_STR|_Model|Model__To__Str|1|
 # Fisika pemain. Kotak gerak dari tile dihitung di sini tiap frame, jadi No Clip
-# melonggarkan sisi kiri dan kanannya setelah perhitungan itu selesai.
+# melonggarkan sisi kiri, kanan, dan atasnya setelah perhitungan itu selesai.
 T_DETECT_SET|Physics__Detect|_Set|3|

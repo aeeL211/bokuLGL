@@ -45,18 +45,20 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - Room bersandi bisa dimasuki tanpa mengisi sandi.
 - Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
 - Ukuran dunia baru bisa dipilih sampai 600x300.
-- **Daftar pemain** di menu menampilkan tamu yang sedang ada di room, lengkap dengan tombol
-  **Salin skin** dan **Tendang** per pemain. Daftarnya diperbarui dari thread game tiap 0,4 detik
-  dan disegarkan ulang di menu tiap 2 detik; host dan pemain sendiri tidak ikut ditampilkan.
-- **Salin skin** menulis model tamu yang dipilih ke slot model kosong pertama, lalu menulis nama
-  pemiliknya ke `Name.txt` slot itu. Model tamu dicatat di memori saat mereka masuk room, jadi
-  tidak ada skin yang tersimpan tanpa tombol ditekan.
-- **Tendang** mengirim paket tendang dan paket penghapusan tamu sebagai host, sama seperti tombol
-  tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
+- **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
+  masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Daftarnya diperbarui dari
+  thread game tiap 0,4 detik dan disegarkan ulang di menu tiap 2 detik.
+- **Salin skin** menulis model pemain yang dipilih ke slot model kosong pertama, lalu menulis
+  nama pemiliknya ke `Name.txt` slot itu. Model dicatat di memori saat tamu masuk room; bila
+  tamu itu sudah ada sebelum mod dimuat, modelnya dibaca dari daftar tamu yang sedang hidup.
+  Tidak ada skin yang tersimpan tanpa tombol ditekan.
+- **Tendang** hanya muncul untuk tamu, dan mengirim paket tendang serta paket penghapusan tamu
+  sebagai host, sama seperti tombol tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
 
 **Akun**
 
-- Baris privasi akun tidak lagi menyembunyikan detail yang dipilih pemiliknya.
+- **Tampilkan detail akun yang disembunyikan** membuat baris privasi akun menampilkan detail
+  yang dipilih pemiliknya, bukan menyembunyikannya.
 
 **Chat**
 
@@ -76,21 +78,27 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
 **Gerak**
 
-- **No Clip** (tembus dinding dan benda) melebarkan kotak gerak pemain ke kiri dan ke kanan pada
-  tiap pemeriksaan fisika tile, jadi dinding tidak lagi menahan langkah. Sisi atas dan bawah
-  dibiarkan apa adanya supaya lantai tetap dipijak.
-- **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Tombol hanya menitipkan
-  permintaan; posisi baru dipasang di hook update pemain pada thread game, sekaligus menggeser
-  posisi fisika game supaya pemain tidak kembali ke tempat semula.
+- **No Clip** (tembus dinding dan benda) melebarkan kotak gerak pemain ke kiri, kanan, dan atas
+  pada tiap pemeriksaan fisika tile, jadi dinding dan langit-langit tidak lagi menahan langkah.
+  Sisi bawah dibiarkan apa adanya supaya lantai tetap dipijak.
+- **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Nilainya adalah
+  koordinat tile dunia yang dipakai fisika game, sama seperti yang ditulis game saat teleport
+  bawaan, bukan piksel layar. Tombol hanya menitipkan permintaan; posisi baru dipasang di hook
+  update pemain pada thread game, sekaligus memindahkan seluruh titik jejak fisika, menolkan
+  kecepatan, dan meminta tile di sekitar badan dibangun ulang supaya pemain tidak kembali ke
+  tempat semula.
 
 ## Batasan
 
 - Hanya `arm64-v8a`. Tidak ada komponen Java tambahan, Xposed, atau LSPosed di luar menu LGL.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
-- Model tamu hanya bisa disalin bila tamu itu masuk room selagi mod berjalan. Cache menyimpan
-  16 tamu terakhir, dan tamu yang sudah keluar tidak lagi ditawarkan di daftar.
+- Cache model tamu menyimpan 16 tamu terakhir. Tamu yang sudah keluar tidak lagi ditawarkan,
+  dan model tamu yang tidak ada di cache maupun di daftar tamu hidup dilaporkan lewat toast
+  "belum tercatat", bukan disalin dengan tebakan.
 - Teleport tidak memeriksa isi tile di titik tujuan, jadi memindahkan pemain ke dalam dinding bisa
   membuat fisika game mendorongnya keluar lagi.
+- Koordinat Teleport adalah tile dunia. Titik yang jauh di luar peta bisa membuat pemain jatuh
+  tanpa lantai di bawahnya.
 
 ## Build
 
@@ -109,14 +117,17 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 
 ```
 Dobby siap
-Scan selesai: 86 dari 86 metode ditemukan
-Field pemain OK
+Scan selesai: 85 dari 85 metode ditemukan
+Field model skin OK
+Field daftar tamu OK
 Field nama tamu siap
 Field daftar pemain siap
-Hook terpasang: 65
+Field pemain OK
+Field tembus dinding siap
+Hook terpasang: 66
 ```
 
-Bila `Hook terpasang` jauh di bawah 65, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 66, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

@@ -77,7 +77,13 @@ Field fieldTamu = {};
 Field fieldDataManajer = {};
 Field fieldModel = {};
 Field fieldNamaBerkas = {};
+Field fieldDaftarTamu = {};
+Field fieldItemTamu = {};
+Field fieldUkuranTamu = {};
+Field fieldKunciTamu = {};
+Field fieldModelTamu = {};
 bool fieldSiap = false;
+bool fieldTamuSiap = false;
 bool sudahCatatTidakSiap = false;
 
 uint64_t hashTeks(const char* teks, size_t panjang, uint64_t awal = kAwalHash) {
@@ -142,6 +148,23 @@ ModelTamu& slotTamu(const char* kunci) {
     }
     snprintf(daftarTamu[indeks].kunci, sizeof(daftarTamu[indeks].kunci), "%s", kunci);
     return daftarTamu[indeks];
+}
+
+// Satu unit UTF-16 menjadi paling banyak tiga byte UTF-8, dan penulis UTF-8
+// menyisakan empat byte di ujung; ukuran ini pas untuk seluruh isi string.
+char* salinTeks(void* teks) {
+    int32_t panjang = panjangString(teks);
+    if (panjang <= 0 || panjang > kBatasKarakterModel)
+        return nullptr;
+    size_t ukuran = static_cast<size_t>(panjang) * 3 + 4;
+    auto* hasil = static_cast<char*>(malloc(ukuran));
+    if (!hasil)
+        return nullptr;
+    if (!keUtf8(teks, hasil, ukuran)) {
+        free(hasil);
+        return nullptr;
+    }
+    return hasil;
 }
 
 // Folder model dimiliki Manager yang sama dengan pemegang daftar tamu, jadi
@@ -222,27 +245,16 @@ void simpanModelTamu(void* kunci, void* model) {
     char teksKunci[kBatasBytePengguna];
     if (!kunci || !model || !keUtf8(kunci, teksKunci, sizeof(teksKunci)) || !teksKunci[0])
         return;
-    int32_t panjang = panjangString(model);
-    if (panjang <= 0 || panjang > kBatasKarakterModel)
-        return;
-
-    // Satu unit UTF-16 menjadi paling banyak tiga byte UTF-8, dan penulis UTF-8
-    // menyisakan empat byte di ujung; ukuran ini pas untuk seluruh isi string.
-    size_t ukuran = static_cast<size_t>(panjang) * 3 + 4;
-    auto* teks = static_cast<char*>(malloc(ukuran));
+    char* teks = salinTeks(model);
     if (!teks)
         return;
-    if (!keUtf8(model, teks, ukuran)) {
-        free(teks);
-        return;
-    }
 
     pthread_mutex_lock(&kunciTamu);
     ModelTamu& entri = slotTamu(teksKunci);
     free(entri.model);
     entri.model = teks;
     pthread_mutex_unlock(&kunciTamu);
-    LOGI("Model tamu dicatat: %s (%d karakter)", teksKunci, panjang);
+    LOGI("Model tamu dicatat: %s (%d karakter)", teksKunci, panjangString(model));
 }
 
 bool ambilModelTamu(const char* kunci, SalinanModel& hasil) {
@@ -257,6 +269,60 @@ bool ambilModelTamu(const char* kunci, SalinanModel& hasil) {
     return hasil.teks != nullptr;
 }
 
+// Tamu yang sudah ada di room sebelum mod dimuat tidak pernah melewati hook
+// Add. Model yang sedang dipakai bisa dibaca dari daftar hidup, lalu diubah
+// kembali menjadi string oleh Model__To__Str milik game sendiri.
+bool modelTamuHidup(void* manajerTamu, const char* kunci, SalinanModel& hasil) {
+    if (!fieldTamuSiap)
+        return false;
+    void* manajer = bacaPtr(manajerTamu, fieldTamu);
+    void* daftar = bacaPtr(manajer, fieldDaftarTamu);
+    void* item = bacaPtr(daftar, fieldItemTamu);
+    int32_t jumlah = item ? bacaInt(daftar, fieldUkuranTamu) : 0;
+    int32_t kapasitas = item ? panjangArray(item) : 0;
+    if (jumlah <= 0 || jumlah > kapasitas)
+        return false;
+
+    auto keTeks = reinterpret_cast<void* (*)(void*, void*)>(target(T_MODEL_TO_STR).addr);
+    if (!keTeks) {
+        LOGE("Target _Model.Model__To__Str tidak ditemukan, model tamu hidup tidak terbaca");
+        return false;
+    }
+
+    char* data = dataArray(item);
+    char teksKunci[kBatasBytePengguna];
+    for (int32_t i = 0; i < jumlah; i++) {
+        void* tamu = *reinterpret_cast<void**>(data + static_cast<size_t>(i) * sizeof(void*));
+        if (!tamu || !keUtf8(bacaPtr(tamu, fieldKunciTamu), teksKunci, sizeof(teksKunci)))
+            continue;
+        if (strcmp(teksKunci, kunci))
+            continue;
+        void* model = bacaPtr(tamu, fieldModelTamu);
+        if (!model)
+            return false;
+        hasil.teks = salinTeks(keTeks(model, target(T_MODEL_TO_STR).method));
+        return hasil.teks != nullptr;
+    }
+    return false;
+}
+
+// Field daftar tamu hidup dipakai saat cache Add kosong. Namanya sama dengan
+// yang dipakai section Room, jadi keduanya menunjuk daftar yang sama.
+bool cariFieldTamuHidup() {
+    if (!fieldTamu.field)
+        return false;
+    void* kelasManajer = kelasField(fieldTamu);
+    if (!cariField(kelasManajer, "guests", fieldDaftarTamu))
+        return false;
+    void* kelasDaftar = kelasField(fieldDaftarTamu);
+    if (!cariField(kelasDaftar, "_items", fieldItemTamu) ||
+        !cariField(kelasDaftar, "_size", fieldUkuranTamu))
+        return false;
+    void* kelasTamu = kelasElemenField(fieldItemTamu);
+    return cariField(kelasTamu, "key", fieldKunciTamu) &&
+           cariField(kelasTamu, "model", fieldModelTamu);
+}
+
 } // namespace
 
 HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama, int& slot) {
@@ -265,8 +331,15 @@ HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama
         return HasilSalin::Gagal;
 
     SalinanModel tersalin;
-    if (!ambilModelTamu(kunci, tersalin) || !*tersalin.teks)
-        return HasilSalin::TidakAda;
+    if (!ambilModelTamu(kunci, tersalin) || !tersalin.teks || !*tersalin.teks) {
+        free(tersalin.teks);
+        tersalin.teks = nullptr;
+        if (!modelTamuHidup(manajerTamu, kunci, tersalin) || !tersalin.teks) {
+            LOGI("Model tamu tidak ditemukan: %s", kunci);
+            return HasilSalin::TidakAda;
+        }
+        LOGI("Model tamu dibaca dari daftar: %s", kunci);
+    }
     const char* modelTeks = tersalin.teks;
 
     void* model = modelData(manajerTamu);
@@ -323,6 +396,7 @@ namespace {
 
 using FnTambah = void (*)(void*, void*, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, void*,
                           void*, void*, void*, void*, bool, bool, bool, bool, bool, bool, void*);
+using FnInitModel = void (*)(void*, void*, void*);
 
 // Daftar tamu dibangun dari satu panggilan ini di host maupun client, dan
 // argumen Model-nya adalah string skin penuh. Model itu hanya disimpan di
@@ -339,6 +413,15 @@ void hookTambah(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t
              saveWorld, dollInteract, dollMove, dollSetting, method);
 }
 
+// Model bisa tiba lewat Init__Model setelah tamu masuk, jadi string yang
+// diterima di sini juga dicatat. Kuncinya sudah ada di tamu itu sendiri.
+void hookInitModel(void* sendiri, void* model, void* metode) {
+    simpanModelTamu(bacaPtr(sendiri, fieldKunciTamu), model);
+    auto asli = reinterpret_cast<FnInitModel>(target(T_GUEST_INIT_MODEL).orig);
+    if (asli)
+        asli(sendiri, model, metode);
+}
+
 } // namespace
 
 void pasangHookSkin() {
@@ -352,5 +435,9 @@ void pasangHookSkin() {
     fieldSiap = fieldSiap && cariField(kelasModel, "_filename", fieldNamaBerkas);
     LOGI("Field model skin %s", fieldSiap ? "OK" : "tidak ada, salin skin tidak aktif");
 
+    fieldTamuSiap = cariFieldTamuHidup();
+    LOGI("Field daftar tamu %s", fieldTamuSiap ? "OK" : "tidak ada, salin skin hanya dari cache");
+
     pasangHook(target(T_GUEST_ADD), reinterpret_cast<void*>(hookTambah));
+    pasangHook(target(T_GUEST_INIT_MODEL), reinterpret_cast<void*>(hookInitModel));
 }

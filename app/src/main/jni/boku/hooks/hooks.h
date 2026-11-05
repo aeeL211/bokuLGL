@@ -55,12 +55,14 @@ void segarkanTangan();
 enum class HasilSalin { Gagal, Tersimpan, SudahAda, TidakAda };
 
 // Menulis model tamu ke slot kosong pertama, beserta nama pemiliknya. Model
-// berasal dari cache yang diisi hook Guest__Manager.Add, jadi pemanggilnya hanya
-// menyebut kunci dan nama tamu. Dipanggil di thread game.
+// diambil dari cache Guest__Manager.Add/Init__Model, lalu dari model hidup tamu
+// bila cache belum terisi. Pemanggilnya hanya menyebut kunci dan nama tamu.
+// Dipanggil di thread game.
 HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama, int& slot);
 
-// Daftar tamu untuk section Room di menu, ditulis sebagai baris
-// "nama<TAB>kunci" yang dipisah newline. Aman dipanggil dari thread UI.
+// Daftar pemain untuk section Room di menu, ditulis sebagai baris
+// "nama<TAB>kunci<TAB>peran" yang dipisah newline. Perannya host, kamu, atau
+// tamu. Aman dipanggil dari thread UI.
 void salinDaftarPemain(char* keluaran, size_t ukuran);
 
 // Mengantrekan satu aksi dari menu. Aksi dijalankan dari hook update tamu, di

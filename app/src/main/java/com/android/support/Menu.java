@@ -86,6 +86,12 @@ public class Menu {
     int BtnON = Color.parseColor("#1b5e20");
     int BtnOFF = Color.parseColor("#7f0000");
     int CategoryBG = Color.parseColor("#2F3D4C");
+    int ListRowColor = Color.parseColor("#1A2430");
+    int ListRowStroke = Color.parseColor("#2F3D4C");
+    int ListMuted = Color.parseColor("#9FB3C8");
+    int ListHost = Color.parseColor("#EF6C00");
+    int ListSelf = Color.parseColor("#1565C0");
+    int ListGuest = Color.parseColor("#455A64");
     int SeekBarColor = Color.parseColor("#80CBC4");
     int SeekBarProgressColor = Color.parseColor("#80CBC4");
     int CheckBoxColor = Color.parseColor("#80CBC4");
@@ -1112,33 +1118,58 @@ public class Menu {
     private void PlayerList(LinearLayout linLayout, final String featName) {
         LinearLayout container = new LinearLayout(getContext);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(10, 5, 0, 5);
+        container.setPadding(dp(10), dp(6), dp(10), dp(8));
+
+        LinearLayout judulBaris = new LinearLayout(getContext);
+        judulBaris.setOrientation(LinearLayout.HORIZONTAL);
+        judulBaris.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView judul = new TextView(getContext);
         judul.setText(featName);
         judul.setTextColor(TEXT_COLOR_2);
         judul.setTypeface(null, Typeface.BOLD);
-        container.addView(judul);
+        judul.setTextSize(13);
+        judul.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+        judulBaris.addView(judul);
+
+        final TextView jumlah = new TextView(getContext);
+        jumlah.setTextColor(TEXT_COLOR);
+        jumlah.setTextSize(11);
+        judulBaris.addView(jumlah);
+        container.addView(judulBaris);
+
+        TextView petunjuk = new TextView(getContext);
+        petunjuk.setText("Salin skin atau tendang tamu langsung dari sini");
+        petunjuk.setTextColor(ListMuted);
+        petunjuk.setTextSize(10);
+        petunjuk.setPadding(0, dp(2), 0, dp(6));
+        container.addView(petunjuk);
 
         final LinearLayout daftar = new LinearLayout(getContext);
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
         Button muatUlang = new Button(getContext);
-        muatUlang.setText("Muat ulang daftar pemain");
+        muatUlang.setText("Muat ulang daftar");
+        muatUlang.setTextSize(11);
+        muatUlang.setAllCaps(false);
         muatUlang.setTextColor(TEXT_COLOR_2);
         muatUlang.setBackgroundColor(BTN_COLOR);
+        LinearLayout.LayoutParams paramsMuat =
+                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        paramsMuat.setMargins(0, dp(6), 0, 0);
+        muatUlang.setLayoutParams(paramsMuat);
         muatUlang.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 daftar.setTag(null);
-                isiDaftarPemain(daftar);
+                isiDaftarPemain(daftar, jumlah);
             }
         });
         container.addView(muatUlang);
 
         linLayout.addView(container);
-        isiDaftarPemain(daftar);
+        isiDaftarPemain(daftar, jumlah);
 
         // Tamu bisa masuk atau keluar kapan saja, jadi daftar menyegarkan
         // dirinya selama menu masih menempel di jendela.
@@ -1148,14 +1179,14 @@ public class Menu {
                 if (daftar.getWindowToken() == null) {
                     return;
                 }
-                isiDaftarPemain(daftar);
+                isiDaftarPemain(daftar, jumlah);
                 daftar.postDelayed(this, 2000);
             }
         }, 2000);
     }
 
     @SuppressLint("SetTextI18n")
-    private void isiDaftarPemain(LinearLayout daftar) {
+    private void isiDaftarPemain(LinearLayout daftar, TextView jumlah) {
         String data;
         try {
             data = DaftarPemain();
@@ -1174,44 +1205,71 @@ public class Menu {
         daftar.removeAllViews();
 
         if (data.length() == 0) {
+            jumlah.setText("");
             TextView kosong = new TextView(getContext);
-            kosong.setText("Tidak ada tamu di room ini");
-            kosong.setTextColor(TEXT_COLOR_2);
+            kosong.setText("Tidak ada pemain di room ini");
+            kosong.setTextColor(ListMuted);
+            kosong.setTextSize(11);
+            kosong.setGravity(Gravity.CENTER);
+            kosong.setPadding(0, dp(14), 0, dp(14));
             daftar.addView(kosong);
             return;
         }
 
+        int barisTerisi = 0;
         for (String baris : data.split("\n")) {
-            String[] bagian = baris.split("\t", 2);
-            if (bagian.length < 2 || bagian[0].length() == 0 || bagian[1].length() == 0)
+            String[] bagian = baris.split("\t", 3);
+            if (bagian.length < 3 || bagian[0].length() == 0 || bagian[1].length() == 0)
                 continue;
-            daftar.addView(barisPemain(bagian[0], bagian[1]));
+            daftar.addView(barisPemain(bagian[0], bagian[1], bagian[2]));
+            barisTerisi++;
         }
+        jumlah.setText(barisTerisi + " pemain");
     }
 
-    private LinearLayout barisPemain(final String nama, final String kunci) {
+    // Satu pemain menjadi satu kartu: nama dan lencana perannya di atas, aksi di
+    // bawah. Baris sendiri tidak punya aksi karena menyalin atau menendang diri
+    // sendiri tidak berguna, dan tendang hanya ada untuk tamu.
+    private LinearLayout barisPemain(final String nama, final String kunci, String peran) {
         LinearLayout baris = new LinearLayout(getContext);
-        baris.setOrientation(LinearLayout.HORIZONTAL);
-        baris.setGravity(Gravity.CENTER_VERTICAL);
-        baris.setPadding(0, 4, 0, 4);
+        baris.setOrientation(LinearLayout.VERTICAL);
+        baris.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams paramsBaris =
+                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        paramsBaris.setMargins(0, 0, 0, dp(6));
+        baris.setLayoutParams(paramsBaris);
+        GradientDrawable latar = new GradientDrawable();
+        latar.setCornerRadius(dp(8));
+        latar.setColor(ListRowColor);
+        latar.setStroke(1, ListRowStroke);
+        baris.setBackground(latar);
+
+        LinearLayout kepala = new LinearLayout(getContext);
+        kepala.setOrientation(LinearLayout.HORIZONTAL);
+        kepala.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView label = new TextView(getContext);
         label.setText(nama);
         label.setTextColor(TEXT_COLOR_2);
+        label.setTypeface(null, Typeface.BOLD);
+        label.setTextSize(12);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
-        baris.addView(label);
+        kepala.addView(label);
+        kepala.addView(lencanaPeran(peran));
+        baris.addView(kepala);
 
-        Button salin = new Button(getContext);
-        salin.setText("Salin skin");
-        salin.setTextSize(11);
-        salin.setTextColor(TEXT_COLOR_2);
-        salin.setBackgroundColor(BtnON);
-        salin.setMinWidth(0);
-        salin.setMinimumWidth(0);
-        salin.setPadding(8, 4, 8, 4);
-        salin.setOnClickListener(new View.OnClickListener() {
+        if ("kamu".equals(peran))
+            return baris;
+
+        LinearLayout aksi = new LinearLayout(getContext);
+        aksi.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams paramsAksi =
+                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        paramsAksi.setMargins(0, dp(6), 0, 0);
+        aksi.setLayoutParams(paramsAksi);
+        aksi.addView(tombolAksi("Salin skin", BtnON, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 boolean diterima;
@@ -1226,33 +1284,70 @@ public class Menu {
                     Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                             Toast.LENGTH_SHORT).show();
             }
-        });
-        baris.addView(salin);
-
-        Button tendang = new Button(getContext);
-        tendang.setText("Tendang");
-        tendang.setTextSize(11);
-        tendang.setTextColor(TEXT_COLOR_2);
-        tendang.setBackgroundColor(BtnOFF);
-        tendang.setMinWidth(0);
-        tendang.setMinimumWidth(0);
-        tendang.setPadding(8, 4, 8, 4);
-        tendang.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                boolean diterima;
-                try {
-                    diterima = TendangPemain(kunci, nama);
-                } catch (Throwable t) {
-                    diterima = false;
+        }));
+        if ("tamu".equals(peran)) {
+            aksi.addView(tombolAksi("Tendang", BtnOFF, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    boolean diterima;
+                    try {
+                        diterima = TendangPemain(kunci, nama);
+                    } catch (Throwable t) {
+                        diterima = false;
+                    }
+                    if (!diterima)
+                        Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                                Toast.LENGTH_SHORT).show();
                 }
-                if (!diterima)
-                    Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
-                            Toast.LENGTH_SHORT).show();
-            }
-        });
-        baris.addView(tendang);
+            }));
+        }
+        baris.addView(aksi);
         return baris;
+    }
+
+    private Button tombolAksi(String teks, int warna, View.OnClickListener pendengar) {
+        Button tombol = new Button(getContext);
+        tombol.setText(teks);
+        tombol.setTextSize(11);
+        tombol.setAllCaps(false);
+        tombol.setTextColor(TEXT_COLOR_2);
+        tombol.setBackgroundColor(warna);
+        tombol.setMinWidth(0);
+        tombol.setMinimumWidth(0);
+        tombol.setPadding(dp(8), dp(4), dp(8), dp(4));
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        params.setMargins(0, 0, dp(6), 0);
+        tombol.setLayoutParams(params);
+        tombol.setOnClickListener(pendengar);
+        return tombol;
+    }
+
+    @SuppressLint("SetTextI18n")
+    private TextView lencanaPeran(String peran) {
+        int warna;
+        if ("host".equals(peran))
+            warna = ListHost;
+        else if ("kamu".equals(peran))
+            warna = ListSelf;
+        else
+            warna = ListGuest;
+
+        TextView lencana = new TextView(getContext);
+        lencana.setText(peran);
+        lencana.setTextColor(Color.WHITE);
+        lencana.setTextSize(9);
+        lencana.setTypeface(null, Typeface.BOLD);
+        lencana.setPadding(dp(6), dp(2), dp(6), dp(2));
+        GradientDrawable latar = new GradientDrawable();
+        latar.setCornerRadius(dp(6));
+        latar.setColor(warna);
+        lencana.setBackground(latar);
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        params.setMargins(dp(6), 0, 0, 0);
+        lencana.setLayoutParams(params);
+        return lencana;
     }
 
     private void Category(LinearLayout linLayout, String text) {
