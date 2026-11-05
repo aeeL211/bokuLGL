@@ -685,10 +685,20 @@ int sh_linker_init(void) {
   // get linker's soinfo::call_constructors(), soinfo::call_destructors() and g_dl_mutex
   sh_addr_info_t call_ctors_addr_info, call_dtors_addr_info;
   pthread_mutex_t *g_dl_mutex;
-  if (0 != sh_linker_get_symbol_info(&call_ctors_addr_info, &call_dtors_addr_info, &g_dl_mutex)) return -1;
+  if (0 != sh_linker_get_symbol_info(&call_ctors_addr_info, &call_dtors_addr_info, &g_dl_mutex)) {
+    // LIBBOKU PATCH: the DL-open monitor needs the linker's private symbols and
+    // the libshadowhook_nothing.so probe. libboku.so ships neither, and every
+    // hook target lives in an already-loaded ELF that is never dlclose()d, so
+    // keep the hook engine usable when the monitor cannot start.
+    SH_LOG_ALWAYS_SHOW("linker: monitor unavailable, continuing without DL-open monitor");
+    return 0;
+  }
 
   // hook soinfo::call_constructors() and soinfo::call_destructors()
-  return sh_linker_hook_call_ctors_dtors(&call_ctors_addr_info, &call_dtors_addr_info, g_dl_mutex);
+  int r = sh_linker_hook_call_ctors_dtors(&call_ctors_addr_info, &call_dtors_addr_info, g_dl_mutex);
+  if (0 != r)
+    SH_LOG_ALWAYS_SHOW("linker: ctors/dtors hook failed, continuing without DL-open monitor");
+  return 0;
 }
 
 int sh_linker_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {

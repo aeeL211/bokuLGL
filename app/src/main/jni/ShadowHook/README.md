@@ -9,10 +9,24 @@ karena mod ini hanya mendukung `arm64-v8a`. Berkas berikut sengaja tidak dibangu
 
 - `sh_jni.c`: mendefinisikan `JNI_OnLoad` kedua dan Java API. Menu sudah punya `JNI_OnLoad`
   sendiri, dan mod ini tidak memakai API Java ShadowHook.
-- `nothing/`: pustaka `.so` kosong untuk paket Prefab. Mod ini tidak mengemas
-  `libshadowhook.so`, jadi tidak diperlukan.
+- `nothing/`: pustaka `.so` kosong yang dipakai `sh_linker.c` sebagai pemicu pemindaian
+  `soinfo` untuk pemantau `dlopen`. Mod ini tidak memaketkannya, dan pemantau itu dilewati
+  oleh patch lokal di bawah, jadi tidak diperlukan.
 - `CMakeLists.txt` dan `shadowhook.map.txt`: build memakai `app/src/main/jni/CMakeLists.txt`
   yang mengompilasi sumber ini menjadi arsip statis di dalam `libboku.so`.
+
+## Patch lokal
+
+Satu perubahan disengaja pada sumber upstream, ditandai `LIBBOKU PATCH` di
+`sh_linker.c`. Fungsi `sh_linker_init()` mengembalikan 0 walau simbol privat linker atau
+`libshadowhook_nothing.so` tidak tersedia, sehingga `shadowhook_init()` tidak gagal dengan
+`SHADOWHOOK_ERRNO_INIT_LINKER` (12). Tanpa patch ini init berhenti dan tidak ada hook yang
+terpasang di perangkat yang linker-nya tidak bisa dipindai.
+
+Yang hilang tanpa pemantau `dlopen`: hook pada pustaka yang dimuat belakangan lewat
+`shadowhook_hook_sym_name()` dan pelepasan hook otomatis saat pustaka di-`dlclose()`. Mod ini
+tidak memakai keduanya; semua target sudah ada di `libil2cpp.so` yang tidak pernah dilepas.
+Saat memperbarui versi ShadowHook, patch ini harus diterapkan ulang dan `hook.cpp` disesuaikan.
 
 Kode pihak ketiga di dalam sumber ini:
 

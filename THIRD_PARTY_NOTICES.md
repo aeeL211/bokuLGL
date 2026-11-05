@@ -14,8 +14,13 @@ Android NDK.
   `shadowhook_init`, `shadowhook_hook_func_addr_2`, `shadowhook_get_errno`,
   `shadowhook_to_errmsg`, and `shadowhook_get_version`.
   `sh_jni.c` is not compiled because the menu already provides the only `JNI_OnLoad`;
-  `nothing/` is not built because no `libshadowhook.so` is shipped. The archive is linked
-  with `--exclude-libs,ALL`, so no `shadowhook_` or `sh_` symbol is exported.
+  `nothing/` is not built because the mod ships no `libshadowhook_nothing.so` probe. The
+  archive is linked with `--exclude-libs,ALL`, so no `shadowhook_` or `sh_` symbol is exported.
+- Local modification: `sh_linker.c` in `sh_linker_init()` is patched (marked
+  `LIBBOKU PATCH`) so a missing linker probe or private linker symbol disables the DL-open
+  monitor instead of failing `shadowhook_init` with `SHADOWHOOK_ERRNO_INIT_LINKER`. Only the
+  monitor is affected; the hook engine, trampolines, and hooking APIs are unchanged. The
+  modification is documented in `app/src/main/jni/ShadowHook/README.md`.
 - Bundled third-party code inside ShadowHook:
   - xDL, MIT License, `app/src/main/jni/ShadowHook/third_party/xdl/LICENSE`.
   - linux-syscall-support, BSD 3-Clause License,

@@ -41,6 +41,10 @@ bool inisialisasiHook() {
     }
     hookSiap = true;
     LOGI("ShadowHook siap (%s, mode multi)", shadowhook_get_version());
+    // Patch sh_linker.c melewati pemantau dlopen karena libshadowhook_nothing.so
+    // tidak dipaketkan. Semua target berada di pustaka yang sudah dimuat dan
+    // tidak pernah dilepas, jadi hook tidak bergantung pada pemantau itu.
+    LOGI("Pemantau dlopen tidak dipakai");
     return true;
 }
 

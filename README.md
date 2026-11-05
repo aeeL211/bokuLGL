@@ -100,6 +100,11 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 ## Batasan
 
 - Hanya `arm64-v8a`. Tidak ada komponen Java tambahan, Xposed, atau LSPosed di luar menu LGL.
+- Pemantau `dlopen` ShadowHook tidak aktif. Mod ini tidak memaketkan pendamping
+  `libshadowhook_nothing.so`, dan `sh_linker.c` sengaja tidak menggagalkan init karenanya.
+  Semua target hook sudah berada di `libil2cpp.so` yang dimuat sebelum hook dipasang dan tidak
+  pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
+  hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
 - Kecepatan dan gravitasi hanya berlaku untuk pemain lokal. Nilai asli game tidak disimpan
   permanen: pada 1,0x hook berhenti mengalikan, dan setelah respawn atau pindah scene hook membaca
@@ -121,8 +126,8 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 Build hanya lewat GitHub Actions (`.github/workflows/build.yml`): NDK r30, CMake, lalu
 `assembleDebug`. Sumber ShadowHook v2.0.1 sudah ada di `app/src/main/jni/ShadowHook/` dan
 dikompilasi menjadi arsip statis di dalam `libboku.so`, jadi tidak ada unduhan tambahan saat
-build dan tidak ada `libshadowhook.so` terpisah. Hasilnya `bokuLGL-debug.apk` dengan
-`lib/arm64-v8a/libboku.so`.
+build dan tidak ada `libshadowhook.so` maupun `libshadowhook_nothing.so` terpisah. Hasilnya
+`bokuLGL-debug.apk` dengan `lib/arm64-v8a/libboku.so`.
 
 Parameter CMake yang dipakai CI:
 
@@ -135,6 +140,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
+Pemantau dlopen tidak dipakai
 Scan selesai: 85 dari 85 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
