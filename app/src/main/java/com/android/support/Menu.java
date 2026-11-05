@@ -1980,7 +1980,7 @@ public class Menu {
             judul = (TextView) dialog.findViewById(android.R.id.title);
         if (judul != null) {
             judul.setTextColor(Theme.TITLE_TEXT);
-            judul.setBackground(Theme.dialogTitle(getContext()));
+            judul.setBackground(Theme.dialogTitle(getContext));
             judul.setPadding(dp(12), dp(8), dp(12), dp(8));
         }
 
@@ -1996,7 +1996,7 @@ public class Menu {
                 continue;
             tombol.setTextColor(Theme.TITLE_TEXT);
             tombol.setAllCaps(false);
-            tombol.setBackground(Theme.tombolKecil(getContext()));
+            tombol.setBackground(Theme.tombolKecil(getContext));
             tombol.setPadding(dp(12), dp(8), dp(12), dp(8));
         }
     }
@@ -2006,13 +2006,13 @@ public class Menu {
             EditText isian = (EditText) view;
             isian.setTextColor(Theme.TEXT);
             isian.setHintTextColor(Theme.MUTED);
-            isian.setBackground(Theme.dialogInput(getContext()));
+            isian.setBackground(Theme.dialogInput(getContext));
             isian.setPadding(dp(10), dp(8), dp(10), dp(8));
         } else if (view instanceof Button) {
             Button tombol = (Button) view;
             tombol.setTextColor(Theme.TITLE_TEXT);
             tombol.setAllCaps(false);
-            tombol.setBackground(Theme.tombolKecil(getContext()));
+            tombol.setBackground(Theme.tombolKecil(getContext));
         } else if (view instanceof TextView) {
             ((TextView) view).setTextColor(Theme.TEXT);
         }
