@@ -96,12 +96,10 @@ T_KICK_MENU_TEXT|Net__Multi__Guest__Menu|Init__Button__Text|0|
 T_KICK_MENU_YES|Net__Multi__Guest__Menu|Kick__Confirm__Yes|0|
 T_INPUT_TERM_MULTI|Input__Began__Net|Term__Multi|3|
 # Unity objects. These are only called, never hooked: Teleport memakai transform
-# pemain, dan No Clip mencari Collider2D pada objek akarnya.
+# pemain.
 T_GAMEOBJECT_TRANSFORM|GameObject|get_transform|0|
 T_TRANSFORM_GET_POSITION|Transform|get_position|0|
 T_TRANSFORM_SET_POSITION|Transform|set_position|1|
-T_GAMEOBJECT_GET_COMPONENT|GameObject|GetComponent|1|Type
-T_BEHAVIOUR_GET_ENABLED|Behaviour|get_enabled|0|
-T_BEHAVIOUR_SET_ENABLED|Behaviour|set_enabled|1|
-T_RIGIDBODY2D_GET_KINEMATIC|Rigidbody2D|get_isKinematic|0|
-T_RIGIDBODY2D_SET_KINEMATIC|Rigidbody2D|set_isKinematic|1|
+# Fisika pemain. Kotak gerak dari tile dihitung di sini tiap frame, jadi No Clip
+# melonggarkan sisi kiri dan kanannya setelah perhitungan itu selesai.
+T_DETECT_SET|Physics__Detect|_Set|3|

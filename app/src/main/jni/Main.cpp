@@ -47,7 +47,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("CollapseAdd_15_Toggle_True_Getar dan pecahan dimatikan"),
 
             OBFUSCATE("Collapse_Gerak"),
-            OBFUSCATE("CollapseAdd_19_Toggle_No Clip"),
+            OBFUSCATE("CollapseAdd_19_Toggle_Tembus dinding"),
             OBFUSCATE("CollapseAdd_20_InputValue_600_Titik X tujuan"),
             OBFUSCATE("CollapseAdd_21_InputValue_300_Titik Y tujuan"),
             OBFUSCATE("CollapseAdd_22_Button_Pindahkan pemain"),
