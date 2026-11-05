@@ -13,7 +13,7 @@ namespace {
 // panggilan bawaan yang akan mengosongkan tangan, jadi perubahan itu menjadi
 // tanpa efek.
 thread_local bool menahanTangan = false;
-// Id terakhir yang dimasukkan game ke tangan, disimpan supaya akhir makan bisa
+// Id yang terakhir diketahui ada di tangan, disimpan supaya akhir makan bisa
 // mengembalikan item yang sama setelah animasinya menyembunyikan sprite.
 void* pemilikTangan = nullptr;
 int32_t idTangan = 0;
@@ -34,12 +34,27 @@ void bangunUlangTangan(void* sendiri) {
     }
 }
 
+// Membaca id yang benar-benar masih di tangan dari model pemain. Cache idTangan
+// bisa sudah 0 bila fitur makanan sempat dimatikan dan game mengosongkan tangan,
+// jadi nilai hidup ini yang dipakai saat perubahan tangan berikutnya ditahan.
+int32_t idTanganDariGame(void* sendiri) {
+    auto baca = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_HH_ID).addr);
+    if (!baca)
+        return idTangan;
+    return baca(sendiri, target(T_HH_ID).method);
+}
+
 void hookGantiHh(void* sendiri, int32_t id, void* metode) {
     auto asli = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_HH_CHANGE).orig);
     if (!asli)
         return;
-    if (menahanTangan)
+    if (menahanTangan) {
+        // Game hendak mengosongkan tangan. Id yang sekarang dipakai dibaca
+        // sebelum perubahan itu hilang, lalu dipakai lagi oleh segarkanTangan.
+        pemilikTangan = sendiri;
+        idTangan = idTanganDariGame(sendiri);
         return;
+    }
     asli(sendiri, id, metode);
     pemilikTangan = sendiri;
     idTangan = id;

@@ -141,7 +141,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 85 dari 85 metode ditemukan
+Scan selesai: 86 dari 86 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap

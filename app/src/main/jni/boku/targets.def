@@ -23,6 +23,9 @@ T_TITLE_VERSION|Title__Cmn|Version__Text|0|
 T_HELP_VERSION|UI__Menu__Net__Multi__Help|Refresh__Version__Text|0|
 T_PASSWORD_BUTTON|UI__Menu__Net__Multi__Join__Room_List__Detail__Password|Term__Bottom_Button|0|
 T_HH_CHANGE|Player__Manager|Hh__Change|1|
+# Id pegang pemain lokal. Hook makanan membacanya sebelum game mengosongkan
+# tangan, jadi makanan tetap dikenali setelah fitur sempat dimatikan.
+T_HH_ID|Player__Manager|Hh__Id|0|
 T_PLAYER_UPDATE|Player__Manager|_Update|0|
 T_EAT_END_KNEEL|Player__State__Sp__Tile__Kneel|Gingerbread_Man__Eat__End|0|
 T_EAT_END_SIT_F|Player__State__Sp__Tile__Sit__F|Gingerbread_Man__Eat__End|0|
