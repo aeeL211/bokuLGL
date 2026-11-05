@@ -252,8 +252,7 @@ size_t bacaTitikKode(const char* teks, size_t tersedia, uint32_t& kode) {
     }
     // Bentuk terpendek ditolak supaya satu karakter tidak punya dua ejaan.
     if ((panjang == 2 && kode < 0x80) || (panjang == 3 && kode < 0x800) ||
-        (panjang == 4 && kode < 0x10000) || kode > 0x10FFFF ||
-        (kode >= 0xD800 && kode <= 0xDFFF)) {
+        (panjang == 4 && kode < 0x10000) || kode > 0x10FFFF || (kode >= 0xD800 && kode <= 0xDFFF)) {
         kode = 0xFFFD;
         return 1;
     }
