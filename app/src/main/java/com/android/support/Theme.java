@@ -9,6 +9,8 @@ import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.StateListDrawable;
+import android.os.Build;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
@@ -18,6 +20,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
@@ -45,6 +48,12 @@ public final class Theme {
     public static final int TAN = 0xFFC9A56F;
     public static final int TRACK = 0xFF936832;
     public static final int ACTIVE_BORDER = 0xFFF6F6F6;
+
+    // Tombol sudut seperti tombol kembali di game: kotak hitam, garis putih.
+    public static final int BOX_SUDUT = 0xFF000000;
+
+    // Warna saat ditekan: baris sedikit lebih gelap, tombol berisi TRACK.
+    public static final int ROW_TEKAN = 0xFFCDA874;
 
     // Tiga nada ikon pixel-art game (diambil dari ikon CRT filter / Vignette / Light Effect).
     public static final int ICON_LIGHT = 0xFFCCAA77;
@@ -218,8 +227,52 @@ public final class Theme {
         return kotak(TRACK, RADIUS_PANEL, TEBAL_KONTROL, STROKE_KONTROL, context);
     }
 
+    /** Tombol kecil: isi berubah menjadi TRACK saat ditekan supaya terasa responsif. */
     public static Drawable tombolKecil(Context context) {
-        return kotak(ICON_BOX, RADIUS_PANEL, 2f, BUTTON_BORDER, context);
+        StateListDrawable drawable = new StateListDrawable();
+        drawable.addState(new int[]{android.R.attr.state_pressed},
+                kotak(TRACK, RADIUS_PANEL, 2f, BUTTON_BORDER, context));
+        drawable.addState(new int[]{},
+                kotak(ICON_BOX, RADIUS_PANEL, 2f, BUTTON_BORDER, context));
+        return drawable;
+    }
+
+    /** Tombol kayu penuh (footer) dengan umpan balik tekan. */
+    public static Drawable tombolTekan(Context context) {
+        StateListDrawable drawable = new StateListDrawable();
+        drawable.addState(new int[]{android.R.attr.state_pressed},
+                kotak(TRACK, RADIUS_PANEL, TEBAL_KONTROL, BUTTON_BORDER, context));
+        drawable.addState(new int[]{}, tombol(context));
+        return drawable;
+    }
+
+    /**
+     * Lapisan tipis untuk Button di dalam kotak tombol yang sudah punya garis:
+     * transparan biasanya, terang sedikit saat ditekan.
+     */
+    public static Drawable tekanOverlay(Context context) {
+        StateListDrawable drawable = new StateListDrawable();
+        drawable.addState(new int[]{android.R.attr.state_pressed},
+                kotak(0x26FFFFFF, RADIUS_PANEL, 0f, 0x26FFFFFF, context));
+        drawable.addState(new int[]{}, kotak(0x00000000, RADIUS_PANEL, 0f, 0x00000000, context));
+        return drawable;
+    }
+
+    /** Baris yang bisa diketuk: sedikit lebih gelap saat ditekan. */
+    public static Drawable barisTekan(Context context) {
+        StateListDrawable drawable = new StateListDrawable();
+        drawable.addState(new int[]{android.R.attr.state_pressed},
+                kotak(ROW_TEKAN, RADIUS_ROW, 0f, ROW_TEKAN, context));
+        drawable.addState(new int[]{}, baris(context));
+        return drawable;
+    }
+
+    /** Scrollbar tipis berwarna TRACK, seperti penanda gulir di game. */
+    public static void gayaScrollbar(Context context, ScrollView scrollView) {
+        scrollView.setVerticalScrollBarEnabled(true);
+        scrollView.setScrollBarSize((int) dp(context, 3f));
+        if (Build.VERSION.SDK_INT >= 29)
+            scrollView.setVerticalScrollbarThumbDrawable(kotak(TRACK, 2f, 0f, TRACK, context));
     }
 
     public static Drawable lencana(Context context, int warna) {
@@ -293,6 +346,7 @@ public final class Theme {
         public static final int TUTUP = 1;
         public static final int PANAH_KANAN = 2;
         public static final int PANAH_BAWAH = 3;
+        public static final int MINIMAL = 4;
 
         private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Context ctx;
@@ -302,6 +356,7 @@ public final class Theme {
         private final float tebalGaris;
         private final int ukuranDp;
         private boolean pakaiKotak = true;
+        private float radiusDp = RADIUS_IKON;
         private int jenis;
 
         public Ikon(Context context, int jenis, int warnaKotak, int warnaGaris,
@@ -322,6 +377,12 @@ public final class Theme {
             return ikon;
         }
 
+        /** Sudut kotak yang lebih tegas, untuk tombol sudut bergaya game. */
+        public Ikon siku(float radiusDp) {
+            this.radiusDp = radiusDp;
+            return this;
+        }
+
         public void setJenis(int jenis) {
             this.jenis = jenis;
             invalidate();
@@ -338,7 +399,7 @@ public final class Theme {
         protected void onDraw(Canvas canvas) {
             float lebar = getWidth();
             float tinggi = getHeight();
-            float radius = dp(ctx, RADIUS_IKON);
+            float radius = dp(ctx, radiusDp);
 
             if (pakaiKotak) {
                 cat.setStyle(Paint.Style.FILL);
@@ -396,6 +457,16 @@ public final class Theme {
                     path.close();
                     cat.setStyle(Paint.Style.FILL);
                     canvas.drawPath(path, cat);
+                    break;
+                }
+                case MINIMAL: {
+                    // Garis tebal di bawah tengah, seperti tombol minimize jendela.
+                    cat.setStyle(Paint.Style.FILL);
+                    float panjang = s * 0.46f;
+                    float tebal = dp(ctx, 3f);
+                    float y = cy + s * 0.14f;
+                    canvas.drawRect(cx - panjang / 2f, y - tebal / 2f,
+                            cx + panjang / 2f, y + tebal / 2f, cat);
                     break;
                 }
                 case TUTUP: {

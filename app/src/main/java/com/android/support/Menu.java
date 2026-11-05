@@ -81,6 +81,7 @@ public class Menu {
     WebView webIkon;
     String sumberIkon = "";
     String sumberWebTerpasang;
+    boolean webSiap;
     FrameLayout rootFrame;
     ScrollView scrollView;
     boolean stopChecking, overlayRequired;
@@ -180,18 +181,50 @@ public class Menu {
         String sumber = sumberIkon == null ? "" : sumberIkon.trim();
         if (sumber.length() == 0)
             sumber = IconWebViewData();
-        boolean pakaiWeb = sumber != null && sumber.length() > 0;
-        if (pakaiWeb) {
-            if (!sumber.equals(sumberWebTerpasang)) {
-                sumberWebTerpasang = sumber;
-                webIkon.loadData(htmlIkon(sumber), "text/html", "utf-8");
-            }
-            webIkon.setVisibility(View.VISIBLE);
-            startimage.setVisibility(View.GONE);
-        } else {
-            webIkon.setVisibility(View.GONE);
-            startimage.setVisibility(View.VISIBLE);
+        if (sumber == null || sumber.length() == 0) {
+            sumberWebTerpasang = null;
+            webSiap = false;
+            tampilkanIkon();
+            return;
         }
+
+        // Sumber yang sama tidak dimuat lagi, jadi geseran slider ukuran dan
+        // opasitas tidak memicu unduhan atau muat ulang.
+        if (!sumber.equals(sumberWebTerpasang)) {
+            sumberWebTerpasang = sumber;
+            webSiap = false;
+            if (IkonCache.cocok(sumber)) {
+                // URL: dari cache bila sudah ada, diunduh sekali bila belum. Ikon
+                // bawaan tetap tampil sampai gambarnya siap.
+                final String target = sumber;
+                IkonCache.muat(getContext, target, new IkonCache.Pendengar() {
+                    @Override
+                    public void siap(String dataUri) {
+                        if (!target.equals(sumberWebTerpasang))
+                            return;
+                        webIkon.loadDataWithBaseURL(null, htmlIkon(dataUri),
+                                "text/html", "utf-8", null);
+                        webSiap = true;
+                        tampilkanIkon();
+                    }
+
+                    @Override
+                    public void gagal() {
+                        // Ikon bawaan tetap dipakai. Dicoba lagi saat menu dibuat berikutnya.
+                        Log.d(TAG, "Ikon dari URL gagal dimuat, memakai ikon bawaan");
+                    }
+                });
+            } else {
+                webIkon.loadDataWithBaseURL(null, htmlIkon(sumber), "text/html", "utf-8", null);
+                webSiap = true;
+            }
+        }
+        tampilkanIkon();
+    }
+
+    private void tampilkanIkon() {
+        webIkon.setVisibility(webSiap ? View.VISIBLE : View.GONE);
+        startimage.setVisibility(webSiap ? View.GONE : View.VISIBLE);
     }
 
     private String htmlIkon(String sumber) {
@@ -247,7 +280,7 @@ public class Menu {
         ((ViewGroup.MarginLayoutParams) webIkon.getLayoutParams()).topMargin = dp(10);
         webIkon.setBackgroundColor(0x00000000); //Transparent
         webIkon.setVisibility(View.GONE);
-        webIkon.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webIkon.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
         webIkon.setOnTouchListener(onTouchListener());
 
         //********** Settings **********
@@ -256,53 +289,29 @@ public class Menu {
         mSettings.setPadding(dp(10), dp(6), dp(10), dp(8));
         featureList(SettingsList(), mSettings);
 
-        //********** Header panel: judul di tengah, setelan dan X di kanan **********
+        //********** Header panel: judul di tengah, hanya tombol minimize di kanan **********
         RelativeLayout header = new RelativeLayout(context);
         header.setBackground(Theme.header(context));
         header.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(56)));
 
         RelativeLayout.LayoutParams rlTitle = new RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        TextView title = Theme.teks(context, "", Theme.TITLE_SP, Theme.TITLE_TEXT);
+        final TextView title = Theme.teks(context, "", Theme.TITLE_SP, Theme.TITLE_TEXT);
         title.setGravity(Gravity.CENTER);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
-        title.setPadding(dp(78), 0, dp(78), 0);
+        title.setPadding(dp(48), 0, dp(48), 0);
         title.setLayoutParams(rlTitle);
 
-        Theme.Ikon setelan = new Theme.Ikon(context, Theme.Ikon.SETELAN, Theme.ICON_BOX,
-                Theme.TAN, 2f, Theme.TITLE_TEXT, 30);
-        RelativeLayout.LayoutParams rlSetelan = new RelativeLayout.LayoutParams(dp(30), dp(30));
-        rlSetelan.addRule(ALIGN_PARENT_RIGHT);
-        rlSetelan.addRule(RelativeLayout.CENTER_VERTICAL);
-        rlSetelan.rightMargin = dp(42);
-        setelan.setLayoutParams(rlSetelan);
-        setelan.setContentDescription("Setelan");
-        setelan.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    if (mSettings.getParent() == scrollView) {
-                        scrollView.removeView(mSettings);
-                        scrollView.addView(mods);
-                    } else {
-                        scrollView.removeView(mods);
-                        scrollView.addView(mSettings);
-                        scrollView.scrollTo(0, 0);
-                    }
-                } catch (IllegalStateException ignored) {
-                }
-            }
-        });
-
-        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.TUTUP, Theme.ICON_BOX,
-                Theme.TAN, 2f, Theme.TITLE_TEXT, 30);
-        RelativeLayout.LayoutParams rlTutup = new RelativeLayout.LayoutParams(dp(30), dp(30));
-        rlTutup.addRule(ALIGN_PARENT_RIGHT);
-        rlTutup.addRule(RelativeLayout.CENTER_VERTICAL);
-        rlTutup.rightMargin = dp(6);
-        tutup.setLayoutParams(rlTutup);
-        tutup.setContentDescription("Kecilkan menu");
-        tutup.setOnClickListener(new View.OnClickListener() {
+        // Tombol sudut bergaya game: kotak hitam, garis putih, glyph putih.
+        Theme.Ikon minimal = new Theme.Ikon(context, Theme.Ikon.MINIMAL, Theme.BOX_SUDUT,
+                Theme.ACTIVE_BORDER, 2f, Theme.ACTIVE_BORDER, 34).siku(Theme.RADIUS_PANEL);
+        RelativeLayout.LayoutParams rlMinimal = new RelativeLayout.LayoutParams(dp(34), dp(34));
+        rlMinimal.addRule(ALIGN_PARENT_RIGHT);
+        rlMinimal.addRule(RelativeLayout.CENTER_VERTICAL);
+        rlMinimal.rightMargin = dp(8);
+        minimal.setLayoutParams(rlMinimal);
+        minimal.setContentDescription("Kecilkan menu");
+        minimal.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 mCollapsed.setVisibility(View.VISIBLE);
                 mCollapsed.setAlpha(ICON_ALPHA);
@@ -311,11 +320,10 @@ public class Menu {
         });
 
         header.addView(title);
-        header.addView(setelan);
-        header.addView(tutup);
+        header.addView(minimal);
 
         //********** Sub title **********
-        TextView subTitle = Theme.teks(context, "", Theme.DESC_SP, Theme.MUTED);
+        final TextView subTitle = Theme.teks(context, "", Theme.DESC_SP, Theme.MUTED);
         subTitle.setEllipsize(TextUtils.TruncateAt.MARQUEE);
         subTitle.setMarqueeRepeatLimit(-1);
         subTitle.setSingleLine(true);
@@ -328,6 +336,7 @@ public class Menu {
         scrollView = new ScrollView(context);
         scrollView.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT)));
         scrollView.setBackgroundColor(Theme.BODY);
+        Theme.gayaScrollbar(context, scrollView);
         mods = new LinearLayout(context);
         mods.setOrientation(LinearLayout.VERTICAL);
         mods.setPadding(dp(10), dp(6), dp(10), dp(8));
@@ -338,9 +347,54 @@ public class Menu {
         footer.setBackground(Theme.footer(context));
         footer.setPadding(dp(8), dp(6), dp(8), dp(6));
 
+        // Setelan di kiri, Sembunyikan di kanan, dengan gaya tombol yang sama.
+        // Tombol Setelan berganti jadi Kembali selama halaman setelan terbuka.
+        final Button setelanBtn = teksTombol("Setelan");
+        setelanBtn.setBackground(Theme.tombolTekan(context));
+        LinearLayout.LayoutParams paramsSetelan = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        paramsSetelan.setMargins(0, 0, dp(6), 0);
+        setelanBtn.setLayoutParams(paramsSetelan);
+        setelanBtn.setOnClickListener(new View.OnClickListener() {
+            CharSequence judulAsal = "";
+            CharSequence subJudulAsal = "";
+            int scrollAsal;
+
+            @Override
+            public void onClick(View v) {
+                try {
+                    if (mSettings.getParent() == scrollView) {
+                        scrollView.removeView(mSettings);
+                        scrollView.addView(mods);
+                        title.setText(judulAsal);
+                        subTitle.setText(subJudulAsal);
+                        setelanBtn.setText("Setelan");
+                        // Posisi gulir daftar fitur dikembalikan setelah layout selesai.
+                        scrollView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                scrollView.scrollTo(0, scrollAsal);
+                            }
+                        });
+                    } else {
+                        scrollAsal = scrollView.getScrollY();
+                        judulAsal = title.getText();
+                        subJudulAsal = subTitle.getText();
+                        scrollView.removeView(mods);
+                        scrollView.addView(mSettings);
+                        scrollView.scrollTo(0, 0);
+                        title.setText("Setelan");
+                        subTitle.setText("Menu \\ Setelan");
+                        setelanBtn.setText("Kembali");
+                    }
+                } catch (IllegalStateException ignored) {
+                }
+            }
+        });
+        footer.addView(setelanBtn);
+
         final Button hideBtn = teksTombol("Sembunyikan");
-        hideBtn.setBackground(Theme.tombol(context));
-        hideBtn.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
+        hideBtn.setBackground(Theme.tombolTekan(context));
+        hideBtn.setLayoutParams(new LinearLayout.LayoutParams(0, dp(44), 1f));
         hideBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 mCollapsed.setVisibility(View.VISIBLE);
@@ -615,7 +669,8 @@ public class Menu {
         });
 
         TextView label = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
-        final LinearLayout baris = baris(IkonFitur.pola(featNum), label, switchR);
+        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), label, switchR);
+        baris.setBackground(Theme.barisTekan(getContext));
         baris.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 switchR.toggle();
@@ -715,7 +770,7 @@ public class Menu {
 
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
-        linLayout.addView(baris(IkonFitur.pola(featNum), kolom, null));
+        linLayout.addView(baris(IkonFitur.pola(featNum, featName), kolom, null));
     }
 
     /** Satuan angka slider: pengali kecepatan, persen opasitas, atau dp ikon. */
@@ -749,7 +804,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
     }
 
     private void ButtonLink(LinearLayout linLayout, final String featName, final String url) {
@@ -769,7 +824,7 @@ public class Menu {
         final Button button = teksTombol("");
         final String finalfeatName = featName.replace("OnOff_", "");
         boolean isOn = Preferences.loadPrefBool(featName, featNum, switchedOn);
-        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum), button);
+        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
         if (isOn) {
             button.setText(Html.fromHtml(finalfeatName + ": ON"));
             kotak.setBackground(Theme.tombolAktif(getContext));
@@ -843,7 +898,7 @@ public class Menu {
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-        linLayout.addView(baris(IkonFitur.pola(featNum), spinner, null));
+        linLayout.addView(baris(IkonFitur.pola(featNum, featName), spinner, null));
     }
 
     private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
@@ -915,7 +970,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
     }
 
     private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
@@ -988,7 +1043,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
     }
 
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
@@ -1058,7 +1113,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
     }
 
     private void CheckBox(LinearLayout linLayout, final int featNum, final String featName, boolean switchedOn) {
@@ -1079,7 +1134,7 @@ public class Menu {
                 }
             }
         });
-        linLayout.addView(baris(IkonFitur.pola(featNum), checkBox, null));
+        linLayout.addView(baris(IkonFitur.pola(featNum, featName), checkBox, null));
     }
 
     @SuppressLint("SetTextI18n")
@@ -1606,7 +1661,7 @@ public class Menu {
         button.setTypeface(Theme.font(getContext));
         button.setAllCaps(false); //Disable caps to support html
         button.setGravity(Gravity.CENTER);
-        button.setBackground(null);
+        button.setBackground(Theme.tekanOverlay(getContext));
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         button.setMinHeight(0);
