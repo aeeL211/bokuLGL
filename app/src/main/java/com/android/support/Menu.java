@@ -1126,7 +1126,7 @@ public class Menu {
         LinearLayout judulBaris = new LinearLayout(getContext);
         judulBaris.setOrientation(LinearLayout.HORIZONTAL);
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
-        judulBaris.setBackground(Theme.baris(getContext()));
+        judulBaris.setBackground(Theme.baris(getContext));
         judulBaris.setPadding(0, 0, dp(8), 0);
         LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
         paramsJudul.setMargins(0, dp(3), 0, dp(3));
@@ -1134,7 +1134,7 @@ public class Menu {
 
         LinearLayout.LayoutParams paramsIkon = new LinearLayout.LayoutParams(dp(40), dp(40));
         paramsIkon.setMargins(0, dp(4), dp(8), dp(4));
-        judulBaris.addView(new IkonFitur(getContext(), IkonFitur.PEMAIN, true), paramsIkon);
+        judulBaris.addView(new IkonFitur(getContext, IkonFitur.PEMAIN, true), paramsIkon);
 
         TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
         LinearLayout.LayoutParams paramsJudulTeks = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
@@ -1282,10 +1282,10 @@ public class Menu {
         paramsBaris.setMargins(0, 0, 0, dp(6));
         baris.setLayoutParams(paramsBaris);
         baris.setBackground(kunci.equals(kunciTerpilih)
-                ? Theme.kartuTerpilih(getContext())
-                : Theme.kartu(getContext()));
+                ? Theme.kartuTerpilih(getContext)
+                : Theme.kartu(getContext));
 
-        LinearLayout kepala = new LinearLayout(getContext());
+        LinearLayout kepala = new LinearLayout(getContext);
         kepala.setOrientation(LinearLayout.HORIZONTAL);
         kepala.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -1308,7 +1308,7 @@ public class Menu {
         if ("kamu".equals(peran))
             return baris;
 
-        LinearLayout aksi = new LinearLayout(getContext());
+        LinearLayout aksi = new LinearLayout(getContext);
         aksi.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams paramsAksi =
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
@@ -1353,8 +1353,8 @@ public class Menu {
     private void segarkanPilihan(IsiDaftar isi) {
         for (Map.Entry<String, KartuPemain> entri : isi.kartu.entrySet()) {
             entri.getValue().view.setBackground(entri.getKey().equals(kunciTerpilih)
-                    ? Theme.kartuTerpilih(getContext())
-                    : Theme.kartu(getContext()));
+                    ? Theme.kartuTerpilih(getContext)
+                    : Theme.kartu(getContext));
         }
     }
 
@@ -1459,7 +1459,7 @@ public class Menu {
 
         LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
         ikonParams.setMargins(0, dp(4), dp(8), dp(4));
-        baris.addView(new IkonFitur(getContext(), pola, true), ikonParams);
+        baris.addView(new IkonFitur(getContext, pola, true), ikonParams);
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
         isiParams.setMargins(0, dp(4), dp(6), dp(4));
@@ -1563,7 +1563,7 @@ public class Menu {
 
         LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
         ikonParams.setMargins(0, dp(4), dp(8), dp(4));
-        kotak.addView(new IkonFitur(getContext(), pola, true), ikonParams);
+        kotak.addView(new IkonFitur(getContext, pola, true), ikonParams);
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f);
         kotak.addView(isi, isiParams);

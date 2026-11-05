@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.view.View;
 
 /**
  * Ikon pixel-art 16x16 untuk setiap fitur.

@@ -273,19 +273,17 @@ void perbaruiKalibrasi(const Vektor2& dunia, const Vektor2& tile) {
     kalibrasi.siapX = kalibrasi.siapX || kalibrasi.sampelX > 0;
     kalibrasi.siapY = kalibrasi.siapY || kalibrasi.sampelY > 0;
     if (kalibrasi.sampelX == 1 && sampelXSebelum == 0)
-        LOGI("Teleport: kalibrasi X skala %.2f offset %.2f", kalibrasi.skalaX,
-             kalibrasi.offsetX);
+        LOGI("Teleport: kalibrasi X skala %.2f offset %.2f", kalibrasi.skalaX, kalibrasi.offsetX);
     if (kalibrasi.sampelY == 1 && sampelYSebelum == 0)
-        LOGI("Teleport: kalibrasi Y skala %.2f offset %.2f", kalibrasi.skalaY,
-             kalibrasi.offsetY);
+        LOGI("Teleport: kalibrasi Y skala %.2f offset %.2f", kalibrasi.skalaY, kalibrasi.offsetY);
 }
 
 Vektor2 keDunia(float tileX, float tileY) {
     // Skala biasanya sama di kedua sumbu, jadi sumbu yang belum punya sampel
     // meminjam skala sumbu lain. Titik nolnya tetap hanya dipakai bila sumbu
     // itu sendiri sudah terkalibrasi.
-    float skalaCadangan = kalibrasi.siapX ? kalibrasi.skalaX
-                                          : (kalibrasi.siapY ? kalibrasi.skalaY : 1.0f);
+    float skalaCadangan =
+        kalibrasi.siapX ? kalibrasi.skalaX : (kalibrasi.siapY ? kalibrasi.skalaY : 1.0f);
     Vektor2 hasil = {tileX * skalaCadangan, tileY * skalaCadangan};
     if (kalibrasi.siapX)
         hasil.x = kalibrasi.offsetX + tileX * kalibrasi.skalaX;
@@ -347,9 +345,8 @@ void verifikasiTeleport(void* posisi) {
     if (adaTile) {
         LOGI("Teleport: sesudah tile=(%.2f, %.2f) dunia=(%.1f, %.1f) selisih=(%.2f, %.2f)/"
              "(%.1f, %.1f)",
-             tile.x, tile.y, dunia.x, dunia.y, tile.x - verifikasi.tileX,
-             tile.y - verifikasi.tileY, dunia.x - verifikasi.dunia.x,
-             dunia.y - verifikasi.dunia.y);
+             tile.x, tile.y, dunia.x, dunia.y, tile.x - verifikasi.tileX, tile.y - verifikasi.tileY,
+             dunia.x - verifikasi.dunia.x, dunia.y - verifikasi.dunia.y);
     } else {
         LOGI("Teleport: sesudah dunia=(%.1f, %.1f) selisih=(%.1f, %.1f)", dunia.x, dunia.y,
              dunia.x - verifikasi.dunia.x, dunia.y - verifikasi.dunia.y);
@@ -376,8 +373,8 @@ void terapkanTeleport(void* manajer) {
     int32_t tileY = permintaan.y.load();
     if (tileX < -kBatasTeleport || tileX > kBatasTeleport || tileY < -kBatasTeleport ||
         tileY > kBatasTeleport) {
-        LOGE("Teleport ditolak: tile %d, %d di luar batas -%d..%d", tileX, tileY,
-             kBatasTeleport, kBatasTeleport);
+        LOGE("Teleport ditolak: tile %d, %d di luar batas -%d..%d", tileX, tileY, kBatasTeleport,
+             kBatasTeleport);
         return;
     }
 
@@ -389,8 +386,7 @@ void terapkanTeleport(void* manajer) {
         LOGI("Teleport: sebelum tile=(%.2f, %.2f) dunia=(%.1f, %.1f)", tileLama.x, tileLama.y,
              duniaLama.x, duniaLama.y);
     } else if (adaDunia) {
-        LOGI("Teleport: sebelum dunia=(%.1f, %.1f), tile tidak terbaca", duniaLama.x,
-             duniaLama.y);
+        LOGI("Teleport: sebelum dunia=(%.1f, %.1f), tile tidak terbaca", duniaLama.x, duniaLama.y);
     }
 
     Vektor2 duniaBaru = keDunia(static_cast<float>(tileX), static_cast<float>(tileY));
