@@ -16,8 +16,7 @@ void hookGetar(void* self, void* metode) {
 }
 
 void hookGetarAngka(void* self, int32_t durasi, float kekuatan, void* metode) {
-    auto asli =
-        reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
+    auto asli = reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
     if (!fitur().efek && asli)
         asli(self, durasi, kekuatan, metode);
 }

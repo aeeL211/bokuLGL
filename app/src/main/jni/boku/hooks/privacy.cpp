@@ -207,8 +207,10 @@ void pasangHookPrivasi() {
     LOGI("Penyetel email: %d dari 4", ditemukan);
 
     pasangHook(target(T_PRIVACY_MANAGER), reinterpret_cast<void*>(hookManajer));
-    pasangHook(target(T_PRIVACY_BLACKLIST), reinterpret_cast<void*>(hookBaris<T_PRIVACY_BLACKLIST>));
-    pasangHook(target(T_PRIVACY_ADD_FRIEND), reinterpret_cast<void*>(hookBaris<T_PRIVACY_ADD_FRIEND>));
+    pasangHook(target(T_PRIVACY_BLACKLIST),
+               reinterpret_cast<void*>(hookBaris<T_PRIVACY_BLACKLIST>));
+    pasangHook(target(T_PRIVACY_ADD_FRIEND),
+               reinterpret_cast<void*>(hookBaris<T_PRIVACY_ADD_FRIEND>));
     pasangHook(target(T_PRIVACY_FRIEND_PROFILE),
                reinterpret_cast<void*>(hookBaris<T_PRIVACY_FRIEND_PROFILE>));
     pasangHook(target(T_PRIVACY_VERIFY), reinterpret_cast<void*>(hookBaris<T_PRIVACY_VERIFY>));

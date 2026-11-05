@@ -46,8 +46,7 @@ void* sandiRoom(void* self) {
 // yang dipenuhi okHook tepat sebelum perbandingan.
 bool hookTombol(void* self, void* method) {
     if (!fitur().sandiRoom) {
-        auto asli =
-            reinterpret_cast<bool (*)(void*, void*)>(target(T_PASSWORD_BUTTON).orig);
+        auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_PASSWORD_BUTTON).orig);
         return asli ? asli(self, method) : false;
     }
     return true;
