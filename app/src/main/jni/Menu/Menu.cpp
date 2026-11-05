@@ -39,11 +39,8 @@ jboolean antrekanAksi(JNIEnv *env, jstring kunci, jstring nama, bool salin) {
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
     (void)thiz;
     (void)ctx;
-    setText(env, title, OBFUSCATE("<b>Mod by Febrian/Ian</b>"));
-    setText(env, subtitle, OBFUSCATE("<b><marquee><p style=\"font-size:30\">"
-                                     "<p style=\"color:green;\">Boku Boku</p> | "
-                                     "Semua fitur aktif sejak awal, kecuali No Clip</p>"
-                                     "</marquee></b>"));
+    setText(env, title, OBFUSCATE("Mod oleh Febrian/Ian"));
+    setText(env, subtitle, OBFUSCATE("Boku Boku | Semua fitur aktif sejak awal, kecuali No Clip"));
 }
 
 jstring Icon(JNIEnv *env, jobject thiz) {
@@ -73,11 +70,11 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
     jobjectArray ret;
 
     const char *features[] = {
-            OBFUSCATE("Category_Settings"),
-            OBFUSCATE("-1_Toggle_Save feature preferences"), //-1 is checked on Preferences.java
-            OBFUSCATE("-3_Toggle_Auto size vertically"),
+            OBFUSCATE("Category_Pengaturan"),
+            OBFUSCATE("-1_Toggle_Simpan preferensi"), //-1 is checked on Preferences.java
+            OBFUSCATE("-3_Toggle_Tinggi menu otomatis"),
             OBFUSCATE("Category_Menu"),
-            OBFUSCATE("-6_Button_<font color='red'>Close settings</font>"),
+            OBFUSCATE("-6_Button_Tutup pengaturan"),
     };
 
     int Total_Feature = (sizeof features /

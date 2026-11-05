@@ -140,6 +140,11 @@ jobs:
             echo "  Apache License 2.0, https://github.com/jmpews/Dobby"
             echo
             cat "app/src/main/jni/Dobby/LICENSE"
+            echo
+            echo "Itim font (Google Fonts, SIL Open Font License 1.1)"
+            echo "  https://github.com/google/fonts/tree/main/ofl/itim"
+            echo
+            cat "app/src/main/assets/fonts/OFL.txt"
           } > "$OUT/THIRD_PARTY_LICENSES"
           ls -l "$OUT"
 

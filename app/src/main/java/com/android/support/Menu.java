@@ -13,8 +13,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -49,7 +47,6 @@ import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,47 +55,21 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
-import static android.widget.RelativeLayout.ALIGN_PARENT_LEFT;
 import static android.widget.RelativeLayout.ALIGN_PARENT_RIGHT;
 
 public class Menu {
-    //********** Here you can easly change the menu appearance **********//
     public static final String TAG = "Mod_Menu"; //Tag for logcat
 
-    int TEXT_COLOR = Color.parseColor("#82CAFD");
-    int TEXT_COLOR_2 = Color.parseColor("#FFFFFF");
-    int BTN_COLOR = Color.parseColor("#1C262D");
-    int MENU_BG_COLOR = Color.parseColor("#EE1C2A35"); //#AARRGGBB
-    int MENU_FEATURE_BG_COLOR = Color.parseColor("#DD141C22"); //#AARRGGBB
-    int MENU_WIDTH = 290;
+    // Tampilan panel kayu. Semua warna ada di Theme.
+    int MENU_WIDTH = 300;
     int MENU_HEIGHT = 210;
     int POS_X = 0;
     int POS_Y = 100;
-
-    float MENU_CORNER = 4f;
     int ICON_SIZE = 45; //Change both width and height of image
     float ICON_ALPHA = 0.7f; //Transparent
-    int ToggleON = Color.GREEN;
-    int ToggleOFF = Color.RED;
-    int BtnON = Color.parseColor("#1b5e20");
-    int BtnOFF = Color.parseColor("#7f0000");
-    int CategoryBG = Color.parseColor("#2F3D4C");
-    int ListRowColor = Color.parseColor("#1A2430");
-    int ListRowStroke = Color.parseColor("#2F3D4C");
-    int ListMuted = Color.parseColor("#9FB3C8");
-    int ListHost = Color.parseColor("#EF6C00");
-    int ListSelf = Color.parseColor("#1565C0");
-    int ListGuest = Color.parseColor("#455A64");
-    int SeekBarColor = Color.parseColor("#80CBC4");
-    int SeekBarProgressColor = Color.parseColor("#80CBC4");
-    int CheckBoxColor = Color.parseColor("#80CBC4");
-    int RadioColor = Color.parseColor("#FFFFFF");
-    int CollapseColor = Color.parseColor("#232F2C");
-    String NumberTxtColor = "#41c300";
-    //********************************************************************//
 
     RelativeLayout mCollapsed, mRootContainer;
     LinearLayout mExpanded, mods, mSettings, mCollapse;
@@ -124,7 +95,7 @@ public class Menu {
 
     native boolean IsGameLibLoaded();
 
-    // Section Room: daftar tamu berformat "nama<TAB>kunci" per baris.
+    // Section Room: daftar tamu berformat "nama<TAB>kunci<TAB>peran" per baris.
     native String DaftarPemain();
 
     native boolean TendangPemain(String kunci, String nama);
@@ -147,15 +118,10 @@ public class Menu {
         //********** The box of the mod menu **********
         mExpanded = new LinearLayout(context); // Menu markup (when the menu is expanded)
         mExpanded.setVisibility(View.GONE);
-        mExpanded.setBackgroundColor(MENU_BG_COLOR);
         mExpanded.setOrientation(LinearLayout.VERTICAL);
-        // mExpanded.setPadding(1, 1, 1, 1); //So borders would be visible
+        mExpanded.setBackground(Theme.panel(context));
+        mExpanded.setPadding(dp(3), dp(3), dp(3), dp(3));
         mExpanded.setLayoutParams(new LinearLayout.LayoutParams(dp(MENU_WIDTH), WRAP_CONTENT));
-        GradientDrawable gdMenuBody = new GradientDrawable();
-        gdMenuBody.setCornerRadius(MENU_CORNER); //Set corner
-        gdMenuBody.setColor(MENU_BG_COLOR); //Set background color
-        gdMenuBody.setStroke(1, Color.parseColor("#32cb00")); //Set border
-        //mExpanded.setBackground(gdMenuBody); //Apply GradientDrawable to it
 
         //********** The icon to open mod menu **********
         startimage = new ImageView(context);
@@ -163,7 +129,6 @@ public class Menu {
         int applyDimension = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ICON_SIZE, context.getResources().getDisplayMetrics()); //Icon size
         startimage.getLayoutParams().height = applyDimension;
         startimage.getLayoutParams().width = applyDimension;
-        //startimage.requestLayout();
         startimage.setScaleType(ImageView.ScaleType.FIT_XY);
         byte[] decode = Base64.decode(Icon(), 0);
         startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
@@ -194,122 +159,116 @@ public class Menu {
         wView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
         wView.setOnTouchListener(onTouchListener());
 
-        //********** Settings icon **********
-        TextView settings = new TextView(context); //Android 5 can't show ⚙, instead show other icon instead
-        settings.setText(Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M ? "⚙" : "\uD83D\uDD27");
-        settings.setTextColor(TEXT_COLOR);
-        settings.setTypeface(Typeface.DEFAULT_BOLD);
-        settings.setTextSize(20.0f);
-        RelativeLayout.LayoutParams rlsettings = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        rlsettings.addRule(ALIGN_PARENT_RIGHT);
-        settings.setLayoutParams(rlsettings);
-        settings.setOnClickListener(new View.OnClickListener() {
-            boolean settingsOpen;
+        //********** Settings **********
+        mSettings = new LinearLayout(context);
+        mSettings.setOrientation(LinearLayout.VERTICAL);
+        mSettings.setPadding(dp(10), dp(6), dp(10), dp(8));
+        featureList(SettingsList(), mSettings);
 
+        //********** Header panel: judul di tengah, setelan dan X di kanan **********
+        RelativeLayout header = new RelativeLayout(context);
+        header.setBackground(Theme.header(context));
+        header.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(56)));
+
+        RelativeLayout.LayoutParams rlTitle = new RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
+        TextView title = Theme.teks(context, "", Theme.TITLE_SP, Theme.TITLE_TEXT);
+        title.setGravity(Gravity.CENTER);
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        title.setPadding(dp(78), 0, dp(78), 0);
+        title.setLayoutParams(rlTitle);
+
+        Theme.Ikon setelan = new Theme.Ikon(context, Theme.Ikon.SLIDER, Theme.ICON_BOX,
+                Theme.ROW, 2f, Theme.TITLE_TEXT, 30);
+        RelativeLayout.LayoutParams rlSetelan = new RelativeLayout.LayoutParams(dp(30), dp(30));
+        rlSetelan.addRule(ALIGN_PARENT_RIGHT);
+        rlSetelan.addRule(RelativeLayout.CENTER_VERTICAL);
+        rlSetelan.rightMargin = dp(42);
+        setelan.setLayoutParams(rlSetelan);
+        setelan.setContentDescription("Setelan");
+        setelan.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
-                    settingsOpen = !settingsOpen;
-                    if (settingsOpen) {
+                    if (mSettings.getParent() == scrollView) {
+                        scrollView.removeView(mSettings);
+                        scrollView.addView(mods);
+                    } else {
                         scrollView.removeView(mods);
                         scrollView.addView(mSettings);
                         scrollView.scrollTo(0, 0);
-                    } else {
-                        scrollView.removeView(mSettings);
-                        scrollView.addView(mods);
                     }
                 } catch (IllegalStateException ignored) {
                 }
             }
         });
 
-        //********** Settings **********
-        mSettings = new LinearLayout(context);
-        mSettings.setOrientation(LinearLayout.VERTICAL);
-        featureList(SettingsList(), mSettings);
-
-        //********** Title **********
-        RelativeLayout titleText = new RelativeLayout(context);
-        titleText.setPadding(10, 5, 10, 5);
-        titleText.setVerticalGravity(16);
-
-        TextView title = new TextView(context);
-        title.setTextColor(TEXT_COLOR);
-        title.setTextSize(18.0f);
-        title.setGravity(Gravity.CENTER);
-        RelativeLayout.LayoutParams rl = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        rl.addRule(RelativeLayout.CENTER_HORIZONTAL);
-        title.setLayoutParams(rl);
-
-        //********** Sub title **********
-        TextView subTitle = new TextView(context);
-        subTitle.setEllipsize(TextUtils.TruncateAt.MARQUEE);
-        subTitle.setMarqueeRepeatLimit(-1);
-        subTitle.setSingleLine(true);
-        subTitle.setSelected(true);
-        subTitle.setTextColor(TEXT_COLOR);
-        subTitle.setTextSize(10.0f);
-        subTitle.setGravity(Gravity.CENTER);
-        subTitle.setPadding(0, 0, 0, 5);
-
-        //********** Mod menu feature list **********
-        scrollView = new ScrollView(context);
-        //Auto size. To set size manually, change the width and height example 500, 500
-        scrlLL = new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT));
-        scrlLLExpanded = new LinearLayout.LayoutParams(mExpanded.getLayoutParams());
-        scrlLLExpanded.weight = 1.0f;
-        scrollView.setLayoutParams(Preferences.isExpanded ? scrlLLExpanded : scrlLL);
-        scrollView.setBackgroundColor(MENU_FEATURE_BG_COLOR);
-        mods = new LinearLayout(context);
-        mods.setOrientation(LinearLayout.VERTICAL);
-
-        //********** RelativeLayout for buttons **********
-        RelativeLayout relativeLayout = new RelativeLayout(context);
-        relativeLayout.setPadding(10, 3, 10, 3);
-        relativeLayout.setVerticalGravity(Gravity.CENTER);
-
-        //**********  Hide/Kill button **********
-        RelativeLayout.LayoutParams lParamsHideBtn = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        lParamsHideBtn.addRule(ALIGN_PARENT_LEFT);
-
-        Button hideBtn = new Button(context);
-        hideBtn.setLayoutParams(lParamsHideBtn);
-        hideBtn.setBackgroundColor(Color.TRANSPARENT);
-        hideBtn.setText("HIDE/KILL (Hold)");
-        hideBtn.setTextColor(TEXT_COLOR);
-        hideBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View view) {
-                mCollapsed.setVisibility(View.VISIBLE);
-                mCollapsed.setAlpha(0);
-                mExpanded.setVisibility(View.GONE);
-                Toast.makeText(view.getContext(), "Icon hidden. Remember the hidden icon position", Toast.LENGTH_LONG).show();
-            }
-        });
-        hideBtn.setOnLongClickListener(new View.OnLongClickListener() {
-            public boolean onLongClick(View view) {
-                Toast.makeText(view.getContext(), "Menu killed", Toast.LENGTH_LONG).show();
-                rootFrame.removeView(mRootContainer);
-                mWindowManager.removeView(rootFrame);
-                return false;
-            }
-        });
-
-        //********** Close button **********
-        RelativeLayout.LayoutParams lParamsCloseBtn = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        lParamsCloseBtn.addRule(ALIGN_PARENT_RIGHT);
-
-        Button closeBtn = new Button(context);
-        closeBtn.setLayoutParams(lParamsCloseBtn);
-        closeBtn.setBackgroundColor(Color.TRANSPARENT);
-        closeBtn.setText("MINIMIZE");
-        closeBtn.setTextColor(TEXT_COLOR);
-        closeBtn.setOnClickListener(new View.OnClickListener() {
+        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.CLOSE, Theme.OUTLINE,
+                Theme.ACTIVE_BORDER, 3f, Color.WHITE, 30);
+        RelativeLayout.LayoutParams rlTutup = new RelativeLayout.LayoutParams(dp(30), dp(30));
+        rlTutup.addRule(ALIGN_PARENT_RIGHT);
+        rlTutup.addRule(RelativeLayout.CENTER_VERTICAL);
+        rlTutup.rightMargin = dp(6);
+        tutup.setLayoutParams(rlTutup);
+        tutup.setContentDescription("Kecilkan menu");
+        tutup.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 mCollapsed.setVisibility(View.VISIBLE);
                 mCollapsed.setAlpha(ICON_ALPHA);
                 mExpanded.setVisibility(View.GONE);
             }
         });
+
+        header.addView(title);
+        header.addView(setelan);
+        header.addView(tutup);
+
+        //********** Sub title **********
+        TextView subTitle = Theme.teks(context, "", Theme.DESC_SP, Theme.MUTED);
+        subTitle.setEllipsize(TextUtils.TruncateAt.MARQUEE);
+        subTitle.setMarqueeRepeatLimit(-1);
+        subTitle.setSingleLine(true);
+        subTitle.setSelected(true);
+        subTitle.setGravity(Gravity.CENTER);
+        subTitle.setPadding(dp(10), dp(4), dp(10), dp(4));
+        subTitle.setBackgroundColor(Theme.BODY);
+
+        //********** Mod menu feature list **********
+        scrollView = new ScrollView(context);
+        scrlLL = new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT));
+        scrlLLExpanded = new LinearLayout.LayoutParams(mExpanded.getLayoutParams());
+        scrlLLExpanded.weight = 1.0f;
+        scrollView.setLayoutParams(Preferences.isExpanded ? scrlLLExpanded : scrlLL);
+        scrollView.setBackground(new Theme.VineDrawable(context));
+        mods = new LinearLayout(context);
+        mods.setOrientation(LinearLayout.VERTICAL);
+        mods.setPadding(dp(10), dp(6), dp(10), dp(8));
+
+        //********** Footer dengan tombol kayu **********
+        LinearLayout footer = new LinearLayout(context);
+        footer.setOrientation(LinearLayout.HORIZONTAL);
+        footer.setBackground(Theme.footer(context));
+        footer.setPadding(dp(8), dp(6), dp(8), dp(6));
+
+        final Button hideBtn = teksTombol("Sembunyikan (tahan = keluar)");
+        hideBtn.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
+        hideBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                mCollapsed.setVisibility(View.VISIBLE);
+                mCollapsed.setAlpha(0);
+                mExpanded.setVisibility(View.GONE);
+                Toast.makeText(view.getContext(), "Ikon disembunyikan. Ingat posisi ikon tersembunyi", Toast.LENGTH_LONG).show();
+            }
+        });
+        hideBtn.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View view) {
+                Toast.makeText(view.getContext(), "Menu ditutup", Toast.LENGTH_LONG).show();
+                rootFrame.removeView(mRootContainer);
+                mWindowManager.removeView(rootFrame);
+                return false;
+            }
+        });
+        footer.addView(hideBtn);
 
         //********** Adding view components **********
         mRootContainer.addView(mCollapsed);
@@ -319,17 +278,21 @@ public class Menu {
         } else {
             mCollapsed.addView(startimage);
         }
-        titleText.addView(title);
-        titleText.addView(settings);
-        mExpanded.addView(titleText);
-        mExpanded.addView(subTitle);
+        mExpanded.addView(header);
+        Theme.Zigzag zigAtas = new Theme.Zigzag(context);
+        zigAtas.setBackgroundColor(Theme.BODY);
+        mExpanded.addView(zigAtas, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
+        mExpanded.addView(subTitle, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         scrollView.addView(mods);
         mExpanded.addView(scrollView);
-        relativeLayout.addView(hideBtn);
-        relativeLayout.addView(closeBtn);
-        mExpanded.addView(relativeLayout);
+        Theme.Zigzag zigBawah = new Theme.Zigzag(context);
+        zigBawah.setBackgroundColor(Theme.FOOTER);
+        mExpanded.addView(zigBawah, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
+        mExpanded.addView(footer);
 
         Init(context, title, subTitle);
+        Theme.applyFont(mExpanded);
+        Theme.applyFont(mSettings);
     }
 
     public void ShowMenu() {
@@ -345,14 +308,17 @@ public class Menu {
                 //Comment the if-else code out except startService if you want to run the app and test preferences
                 if (Preferences.loadPref && !IsGameLibLoaded() && !stopChecking) {
                     if (!viewLoaded) {
-                        Category(mods, "Save preferences was been enabled. Waiting for game lib to be loaded...\n\nForce load menu may not apply mods instantly. You would need to reactivate them again");
-                        Button(mods, -100, "Force load menu");
+                        Category(mods, "Simpan preferensi aktif. Menunggu library game dimuat...\n\n"
+                                + "Paksa muat menu mungkin tidak langsung menerapkan mod. Kamu perlu mengaktifkannya lagi");
+                        Button(mods, -100, "Paksa muat menu");
+                        Theme.applyFont(mods);
                         viewLoaded = true;
                     }
                     handler.postDelayed(this, 600);
                 } else {
                     mods.removeAllViews();
                     featureList(GetFeatureList(), mods);
+                    Theme.applyFont(mods);
                 }
             }
         }, 500);
@@ -549,29 +515,8 @@ public class Menu {
     }
 
     private void Switch(LinearLayout linLayout, final int featNum, final String featName, boolean swiOn) {
-        final Switch switchR = new Switch(getContext);
-        ColorStateList buttonStates = new ColorStateList(
-                new int[][]{
-                        new int[]{-android.R.attr.state_enabled},
-                        new int[]{android.R.attr.state_checked},
-                        new int[]{}
-                },
-                new int[]{
-                        Color.BLUE,
-                        ToggleON, // ON
-                        ToggleOFF // OFF
-                }
-        );
-        //Set colors of the switch. Comment out if you don't like it
-        try {
-            switchR.getThumbDrawable().setTintList(buttonStates);
-            switchR.getTrackDrawable().setTintList(buttonStates);
-        } catch (NullPointerException ex) {
-            Log.d(TAG, String.valueOf(ex));
-        }
-        switchR.setText(featName);
-        switchR.setTextColor(TEXT_COLOR_2);
-        switchR.setPadding(10, 5, 0, 5);
+        final Theme.PixelSwitch switchR = new Theme.PixelSwitch(getContext);
+        switchR.setContentDescription(featName);
         switchR.setChecked(Preferences.loadPrefBool(featName, featNum, swiOn));
         switchR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton compoundButton, boolean bool) {
@@ -589,28 +534,35 @@ public class Menu {
             }
         });
 
-        linLayout.addView(switchR);
+        TextView label = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
+        final LinearLayout baris = baris(Theme.Ikon.TOGGLE, label, switchR);
+        baris.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                switchR.toggle();
+            }
+        });
+        linLayout.addView(baris);
     }
 
     private void SeekBar(LinearLayout linLayout, final int featNum, final String featName, final int min, int max) {
         int loadedProg = Preferences.loadPrefInt(featName, featNum);
-        LinearLayout linearLayout = new LinearLayout(getContext);
-        linearLayout.setPadding(10, 5, 0, 5);
-        linearLayout.setOrientation(LinearLayout.VERTICAL);
-        linearLayout.setGravity(Gravity.CENTER);
+        LinearLayout kolom = new LinearLayout(getContext);
+        kolom.setOrientation(LinearLayout.VERTICAL);
+        kolom.setGravity(Gravity.CENTER_VERTICAL);
 
-        final TextView textView = new TextView(getContext);
-        textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + ((loadedProg == 0) ? min : loadedProg)));
-        textView.setTextColor(TEXT_COLOR_2);
+        final TextView textView = Theme.teks(getContext, "", Theme.ROW_SP, Theme.TEXT);
+        textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
+                + ((loadedProg == 0) ? min : loadedProg) + "</font>"));
 
         SeekBar seekBar = new SeekBar(getContext);
-        seekBar.setPadding(25, 10, 35, 10);
+        seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
+        seekBar.setThumb(Theme.seekbarThumb(getContext));
+        seekBar.setThumbOffset(0);
+        seekBar.setPadding(dp(2), dp(4), dp(2), dp(4));
         seekBar.setMax(max);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             seekBar.setMin(min); //setMin for Oreo and above
         seekBar.setProgress((loadedProg == 0) ? min : loadedProg);
-        seekBar.getThumb().setColorFilter(SeekBarColor, PorterDuff.Mode.SRC_ATOP);
-        seekBar.getProgressDrawable().setColorFilter(SeekBarProgressColor, PorterDuff.Mode.SRC_ATOP);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onStartTrackingTouch(SeekBar seekBar) {
             }
@@ -622,24 +574,18 @@ public class Menu {
                 //if progress is greater than minimum, don't go below. Else, set progress
                 seekBar.setProgress(i < min ? min : i);
                 Preferences.changeFeatureInt(featName, featNum, i < min ? min : i);
-                textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + (i < min ? min : i)));
+                textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
+                        + (i < min ? min : i) + "</font>"));
             }
         });
-        linearLayout.addView(textView);
-        linearLayout.addView(seekBar);
 
-        linLayout.addView(linearLayout);
+        kolom.addView(textView, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(34)));
+        linLayout.addView(baris(Theme.Ikon.SLIDER, kolom, null));
     }
 
     private void Button(LinearLayout linLayout, final int featNum, final String featName) {
-        final Button button = new Button(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-        button.setLayoutParams(layoutParams);
-        button.setTextColor(TEXT_COLOR_2);
-        button.setAllCaps(false); //Disable caps to support html
-        button.setText(Html.fromHtml(featName));
-        button.setBackgroundColor(BTN_COLOR);
+        final Button button = teksTombol(Html.fromHtml(featName));
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 switch (featNum) {
@@ -656,18 +602,11 @@ public class Menu {
             }
         });
 
-        linLayout.addView(button);
+        linLayout.addView(kotakTombol(Theme.Ikon.BUTTON, button));
     }
 
     private void ButtonLink(LinearLayout linLayout, final String featName, final String url) {
-        final Button button = new Button(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-        button.setLayoutParams(layoutParams);
-        button.setAllCaps(false); //Disable caps to support html
-        button.setTextColor(TEXT_COLOR_2);
-        button.setText(Html.fromHtml(featName));
-        button.setBackgroundColor(BTN_COLOR);
+        final Button button = teksTombol(Html.fromHtml(featName));
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -676,26 +615,21 @@ public class Menu {
                 getContext.startActivity(intent);
             }
         });
-        linLayout.addView(button);
+        linLayout.addView(kotakTombol(Theme.Ikon.BUTTON, button));
     }
 
     private void ButtonOnOff(LinearLayout linLayout, final int featNum, String featName, boolean switchedOn) {
-        final Button button = new Button(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-        button.setLayoutParams(layoutParams);
-        button.setTextColor(TEXT_COLOR_2);
-        button.setAllCaps(false); //Disable caps to support html
-
+        final Button button = teksTombol("");
         final String finalfeatName = featName.replace("OnOff_", "");
         boolean isOn = Preferences.loadPrefBool(featName, featNum, switchedOn);
+        final LinearLayout kotak = kotakTombol(Theme.Ikon.TOGGLE, button);
         if (isOn) {
             button.setText(Html.fromHtml(finalfeatName + ": ON"));
-            button.setBackgroundColor(BtnON);
+            kotak.setBackground(Theme.tombolAktif(getContext));
             isOn = false;
         } else {
             button.setText(Html.fromHtml(finalfeatName + ": OFF"));
-            button.setBackgroundColor(BtnOFF);
+            kotak.setBackground(Theme.tombolMati(getContext));
             isOn = true;
         }
         final boolean finalIsOn = isOn;
@@ -707,74 +641,75 @@ public class Menu {
                 //Log.d(TAG, finalfeatName + " " + featNum + " " + isActive2);
                 if (isOn) {
                     button.setText(Html.fromHtml(finalfeatName + ": ON"));
-                    button.setBackgroundColor(BtnON);
+                    kotak.setBackground(Theme.tombolAktif(getContext));
                     isOn = false;
                 } else {
                     button.setText(Html.fromHtml(finalfeatName + ": OFF"));
-                    button.setBackgroundColor(BtnOFF);
+                    kotak.setBackground(Theme.tombolMati(getContext));
                     isOn = true;
                 }
             }
         });
-        linLayout.addView(button);
+        linLayout.addView(kotak);
     }
 
     private void Spinner(LinearLayout linLayout, final int featNum, final String featName, final String list) {
         Log.d(TAG, "spinner " + featNum + " " + featName + " " + list);
         final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
 
-        // Create another LinearLayout as a workaround to use it as a background
-        // to keep the down arrow symbol. No arrow symbol if setBackgroundColor set
-        LinearLayout linearLayout2 = new LinearLayout(getContext);
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        layoutParams2.setMargins(7, 2, 7, 2);
-        linearLayout2.setOrientation(LinearLayout.VERTICAL);
-        linearLayout2.setBackgroundColor(BTN_COLOR);
-        linearLayout2.setLayoutParams(layoutParams2);
-
         final Spinner spinner = new Spinner(getContext, Spinner.MODE_DROPDOWN);
-        spinner.setLayoutParams(layoutParams2);
-        spinner.getBackground().setColorFilter(1, PorterDuff.Mode.SRC_ATOP); //trick to show white down arrow color
-        //Creating the ArrayAdapter instance having the list
-        ArrayAdapter aa = new ArrayAdapter(getContext, android.R.layout.simple_spinner_dropdown_item, lists);
+        ArrayAdapter<String> aa = new ArrayAdapter<String>(getContext,
+                android.R.layout.simple_spinner_item, lists) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                TextView view = (TextView) super.getView(position, convertView, parent);
+                Theme.applyFont(view);
+                view.setTextColor(Theme.TEXT);
+                view.setTextSize(Theme.ROW_SP);
+                return view;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                TextView view = (TextView) super.getDropDownView(position, convertView, parent);
+                Theme.applyFont(view);
+                view.setBackgroundColor(Theme.BODY);
+                view.setTextColor(Theme.TEXT);
+                view.setTextSize(Theme.ROW_SP);
+                view.setPadding(dp(10), dp(8), dp(10), dp(8));
+                return view;
+            }
+        };
         aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        //Setting the ArrayAdapter data on the Spinner'
         spinner.setAdapter(aa);
         spinner.setSelection(Preferences.loadPrefInt(featName, featNum));
+        if (spinner.getBackground() != null)
+            spinner.getBackground().setColorFilter(Theme.TEXT, PorterDuff.Mode.SRC_ATOP);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
                 Preferences.changeFeatureInt(spinner.getSelectedItem().toString(), featNum, position);
-                ((TextView) parentView.getChildAt(0)).setTextColor(TEXT_COLOR_2);
+                ((TextView) parentView.getChildAt(0)).setTextColor(Theme.TEXT);
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-        linearLayout2.addView(spinner);
-        linLayout.addView(linearLayout2);
+        linLayout.addView(baris(Theme.Ikon.SPINNER, spinner, null));
     }
 
     private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
-        LinearLayout linearLayout = new LinearLayout(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-
-        final Button button = new Button(getContext);
+        final Button button = teksTombol("");
         int num = Preferences.loadPrefInt(featName, featNum);
-        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
-        button.setAllCaps(false);
-        button.setLayoutParams(layoutParams);
-        button.setBackgroundColor(BTN_COLOR);
-        button.setTextColor(TEXT_COLOR_2);
+        button.setText(Html.fromHtml(featName + ": " + num));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
                 final EditText editText = new EditText(getContext);
                 if (maxValue != 0)
-                    editText.setHint("Max value: " + maxValue);
+                    editText.setHint("Nilai maksimum: " + maxValue);
                 editText.setInputType(InputType.TYPE_CLASS_NUMBER);
                 editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
                 InputFilter[] FilterArray = new InputFilter[1];
@@ -793,7 +728,7 @@ public class Menu {
                 });
                 editText.requestFocus();
 
-                alertName.setTitle("Input number");
+                alertName.setTitle("Masukkan angka");
                 alertName.setView(editText);
                 LinearLayout layoutName = new LinearLayout(getContext);
                 layoutName.setOrientation(LinearLayout.VERTICAL);
@@ -815,13 +750,13 @@ public class Menu {
                                 num = Integer.MAX_VALUE;
                         }
 
-                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+                        button.setText(Html.fromHtml(featName + ": " + num));
                         Preferences.changeFeatureInt(featName, featNum, num);
                         editText.setFocusable(false);
                     }
                 });
 
-                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         // dialog.cancel(); // closes dialog
                         InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -829,39 +764,24 @@ public class Menu {
                     }
                 });
 
-                if (overlayRequired) {
-                    AlertDialog dialog = alertName.create(); // display the dialog
-                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
-                    dialog.show();
-                } else {
-                    alertName.show();
-                }
+                tampilkanDialog(alertName);
             }
         });
 
-        linearLayout.addView(button);
-        linLayout.addView(linearLayout);
+        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
     }
 
     private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
-        LinearLayout linearLayout = new LinearLayout(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-
-        final Button button = new Button(getContext);
+        final Button button = teksTombol("");
         long num = Preferences.loadPrefLong(featName, featNum);
-        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
-        button.setAllCaps(false);
-        button.setLayoutParams(layoutParams);
-        button.setBackgroundColor(BTN_COLOR);
-        button.setTextColor(TEXT_COLOR_2);
+        button.setText(Html.fromHtml(featName + ": " + num));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
                 final EditText editText = new EditText(getContext);
                 if (maxValue != 0)
-                    editText.setHint("Max value: " + maxValue);
+                    editText.setHint("Nilai maksimum: " + maxValue);
                 editText.setInputType(InputType.TYPE_CLASS_NUMBER);
                 editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
                 InputFilter[] FilterArray = new InputFilter[1];
@@ -880,7 +800,7 @@ public class Menu {
                 });
                 editText.requestFocus();
 
-                alertName.setTitle("Input number");
+                alertName.setTitle("Masukkan angka");
                 alertName.setView(editText);
                 LinearLayout layoutName = new LinearLayout(getContext);
                 layoutName.setOrientation(LinearLayout.VERTICAL);
@@ -902,14 +822,14 @@ public class Menu {
                                 num = Long.MAX_VALUE;
                         }
 
-                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+                        button.setText(Html.fromHtml(featName + ": " + num));
                         Preferences.changeFeatureLong(featName, featNum, num);
 
                         editText.setFocusable(false);
                     }
                 });
 
-                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         // dialog.cancel(); // closes dialog
                         InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -917,34 +837,17 @@ public class Menu {
                     }
                 });
 
-                if (overlayRequired) {
-                    AlertDialog dialog = alertName.create(); // display the dialog
-                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
-                    dialog.show();
-                } else {
-                    alertName.show();
-                }
+                tampilkanDialog(alertName);
             }
         });
 
-        linearLayout.addView(button);
-        linLayout.addView(linearLayout);
+        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
     }
 
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
-        LinearLayout linearLayout = new LinearLayout(getContext);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParams.setMargins(7, 5, 7, 5);
-
-        final Button button = new Button(getContext);
-
+        final Button button = teksTombol("");
         String string = Preferences.loadPrefString(featName, featNum);
-        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + string + "</font>"));
-
-        button.setAllCaps(false);
-        button.setLayoutParams(layoutParams);
-        button.setBackgroundColor(BTN_COLOR);
-        button.setTextColor(TEXT_COLOR_2);
+        button.setText(Html.fromHtml(featName + ": " + string));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -964,7 +867,7 @@ public class Menu {
                 });
                 editText.requestFocus();
 
-                alertName.setTitle("Input text");
+                alertName.setTitle("Masukkan teks");
                 alertName.setView(editText);
                 LinearLayout layoutName = new LinearLayout(getContext);
                 layoutName.setOrientation(LinearLayout.VERTICAL);
@@ -974,13 +877,13 @@ public class Menu {
                 alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         String str = editText.getText().toString();
-                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + str + "</font>"));
+                        button.setText(Html.fromHtml(featName + ": " + str));
                         Preferences.changeFeatureString(featName, featNum, str);
                         editText.setFocusable(false);
                     }
                 });
 
-                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         //dialog.cancel(); // closes dialog
                         InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -988,26 +891,20 @@ public class Menu {
                     }
                 });
 
-
-                if (overlayRequired) {
-                    AlertDialog dialog = alertName.create(); // display the dialog
-                    dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
-                    dialog.show();
-                } else {
-                    alertName.show();
-                }
+                tampilkanDialog(alertName);
             }
         });
 
-        linearLayout.addView(button);
-        linLayout.addView(linearLayout);
+        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
     }
 
     private void CheckBox(LinearLayout linLayout, final int featNum, final String featName, boolean switchedOn) {
         final CheckBox checkBox = new CheckBox(getContext);
         checkBox.setText(featName);
-        checkBox.setTextColor(TEXT_COLOR_2);
-        checkBox.setButtonTintList(ColorStateList.valueOf(CheckBoxColor));
+        checkBox.setTextColor(Theme.TEXT);
+        checkBox.setTextSize(Theme.ROW_SP);
+        checkBox.setTypeface(Theme.font(getContext));
+        checkBox.setButtonTintList(ColorStateList.valueOf(Theme.ICON_BOX));
         checkBox.setChecked(Preferences.loadPrefBool(featName, featNum, switchedOn));
         checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -1019,7 +916,7 @@ public class Menu {
                 }
             }
         });
-        linLayout.addView(checkBox);
+        linLayout.addView(barisPolos(checkBox));
     }
 
     @SuppressLint("SetTextI18n")
@@ -1027,13 +924,15 @@ public class Menu {
         //Credit: LoraZalora
         final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
 
-        final TextView textView = new TextView(getContext);
-        textView.setText(featName + ":");
-        textView.setTextColor(TEXT_COLOR_2);
+        final TextView textView = Theme.teks(getContext, featName + ":", Theme.ROW_SP, Theme.TEXT);
 
         final RadioGroup radioGroup = new RadioGroup(getContext);
-        radioGroup.setPadding(10, 5, 10, 5);
+        radioGroup.setPadding(dp(10), dp(6), dp(10), dp(6));
         radioGroup.setOrientation(LinearLayout.VERTICAL);
+        radioGroup.setBackground(Theme.baris(getContext));
+        LinearLayout.LayoutParams groupParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        groupParams.setMargins(0, dp(3), 0, dp(3));
+        radioGroup.setLayoutParams(groupParams);
         radioGroup.addView(textView);
 
         for (int i = 0; i < lists.size(); i++) {
@@ -1041,21 +940,25 @@ public class Menu {
             final String finalfeatName = featName, radioName = lists.get(i);
             View.OnClickListener first_radio_listener = new View.OnClickListener() {
                 public void onClick(View v) {
-                    textView.setText(Html.fromHtml(finalfeatName + ": <font color='" + NumberTxtColor + "'>" + radioName));
+                    textView.setText(Html.fromHtml(finalfeatName + ": <font color='"
+                            + Theme.warnaHex(Theme.ICON_BOX) + "'>" + radioName));
                     Preferences.changeFeatureInt(finalfeatName, featNum, radioGroup.indexOfChild(Radioo));
                 }
             };
             System.out.println(lists.get(i));
             Radioo.setText(lists.get(i));
-            Radioo.setTextColor(Color.LTGRAY);
-            Radioo.setButtonTintList(ColorStateList.valueOf(RadioColor));
+            Radioo.setTextColor(Theme.TEXT);
+            Radioo.setTextSize(Theme.ROW_SP);
+            Radioo.setTypeface(Theme.font(getContext));
+            Radioo.setButtonTintList(ColorStateList.valueOf(Theme.ICON_BOX));
             Radioo.setOnClickListener(first_radio_listener);
             radioGroup.addView(Radioo);
         }
 
         int index = Preferences.loadPrefInt(featName, featNum);
         if (index > 0) { //Preventing it to get an index less than 1. below 1 = null = crash
-            textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + lists.get(index - 1)));
+            textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX)
+                    + "'>" + lists.get(index - 1)));
             ((RadioButton) radioGroup.getChildAt(index)).setChecked(true);
         }
         linLayout.addView(radioGroup);
@@ -1063,109 +966,120 @@ public class Menu {
 
     @SuppressLint("SetTextI18n")
     private void Collapse(LinearLayout linLayout, final String text, final boolean expanded) {
-        LinearLayout.LayoutParams layoutParamsLL = new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
-        layoutParamsLL.setMargins(0, 5, 0, 0);
+        LinearLayout section = new LinearLayout(getContext);
+        section.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        sectionParams.setMargins(0, dp(8), 0, 0);
+        section.setLayoutParams(sectionParams);
 
-        LinearLayout collapse = new LinearLayout(getContext);
-        collapse.setLayoutParams(layoutParamsLL);
-        collapse.setVerticalGravity(16);
-        collapse.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout kepala = new LinearLayout(getContext);
+        kepala.setOrientation(LinearLayout.HORIZONTAL);
+        kepala.setGravity(Gravity.CENTER_VERTICAL);
+        kepala.setBackground(Theme.sectionHeader(getContext));
+        kepala.setPadding(dp(8), 0, dp(8), 0);
+        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
 
-        final LinearLayout collapseSub = new LinearLayout(getContext);
-        collapseSub.setVerticalGravity(16);
-        collapseSub.setPadding(0, 5, 0, 5);
-        collapseSub.setOrientation(LinearLayout.VERTICAL);
-        collapseSub.setBackgroundColor(Color.parseColor("#222D38"));
-        collapseSub.setVisibility(View.GONE);
-        mCollapse = collapseSub;
+        View strip = new View(getContext);
+        strip.setBackgroundColor(Theme.ACCENT);
+        LinearLayout.LayoutParams stripParams = new LinearLayout.LayoutParams(dp(5), MATCH_PARENT);
+        stripParams.setMargins(0, dp(6), dp(8), dp(6));
+        kepala.addView(strip, stripParams);
 
-        final TextView textView = new TextView(getContext);
-        textView.setBackgroundColor(CollapseColor);
-        textView.setText("▽ " + text + " ▽");
-        textView.setGravity(Gravity.CENTER);
-        textView.setTextColor(TEXT_COLOR_2);
-        textView.setTypeface(null, Typeface.BOLD);
-        textView.setPadding(0, 20, 0, 20);
+        final TextView judul = Theme.teks(getContext, text, Theme.SECTION_SP, Theme.TITLE_TEXT);
+        judul.setSingleLine(true);
+        judul.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams judulParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        kepala.addView(judul, judulParams);
+
+        final Theme.Ikon panah = Theme.Ikon.polos(getContext,
+                expanded ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN,
+                Theme.TITLE_TEXT, 20);
+        kepala.addView(panah, new LinearLayout.LayoutParams(dp(20), dp(20)));
+
+        final LinearLayout isi = new LinearLayout(getContext);
+        isi.setOrientation(LinearLayout.VERTICAL);
+        isi.setPadding(dp(6), dp(6), dp(6), dp(6));
+        isi.setBackground(Theme.sectionBody(getContext));
+        mCollapse = isi;
+
+        final LinearLayout pembungkus = new LinearLayout(getContext);
+        pembungkus.setOrientation(LinearLayout.VERTICAL);
+        pembungkus.addView(new Theme.Zigzag(getContext),
+                new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
+        pembungkus.addView(isi);
 
         if (expanded) {
-            collapseSub.setVisibility(View.VISIBLE);
-            textView.setText("△ " + text + " △");
+            pembungkus.setVisibility(View.VISIBLE);
+            panah.setJenis(Theme.Ikon.PANAH_BAWAH);
+        } else {
+            pembungkus.setVisibility(View.GONE);
+            panah.setJenis(Theme.Ikon.PANAH_KANAN);
         }
 
-        textView.setOnClickListener(new View.OnClickListener() {
-            boolean isChecked = expanded;
+        kepala.setOnClickListener(new View.OnClickListener() {
+            boolean terbuka = expanded;
 
             @Override
             public void onClick(View v) {
-
-                boolean z = !isChecked;
-                isChecked = z;
-                if (z) {
-                    collapseSub.setVisibility(View.VISIBLE);
-                    textView.setText("△ " + text + " △");
-                    return;
-                }
-                collapseSub.setVisibility(View.GONE);
-                textView.setText("▽ " + text + " ▽");
+                terbuka = !terbuka;
+                pembungkus.setVisibility(terbuka ? View.VISIBLE : View.GONE);
+                panah.setJenis(terbuka ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN);
             }
         });
-        collapse.addView(textView);
-        collapse.addView(collapseSub);
-        linLayout.addView(collapse);
+
+        section.addView(kepala);
+        section.addView(pembungkus);
+        linLayout.addView(section);
     }
 
     @SuppressLint("SetTextI18n")
     private void PlayerList(LinearLayout linLayout, final String featName) {
         LinearLayout container = new LinearLayout(getContext);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(dp(10), dp(6), dp(10), dp(8));
+        container.setPadding(dp(2), dp(2), dp(2), dp(4));
 
         LinearLayout judulBaris = new LinearLayout(getContext);
         judulBaris.setOrientation(LinearLayout.HORIZONTAL);
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
+        judulBaris.setBackground(Theme.baris(getContext));
+        judulBaris.setPadding(dp(6), dp(5), dp(8), dp(5));
+        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(38));
+        paramsJudul.setMargins(0, dp(3), 0, dp(3));
+        judulBaris.setLayoutParams(paramsJudul);
 
-        TextView judul = new TextView(getContext);
-        judul.setText(featName);
-        judul.setTextColor(TEXT_COLOR_2);
-        judul.setTypeface(null, Typeface.BOLD);
-        judul.setTextSize(13);
-        judul.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
-        judulBaris.addView(judul);
+        Theme.Ikon ikon = new Theme.Ikon(getContext, Theme.Ikon.PLAYER);
+        judulBaris.addView(ikon, new LinearLayout.LayoutParams(dp(28), dp(28)));
 
-        final TextView jumlah = new TextView(getContext);
-        jumlah.setTextColor(TEXT_COLOR);
-        jumlah.setTextSize(11);
+        TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
+        LinearLayout.LayoutParams paramsJudulTeks = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        paramsJudulTeks.setMargins(dp(8), 0, dp(6), 0);
+        judulBaris.addView(judul, paramsJudulTeks);
+
+        final TextView jumlah = Theme.teks(getContext, "", Theme.DESC_SP, Theme.MUTED);
         judulBaris.addView(jumlah);
         container.addView(judulBaris);
 
-        TextView petunjuk = new TextView(getContext);
-        petunjuk.setText("Salin skin atau tendang tamu langsung dari sini");
-        petunjuk.setTextColor(ListMuted);
-        petunjuk.setTextSize(10);
-        petunjuk.setPadding(0, dp(2), 0, dp(6));
+        TextView petunjuk = Theme.teks(getContext, "Salin skin atau tendang tamu langsung dari sini",
+                Theme.DESC_SP, Theme.MUTED);
+        petunjuk.setPadding(dp(4), dp(2), dp(4), dp(6));
         container.addView(petunjuk);
 
         final LinearLayout daftar = new LinearLayout(getContext);
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
-        Button muatUlang = new Button(getContext);
-        muatUlang.setText("Muat ulang daftar");
-        muatUlang.setTextSize(11);
-        muatUlang.setAllCaps(false);
-        muatUlang.setTextColor(TEXT_COLOR_2);
-        muatUlang.setBackgroundColor(BTN_COLOR);
+        Button muatUlang = tombolKecil("Muat ulang daftar", Theme.ROW,
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        daftar.setTag(null);
+                        isiDaftarPemain(daftar, jumlah);
+                    }
+                });
         LinearLayout.LayoutParams paramsMuat =
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsMuat.setMargins(0, dp(6), 0, 0);
         muatUlang.setLayoutParams(paramsMuat);
-        muatUlang.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                daftar.setTag(null);
-                isiDaftarPemain(daftar, jumlah);
-            }
-        });
         container.addView(muatUlang);
 
         linLayout.addView(container);
@@ -1206,10 +1120,8 @@ public class Menu {
 
         if (data.length() == 0) {
             jumlah.setText("");
-            TextView kosong = new TextView(getContext);
-            kosong.setText("Tidak ada pemain di room ini");
-            kosong.setTextColor(ListMuted);
-            kosong.setTextSize(11);
+            TextView kosong = Theme.teks(getContext, "Tidak ada pemain di room ini",
+                    Theme.DESC_SP, Theme.MUTED);
             kosong.setGravity(Gravity.CENTER);
             kosong.setPadding(0, dp(14), 0, dp(14));
             daftar.addView(kosong);
@@ -1238,21 +1150,13 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsBaris.setMargins(0, 0, 0, dp(6));
         baris.setLayoutParams(paramsBaris);
-        GradientDrawable latar = new GradientDrawable();
-        latar.setCornerRadius(dp(8));
-        latar.setColor(ListRowColor);
-        latar.setStroke(1, ListRowStroke);
-        baris.setBackground(latar);
+        baris.setBackground(Theme.kartu(getContext));
 
         LinearLayout kepala = new LinearLayout(getContext);
         kepala.setOrientation(LinearLayout.HORIZONTAL);
         kepala.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView label = new TextView(getContext);
-        label.setText(nama);
-        label.setTextColor(TEXT_COLOR_2);
-        label.setTypeface(null, Typeface.BOLD);
-        label.setTextSize(12);
+        TextView label = Theme.teks(getContext, nama, Theme.ROW_SP, Theme.TEXT);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
@@ -1269,7 +1173,7 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsAksi.setMargins(0, dp(6), 0, 0);
         aksi.setLayoutParams(paramsAksi);
-        aksi.addView(tombolAksi("Salin skin", BtnON, new View.OnClickListener() {
+        aksi.addView(tombolKecil("Salin skin", Theme.ROW, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 boolean diterima;
@@ -1286,7 +1190,7 @@ public class Menu {
             }
         }));
         if ("tamu".equals(peran)) {
-            aksi.addView(tombolAksi("Tendang", BtnOFF, new View.OnClickListener() {
+            aksi.addView(tombolKecil("Tendang", Theme.ACCENT, new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     boolean diterima;
@@ -1305,16 +1209,21 @@ public class Menu {
         return baris;
     }
 
-    private Button tombolAksi(String teks, int warna, View.OnClickListener pendengar) {
+    private Button tombolKecil(String teks, int warnaGaris, View.OnClickListener pendengar) {
         Button tombol = new Button(getContext);
         tombol.setText(teks);
-        tombol.setTextSize(11);
+        tombol.setTextSize(13f);
         tombol.setAllCaps(false);
-        tombol.setTextColor(TEXT_COLOR_2);
-        tombol.setBackgroundColor(warna);
+        tombol.setTextColor(Theme.TITLE_TEXT);
+        tombol.setTypeface(Theme.font(getContext));
+        tombol.setBackground(Theme.tombolKecil(getContext, warnaGaris));
         tombol.setMinWidth(0);
         tombol.setMinimumWidth(0);
-        tombol.setPadding(dp(8), dp(4), dp(8), dp(4));
+        tombol.setMinHeight(0);
+        tombol.setMinimumHeight(0);
+        tombol.setPadding(dp(8), dp(6), dp(8), dp(6));
+        tombol.setStateListAnimator(null);
+        tombol.setElevation(0f);
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
         params.setMargins(0, 0, dp(6), 0);
@@ -1327,22 +1236,16 @@ public class Menu {
     private TextView lencanaPeran(String peran) {
         int warna;
         if ("host".equals(peran))
-            warna = ListHost;
+            warna = Theme.ACCENT;
         else if ("kamu".equals(peran))
-            warna = ListSelf;
+            warna = Theme.ICON_BOX;
         else
-            warna = ListGuest;
+            warna = Theme.TRACK;
 
-        TextView lencana = new TextView(getContext);
-        lencana.setText(peran);
-        lencana.setTextColor(Color.WHITE);
-        lencana.setTextSize(9);
-        lencana.setTypeface(null, Typeface.BOLD);
+        TextView lencana = Theme.teks(getContext, peran, 12f, Theme.TITLE_TEXT);
+        lencana.setGravity(Gravity.CENTER);
         lencana.setPadding(dp(6), dp(2), dp(6), dp(2));
-        GradientDrawable latar = new GradientDrawable();
-        latar.setCornerRadius(dp(6));
-        latar.setColor(warna);
-        lencana.setBackground(latar);
+        lencana.setBackground(Theme.lencana(getContext, warna));
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
         params.setMargins(dp(6), 0, 0, 0);
@@ -1351,21 +1254,31 @@ public class Menu {
     }
 
     private void Category(LinearLayout linLayout, String text) {
-        TextView textView = new TextView(getContext);
-        textView.setBackgroundColor(CategoryBG);
-        textView.setText(Html.fromHtml(text));
+        LinearLayout baris = new LinearLayout(getContext);
+        baris.setOrientation(LinearLayout.HORIZONTAL);
+        baris.setGravity(Gravity.CENTER_VERTICAL);
+        baris.setBackground(Theme.sectionHeader(getContext));
+        baris.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        params.setMargins(0, dp(8), 0, 0);
+        baris.setLayoutParams(params);
+
+        View strip = new View(getContext);
+        strip.setBackgroundColor(Theme.ACCENT);
+        LinearLayout.LayoutParams stripParams = new LinearLayout.LayoutParams(dp(5), dp(24));
+        stripParams.setMargins(0, dp(2), dp(8), dp(2));
+        baris.addView(strip, stripParams);
+
+        TextView textView = Theme.teks(getContext, Html.fromHtml(text), Theme.SECTION_SP, Theme.TITLE_TEXT);
         textView.setGravity(Gravity.CENTER);
-        textView.setTextColor(TEXT_COLOR_2);
-        textView.setTypeface(null, Typeface.BOLD);
-        textView.setPadding(0, 5, 0, 5);
-        linLayout.addView(textView);
+        textView.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+        baris.addView(textView);
+        linLayout.addView(baris);
     }
 
     private void TextView(LinearLayout linLayout, String text) {
-        TextView textView = new TextView(getContext);
-        textView.setText(Html.fromHtml(text));
-        textView.setTextColor(TEXT_COLOR_2);
-        textView.setPadding(10, 5, 10, 5);
+        TextView textView = Theme.teks(getContext, Html.fromHtml(text), Theme.DESC_SP, Theme.MUTED);
+        textView.setPadding(dp(10), dp(4), dp(10), dp(2));
         linLayout.addView(textView);
     }
 
@@ -1378,6 +1291,90 @@ public class Menu {
         linLayout.addView(wView);
     }
 
+    private LinearLayout baris(int jenisIkon, View isi, View kontrol) {
+        LinearLayout baris = new LinearLayout(getContext);
+        baris.setOrientation(LinearLayout.HORIZONTAL);
+        baris.setGravity(Gravity.CENTER_VERTICAL);
+        baris.setBackground(Theme.baris(getContext));
+        baris.setPadding(dp(6), dp(5), dp(8), dp(5));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        params.setMargins(0, dp(3), 0, dp(3));
+        baris.setLayoutParams(params);
+
+        baris.addView(new Theme.Ikon(getContext, jenisIkon),
+                new LinearLayout.LayoutParams(dp(32), dp(32)));
+
+        LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        isiParams.setMargins(dp(8), 0, dp(6), 0);
+        baris.addView(isi, isiParams);
+
+        if (kontrol != null)
+            baris.addView(kontrol, new LinearLayout.LayoutParams(dp(48), dp(28)));
+        return baris;
+    }
+
+    private LinearLayout barisPolos(View isi) {
+        LinearLayout baris = new LinearLayout(getContext);
+        baris.setOrientation(LinearLayout.VERTICAL);
+        baris.setBackground(Theme.baris(getContext));
+        baris.setPadding(dp(2), 0, dp(2), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        params.setMargins(0, dp(3), 0, dp(3));
+        baris.setLayoutParams(params);
+        baris.addView(isi, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        return baris;
+    }
+
+    private Button teksTombol(CharSequence teks) {
+        Button button = new Button(getContext);
+        button.setText(teks);
+        button.setTextColor(Theme.TITLE_TEXT);
+        button.setTextSize(Theme.ROW_SP);
+        button.setTypeface(Theme.font(getContext));
+        button.setAllCaps(false); //Disable caps to support html
+        button.setGravity(Gravity.CENTER);
+        button.setBackground(null);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(dp(6), 0, dp(6), 0);
+        button.setStateListAnimator(null);
+        button.setElevation(0f);
+        return button;
+    }
+
+    private LinearLayout kotakTombol(int jenisIkon, View isi) {
+        LinearLayout kotak = new LinearLayout(getContext);
+        kotak.setOrientation(LinearLayout.HORIZONTAL);
+        kotak.setGravity(Gravity.CENTER_VERTICAL);
+        kotak.setBackground(Theme.tombol(getContext));
+        kotak.setPadding(dp(6), 0, dp(6), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, dp(44));
+        params.setMargins(0, dp(6), 0, dp(6));
+        kotak.setLayoutParams(params);
+
+        kotak.addView(new Theme.Ikon(getContext, jenisIkon, Theme.ICON_BOX, 0, 0f,
+                        Theme.TITLE_TEXT, 26),
+                new LinearLayout.LayoutParams(dp(26), dp(26)));
+
+        LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f);
+        isiParams.setMargins(dp(6), 0, 0, 0);
+        kotak.addView(isi, isiParams);
+        return kotak;
+    }
+
+    private void tampilkanDialog(AlertDialog.Builder builder) {
+        AlertDialog dialog = builder.create();
+        if (overlayRequired) {
+            Objects.requireNonNull(dialog.getWindow()).setType(
+                    Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+        }
+        dialog.show();
+        if (dialog.getWindow() != null)
+            Theme.applyFont(dialog.getWindow().getDecorView());
+    }
+
     private boolean isViewCollapsed() {
         return rootFrame == null || mCollapsed.getVisibility() == View.VISIBLE;
     }
@@ -1388,7 +1385,7 @@ public class Menu {
     }
 
     private int dp(int i) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (float) i, getContext.getResources().getDisplayMetrics());
+        return (int) Theme.dp(getContext, i);
     }
 
     public void setVisibility(int view) {

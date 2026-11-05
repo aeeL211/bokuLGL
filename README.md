@@ -26,25 +26,9 @@ dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat ga
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
 Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
-**Belanja**
+**Room**
 
-- Item bisa dibeli tanpa Play Billing dan tanpa biaya, dan semua tile, model, serta melody
-  langsung terbuka.
-- Semua jenis slot penyimpanan terbuka tanpa batas.
-
-**Nama dan profil**
-
-- Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
-- Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
-- Kata terlarang tidak disaring lagi di perangkat ini.
-- Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
-
-**Room dan dunia**
-
-- Save world tetap bisa dilakukan walaupun host mematikan izinnya di awal.
 - Room bersandi bisa dimasuki tanpa mengisi sandi.
-- Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
-- Ukuran dunia baru bisa dipilih sampai 600x300.
 - **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
   masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Daftarnya diperbarui dari
   thread game tiap 0,4 detik dan disegarkan ulang di menu tiap 2 detik.
@@ -54,17 +38,33 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
   Tidak ada skin yang tersimpan tanpa tombol ditekan.
 - **Tendang** hanya muncul untuk tamu, dan mengirim paket tendang serta paket penghapusan tamu
   sebagai host, sama seperti tombol tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
+- Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
 
-**Akun**
+**Dunia**
 
+- Save world tetap bisa dilakukan walaupun host mematikan izinnya di awal.
+- Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
+- Ukuran dunia baru bisa dipilih sampai 600x300.
+
+**Nama**
+
+- Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
+
+**Profil**
+
+- Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
+- Kata terlarang tidak disaring lagi di perangkat ini.
+- Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
 - **Tampilkan detail akun yang disembunyikan** membuat baris privasi akun menampilkan detail
   yang dipilih pemiliknya, bukan menyembunyikannya.
 
-**Chat**
+**Belanja**
 
-- Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
+- Item bisa dibeli tanpa Play Billing dan tanpa biaya, dan semua tile, model, serta melody
+  langsung terbuka.
+- Semua jenis slot penyimpanan terbuka tanpa batas.
 
-**Senjata dan item**
+**Senjata dan Item**
 
 - Pistol dan buster menembak berulang selama tombol interaksi ditahan.
 - Buster selalu memakai amunisi terkuat.

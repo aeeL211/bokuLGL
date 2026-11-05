@@ -13,27 +13,29 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
     // Setiap kategori adalah satu header Collapse dan isinya memakai awalan
     // CollapseAdd_, jadi seluruh section tertutup saat menu dibuka dan tinggal
-    // dibuka satu per satu. Nomor fitur ditulis eksplisit di isi section.
+    // dibuka satu per satu. Nomor fitur ditulis eksplisit di isi section, jadi
+    // memindahkan sebuah baris ke section lain tidak menggeser nomor mana pun
+    // dan Changes() tetap memakai nomor yang sama.
     const char *features[] = {
+            OBFUSCATE("Collapse_Room"),
+            OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
+            OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
+            OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
+
+            OBFUSCATE("Collapse_Dunia"),
+            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
+
+            OBFUSCATE("Collapse_Nama"),
+            OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
+
+            OBFUSCATE("Collapse_Profil"),
+            OBFUSCATE("CollapseAdd_3_Toggle_True_Posisi skin bisa digeser jauh"),
+            OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
+            OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
+
             OBFUSCATE("Collapse_Belanja"),
             OBFUSCATE("CollapseAdd_0_Toggle_True_Beli item tanpa bayar"),
             OBFUSCATE("CollapseAdd_1_Toggle_True_Slot simpan tanpa batas"),
-
-            OBFUSCATE("Collapse_Nama dan Profil"),
-            OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
-            OBFUSCATE("CollapseAdd_3_Toggle_True_Posisi skin bisa digeser jauh"),
-            OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
-
-            OBFUSCATE("Collapse_Room dan Dunia"),
-            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
-            OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
-            OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
-
-            OBFUSCATE("Collapse_Akun"),
-            OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
-
-            OBFUSCATE("Collapse_Chat"),
-            OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
 
             OBFUSCATE("Collapse_Senjata dan Item"),
             OBFUSCATE("CollapseAdd_11_Toggle_True_Tembak terus selama ditahan"),

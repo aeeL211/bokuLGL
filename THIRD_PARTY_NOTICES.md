@@ -17,6 +17,14 @@ with the repository; everything else comes from the LGL template or the Android 
 The full license text is collected at build time into `THIRD_PARTY_LICENSES`, which is published
 next to `libboku.so` in the `bokuLGL-apk` artifact.
 
+## Itim
+
+- Upstream: https://github.com/google/fonts/tree/main/ofl/itim
+- License: SIL Open Font License 1.1. The license text is kept at
+  `app/src/main/assets/fonts/OFL.txt` and packaged as `assets/fonts/OFL.txt`.
+- How it is used: `app/src/main/assets/fonts/itim.ttf` is loaded at runtime through
+  `Typeface.createFromAsset` in `Theme.applyFont()`. The font file is not modified.
+
 ## LGL Mod Menu
 
 - Upstream: https://github.com/LGLTeam/Android-Mod-Menu
