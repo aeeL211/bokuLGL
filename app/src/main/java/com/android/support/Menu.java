@@ -76,7 +76,6 @@ public class Menu {
 
     RelativeLayout mCollapsed, mRootContainer;
     LinearLayout mExpanded, mods, mSettings, mCollapse;
-    LinearLayout.LayoutParams scrlLLExpanded, scrlLL;
     WindowManager mWindowManager;
     WindowManager.LayoutParams vmParams;
     ImageView startimage;
@@ -108,11 +107,6 @@ public class Menu {
     native boolean TendangPemain(String kunci, String nama);
 
     native boolean SalinSkinPemain(String kunci, String nama);
-
-    // Slider yang punya tombol reset, dikunci nomor fitur slider-nya.
-    final Map<Integer, SeekBar> sliderFitur = new LinkedHashMap<Integer, SeekBar>();
-    final Map<Integer, Integer> minFitur = new LinkedHashMap<Integer, Integer>();
-    final Map<Integer, Integer> desimalFitur = new LinkedHashMap<Integer, Integer>();
 
     // Kunci pemain yang kartunya sedang dipilih. Pilihan disimpan sebagai teks
     // kunci, bukan indeks, jadi tetap menunjuk pemain yang sama saat daftar
@@ -196,7 +190,7 @@ public class Menu {
         startimage.setScaleType(ImageView.ScaleType.FIT_XY);
         byte[] decode = Base64.decode(Icon(), 0);
         startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
-        ((ViewGroup.MarginLayoutParams) startimage.getLayoutParams()).topMargin = convertDipToPixels(10);
+        ((ViewGroup.MarginLayoutParams) startimage.getLayoutParams()).topMargin = dp(10);
         //Initialize event handlers for buttons, etc.
         startimage.setOnTouchListener(onTouchListener());
         startimage.setOnClickListener(new View.OnClickListener() {
@@ -266,8 +260,8 @@ public class Menu {
             }
         });
 
-        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.TUTUP, Theme.OUTLINE,
-                Theme.ACTIVE_BORDER, 3f, Theme.ACTIVE_BORDER, 30);
+        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.TUTUP, Theme.ICON_BOX,
+                Theme.TAN, 2f, Theme.TITLE_TEXT, 30);
         RelativeLayout.LayoutParams rlTutup = new RelativeLayout.LayoutParams(dp(30), dp(30));
         rlTutup.addRule(ALIGN_PARENT_RIGHT);
         rlTutup.addRule(RelativeLayout.CENTER_VERTICAL);
@@ -298,10 +292,7 @@ public class Menu {
 
         //********** Mod menu feature list **********
         scrollView = new ScrollView(context);
-        scrlLL = new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT));
-        scrlLLExpanded = new LinearLayout.LayoutParams(mExpanded.getLayoutParams());
-        scrlLLExpanded.weight = 1.0f;
-        scrollView.setLayoutParams(Preferences.isExpanded ? scrlLLExpanded : scrlLL);
+        scrollView.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT)));
         scrollView.setBackgroundColor(Theme.BODY);
         mods = new LinearLayout(context);
         mods.setOrientation(LinearLayout.VERTICAL);
@@ -313,7 +304,7 @@ public class Menu {
         footer.setBackground(Theme.footer(context));
         footer.setPadding(dp(8), dp(6), dp(8), dp(6));
 
-        final Button hideBtn = teksTombol("Sembunyikan (tahan = keluar)");
+        final Button hideBtn = teksTombol("Sembunyikan");
         hideBtn.setBackground(Theme.tombol(context));
         hideBtn.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
         hideBtn.setOnClickListener(new View.OnClickListener() {
@@ -322,16 +313,6 @@ public class Menu {
                 mCollapsed.setAlpha(0);
                 mExpanded.setVisibility(View.GONE);
                 Toast.makeText(view.getContext(), "Ikon disembunyikan. Ingat posisi ikon tersembunyi", Toast.LENGTH_LONG).show();
-            }
-        });
-        hideBtn.setOnLongClickListener(new View.OnLongClickListener() {
-            public boolean onLongClick(View view) {
-                Toast.makeText(view.getContext(), "Menu ditutup", Toast.LENGTH_LONG).show();
-                detakJalan = false;
-                handlerDetak.removeCallbacksAndMessages(null);
-                rootFrame.removeView(mRootContainer);
-                mWindowManager.removeView(rootFrame);
-                return false;
             }
         });
         footer.addView(hideBtn);
@@ -525,10 +506,6 @@ public class Menu {
                             strSplit.length > 5 ? Integer.parseInt(strSplit[5]) : 0);
                     break;
                 case "Button":
-                    // Tombol reset kecepatan/gravitasi (25, 26) sudah menyatu di
-                    // baris slider: ketuk angkanya untuk kembali ke bawaan.
-                    if (featNum == 25 || featNum == 26)
-                        break;
                     Button(linearLayout, featNum, strSplit[1]);
                     break;
                 case "ButtonOnOff":
@@ -598,15 +575,9 @@ public class Menu {
         switchR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton compoundButton, boolean bool) {
                 Preferences.changeFeatureBool(featName, featNum, bool);
-                switch (featNum) {
-                    case -1: //Save perferences
-                        Preferences.with(switchR.getContext()).writeBoolean(-1, bool);
-                        if (!bool) Preferences.with(switchR.getContext()).clear(); //Clear perferences if switched off
-                        break;
-                    case -3:
-                        Preferences.isExpanded = bool;
-                        scrollView.setLayoutParams(bool ? scrlLLExpanded : scrlLL);
-                        break;
+                if (featNum == -1) {
+                    Preferences.with(switchR.getContext()).writeBoolean(-1, bool);
+                    if (!bool) Preferences.with(switchR.getContext()).clear(); //Clear perferences if switched off
                 }
             }
         });
@@ -658,7 +629,7 @@ public class Menu {
         angka.setSingleLine(true);
         angka.setMinWidth(dp(44));
         angka.setPadding(dp(8), dp(2), dp(8), dp(2));
-        angka.setBackground(Theme.tombolKecil(getContext, Theme.BUTTON_BORDER));
+        angka.setBackground(Theme.tombolKecil(getContext));
         angka.setContentDescription(featName + ", ketuk untuk reset");
         judulBaris.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 
@@ -698,10 +669,6 @@ public class Menu {
             }
         });
 
-        sliderFitur.put(featNum, seekBar);
-        minFitur.put(featNum, min);
-        desimalFitur.put(featNum, desimal);
-
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
         linLayout.addView(baris(IkonFitur.pola(featNum), kolom, null));
@@ -714,31 +681,11 @@ public class Menu {
         return String.format(Locale.US, "%." + desimal + "f", nilai / 10f);
     }
 
-    /** Mengembalikan slider ke nilai bawaan lewat jalur yang sama dengan geseran. */
-    private void aturUlangSlider(int featNum, int nilai) {
-        SeekBar seekBar = sliderFitur.get(featNum);
-        Integer min = minFitur.get(featNum);
-        if (seekBar == null || min == null)
-            return;
-        seekBar.setProgress(Math.max(0, nilai - min));
-    }
-
     private void Button(LinearLayout linLayout, final int featNum, final String featName) {
         final Button button = teksTombol(Html.fromHtml(featName));
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 switch (featNum) {
-
-                    case 25:
-                        aturUlangSlider(23, 10);
-                        break;
-                    case 26:
-                        aturUlangSlider(24, 10);
-                        break;
-                    case -6:
-                        scrollView.removeView(mSettings);
-                        scrollView.addView(mods);
-                        break;
                     case -100:
                         stopChecking = true;
                         break;
@@ -760,8 +707,7 @@ public class Menu {
                 getContext.startActivity(intent);
             }
         });
-        // Tautan tidak punya nomor fitur, jadi ikonnya tetap roda gigi.
-        linLayout.addView(kotakTombol(IkonFitur.PENGATURAN, button));
+        linLayout.addView(kotakTombol(IkonFitur.TELEGRAM, button));
     }
 
     private void ButtonOnOff(LinearLayout linLayout, final int featNum, String featName, boolean switchedOn) {
@@ -1229,7 +1175,7 @@ public class Menu {
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
-        Button muatUlang = tombolKecil("Muat ulang daftar", Theme.STROKE_KONTROL,
+        Button muatUlang = tombolKecil("Muat ulang daftar",
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -1387,7 +1333,7 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsAksi.setMargins(0, dp(6), 0, 0);
         aksi.setLayoutParams(paramsAksi);
-        aksi.addView(tombolKecil("Salin skin", Theme.STROKE_KONTROL, new View.OnClickListener() {
+        aksi.addView(tombolKecil("Salin skin", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 boolean diterima;
@@ -1404,7 +1350,7 @@ public class Menu {
             }
         }));
         if ("tamu".equals(peran)) {
-            aksi.addView(tombolKecil("Tendang", Theme.STROKE_KONTROL, new View.OnClickListener() {
+            aksi.addView(tombolKecil("Tendang", new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     boolean diterima;
@@ -1431,14 +1377,14 @@ public class Menu {
         }
     }
 
-    private Button tombolKecil(String teks, int warnaGaris, View.OnClickListener pendengar) {
+    private Button tombolKecil(String teks, View.OnClickListener pendengar) {
         Button tombol = new Button(getContext);
         tombol.setText(teks);
         tombol.setTextSize(13f);
         tombol.setAllCaps(false);
         tombol.setTextColor(Theme.TITLE_TEXT);
         tombol.setTypeface(Theme.font(getContext));
-        tombol.setBackground(Theme.tombolKecil(getContext, warnaGaris));
+        tombol.setBackground(Theme.tombolKecil(getContext));
         tombol.setMinWidth(0);
         tombol.setMinimumWidth(0);
         tombol.setMinHeight(0);
@@ -1632,11 +1578,6 @@ public class Menu {
 
     private boolean isViewCollapsed() {
         return rootFrame == null || mCollapsed.getVisibility() == View.VISIBLE;
-    }
-
-    //For our image a little converter
-    private int convertDipToPixels(int i) {
-        return (int) ((((float) i) * getContext.getResources().getDisplayMetrics().density) + 0.5f);
     }
 
     private int dp(int i) {

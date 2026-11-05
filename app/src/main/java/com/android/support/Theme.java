@@ -37,7 +37,6 @@ public final class Theme {
     public static final int ICON_BOX = 0xFF81521D;
     public static final int TITLE_TEXT = 0xFFEABD7B;
     public static final int TEXT = 0xFF2B1A08;
-    public static final int OUTLINE = 0xFF271100;
     public static final int STROKE_KONTROL = 0xFFB28950;
     public static final int SWITCH_ON_TRACK = 0xFFF8B551;
     public static final int SWITCH_ON_KNOB = 0xFFFFF799;
@@ -161,7 +160,7 @@ public final class Theme {
 
     /** Bingkai luar panel: isi gelap 3dp, jadi padding view membentuk outline. */
     public static Drawable panel(Context context) {
-        return kotak(OUTLINE, RADIUS_PANEL, 0f, OUTLINE, context);
+        return kotak(ICON_BOX, RADIUS_PANEL, 0f, ICON_BOX, context);
     }
 
     public static Drawable header(Context context) {
@@ -219,20 +218,12 @@ public final class Theme {
         return kotak(TRACK, RADIUS_PANEL, TEBAL_KONTROL, STROKE_KONTROL, context);
     }
 
-    public static Drawable tombolKecil(Context context, int warnaGaris) {
+    public static Drawable tombolKecil(Context context) {
         return kotak(ICON_BOX, RADIUS_PANEL, 2f, BUTTON_BORDER, context);
     }
 
     public static Drawable lencana(Context context, int warna) {
         return kotak(warna, RADIUS_PANEL, 0f, warna, context);
-    }
-
-    public static Drawable kotakIkon(Context context) {
-        return kotak(ICON_BOX, RADIUS_IKON, 0f, ICON_BOX, context);
-    }
-
-    public static Drawable kotakTutup(Context context) {
-        return kotak(OUTLINE, RADIUS_PANEL, 2f, ACTIVE_BORDER, context);
     }
 
     /**
@@ -271,10 +262,6 @@ public final class Theme {
         private final Context ctx;
         private final int warnaBump;
         private final boolean menggantung;
-
-        public Zigzag(Context context) {
-            this(context, HEADER, true);
-        }
 
         public Zigzag(Context context, int warnaBump, boolean menggantung) {
             super(context);
@@ -316,10 +303,6 @@ public final class Theme {
         private final int ukuranDp;
         private boolean pakaiKotak = true;
         private int jenis;
-
-        public Ikon(Context context, int jenis) {
-            this(context, jenis, ICON_BOX, 0, 0f, TITLE_TEXT, 32);
-        }
 
         public Ikon(Context context, int jenis, int warnaKotak, int warnaGaris,
                     float tebalGarisDp, int warnaGlyph, int ukuranDp) {

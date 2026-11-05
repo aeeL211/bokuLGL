@@ -84,8 +84,8 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Game memakai fisika
   tile sendiri, bukan `Rigidbody2D`, jadi yang diskalakan adalah tambahan turun `speed.y` tiap
   frame; lompatan dan pendaratan tidak disentuh.
-- Tombol **Reset kecepatan** dan **Reset gravitasi** mengembalikan slider ke 1,0x sekaligus
-  mengirim nilai bawaannya ke hook.
+- Ketuk angka di kanan slider **Kecepatan pemain** atau **Gravitasi pemain** untuk
+  mengembalikan slider ke 1,0x sekaligus mengirim nilai bawaannya ke hook.
 - **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Nilainya adalah
   koordinat tile dunia yang dipakai fisika game, bukan piksel layar. Rumus konversinya
   `dunia = offset + tile * skala`, dengan skala dan offset dikalibrasi dari perpindahan pemain

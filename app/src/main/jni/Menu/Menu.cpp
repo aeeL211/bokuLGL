@@ -39,8 +39,8 @@ jboolean antrekanAksi(JNIEnv *env, jstring kunci, jstring nama, bool salin) {
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
     (void)thiz;
     (void)ctx;
-    setText(env, title, OBFUSCATE("Boku Boku"));
-    setText(env, subtitle, OBFUSCATE("Mod oleh Febrian/Ian | Semua fitur aktif sejak awal, kecuali No Clip"));
+    setText(env, title, OBFUSCATE("BOKU Menu 1.1"));
+    setText(env, subtitle, OBFUSCATE("Pertama kali buat mod menu, aku harap ini lancar"));
 }
 
 jstring Icon(JNIEnv *env, jobject thiz) {
@@ -72,9 +72,7 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
     const char *features[] = {
             OBFUSCATE("Category_Pengaturan"),
             OBFUSCATE("-1_Toggle_Simpan preferensi"), //-1 is checked on Preferences.java
-            OBFUSCATE("-3_Toggle_Tinggi menu otomatis"),
-            OBFUSCATE("Category_Menu"),
-            OBFUSCATE("-6_Button_Tutup pengaturan"),
+            OBFUSCATE("ButtonLink_Lapor bug/saran_https://t.me/aeeL2"),
     };
 
     int Total_Feature = (sizeof features /

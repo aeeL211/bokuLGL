@@ -12,7 +12,7 @@ public class Preferences {
     private static SharedPreferences sharedPreferences;
     private static Preferences prefsInstance;
     public static Context context;
-    public static boolean loadPref, isExpanded;
+    public static boolean loadPref;
 
     private static final String LENGTH = "_length";
     private static final String DEFAULT_STRING_VALUE = "";
@@ -76,9 +76,6 @@ public class Preferences {
         boolean bool = Preferences.with(context).readBoolean(featureNum, bDef);
         if (featureNum == -1) {
             loadPref = bool;
-        }
-        if (featureNum == -3) {
-            isExpanded = bool;
         }
         if (loadPref || featureNum < 0) {
             bDef = bool;
