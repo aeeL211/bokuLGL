@@ -10,7 +10,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.net.Uri;
@@ -51,8 +50,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
@@ -98,9 +101,23 @@ public class Menu {
     // Section Room: daftar tamu berformat "nama<TAB>kunci<TAB>peran" per baris.
     native String DaftarPemain();
 
+    // Posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY". Bagian tile
+    // kosong bila game tidak menyediakan field tile.
+    native String PosisiPemain();
+
     native boolean TendangPemain(String kunci, String nama);
 
     native boolean SalinSkinPemain(String kunci, String nama);
+
+    // Slider yang punya tombol reset, dikunci nomor fitur slider-nya.
+    final Map<Integer, SeekBar> sliderFitur = new LinkedHashMap<Integer, SeekBar>();
+    final Map<Integer, Integer> minFitur = new LinkedHashMap<Integer, Integer>();
+    final Map<Integer, Integer> desimalFitur = new LinkedHashMap<Integer, Integer>();
+
+    // Kunci pemain yang kartunya sedang dipilih. Pilihan disimpan sebagai teks
+    // kunci, bukan indeks, jadi tetap menunjuk pemain yang sama saat daftar
+    // berubah urutan dan otomatis dilepas saat pemain itu keluar.
+    String kunciTerpilih;
 
     //Here we write the code for our Menu
     // Reference: https://www.androidhive.info/2016/11/android-floating-widget-like-facebook-chat-head/
@@ -178,8 +195,8 @@ public class Menu {
         title.setPadding(dp(78), 0, dp(78), 0);
         title.setLayoutParams(rlTitle);
 
-        Theme.Ikon setelan = new Theme.Ikon(context, Theme.Ikon.SLIDER, Theme.ICON_BOX,
-                Theme.ROW, 2f, Theme.TITLE_TEXT, 30);
+        Theme.Ikon setelan = new Theme.Ikon(context, Theme.Ikon.SETELAN, Theme.ICON_BOX,
+                Theme.TAN, 2f, Theme.TITLE_TEXT, 30);
         RelativeLayout.LayoutParams rlSetelan = new RelativeLayout.LayoutParams(dp(30), dp(30));
         rlSetelan.addRule(ALIGN_PARENT_RIGHT);
         rlSetelan.addRule(RelativeLayout.CENTER_VERTICAL);
@@ -203,8 +220,8 @@ public class Menu {
             }
         });
 
-        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.CLOSE, Theme.OUTLINE,
-                Theme.ACTIVE_BORDER, 3f, Color.WHITE, 30);
+        Theme.Ikon tutup = new Theme.Ikon(context, Theme.Ikon.TUTUP, Theme.OUTLINE,
+                Theme.ACTIVE_BORDER, 3f, Theme.ACTIVE_BORDER, 30);
         RelativeLayout.LayoutParams rlTutup = new RelativeLayout.LayoutParams(dp(30), dp(30));
         rlTutup.addRule(ALIGN_PARENT_RIGHT);
         rlTutup.addRule(RelativeLayout.CENTER_VERTICAL);
@@ -239,7 +256,7 @@ public class Menu {
         scrlLLExpanded = new LinearLayout.LayoutParams(mExpanded.getLayoutParams());
         scrlLLExpanded.weight = 1.0f;
         scrollView.setLayoutParams(Preferences.isExpanded ? scrlLLExpanded : scrlLL);
-        scrollView.setBackground(new Theme.VineDrawable(context));
+        scrollView.setBackgroundColor(Theme.BODY);
         mods = new LinearLayout(context);
         mods.setOrientation(LinearLayout.VERTICAL);
         mods.setPadding(dp(10), dp(6), dp(10), dp(8));
@@ -454,7 +471,10 @@ public class Menu {
                     Switch(linearLayout, featNum, strSplit[1], switchedOn);
                     break;
                 case "SeekBar":
-                    SeekBar(linearLayout, featNum, strSplit[1], Integer.parseInt(strSplit[2]), Integer.parseInt(strSplit[3]));
+                    SeekBar(linearLayout, featNum, strSplit[1], Integer.parseInt(strSplit[2]),
+                            Integer.parseInt(strSplit[3]),
+                            strSplit.length > 4 ? Integer.parseInt(strSplit[4]) : Integer.parseInt(strSplit[2]),
+                            strSplit.length > 5 ? Integer.parseInt(strSplit[5]) : 0);
                     break;
                 case "Button":
                     Button(linearLayout, featNum, strSplit[1]);
@@ -503,6 +523,10 @@ public class Menu {
                     subFeat++;
                     PlayerList(linearLayout, strSplit[1]);
                     break;
+                case "LivePos":
+                    subFeat++;
+                    BarisPosisi(linearLayout, strSplit[1]);
+                    break;
                 case "RichTextView":
                     subFeat++;
                     TextView(linearLayout, strSplit[1]);
@@ -516,7 +540,7 @@ public class Menu {
     }
 
     private void Switch(LinearLayout linLayout, final int featNum, final String featName, boolean swiOn) {
-        final Theme.PixelSwitch switchR = new Theme.PixelSwitch(getContext);
+        final AnimatedSwitch switchR = new AnimatedSwitch(getContext);
         switchR.setContentDescription(featName);
         switchR.setChecked(Preferences.loadPrefBool(featName, featNum, swiOn));
         switchR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -536,7 +560,7 @@ public class Menu {
         });
 
         TextView label = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
-        final LinearLayout baris = baris(Theme.Ikon.TOGGLE, label, switchR);
+        final LinearLayout baris = baris(IkonFitur.pola(featNum), label, switchR);
         baris.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 switchR.toggle();
@@ -545,25 +569,36 @@ public class Menu {
         linLayout.addView(baris);
     }
 
-    private void SeekBar(LinearLayout linLayout, final int featNum, final String featName, final int min, int max) {
-        int loadedProg = Preferences.loadPrefInt(featName, featNum);
+    private void SeekBar(LinearLayout linLayout, final int featNum, final String featName,
+                         final int min, final int max, final int def, final int desimal) {
+        // Nilai 0 adalah nilai sah untuk gravitasi, jadi default hanya dipakai
+        // bila fitur ini belum pernah disimpan.
+        boolean tersimpan = Preferences.sudahDisimpan(featName, featNum);
+        int nilaiAwal = tersimpan ? Preferences.loadPrefInt(featName, featNum) : def;
+        if (nilaiAwal < min)
+            nilaiAwal = min;
+        if (nilaiAwal > max)
+            nilaiAwal = max;
+        if (!tersimpan)
+            Preferences.changeFeatureInt(featName, featNum, nilaiAwal);
+
         LinearLayout kolom = new LinearLayout(getContext);
         kolom.setOrientation(LinearLayout.VERTICAL);
         kolom.setGravity(Gravity.CENTER_VERTICAL);
 
         final TextView textView = Theme.teks(getContext, "", Theme.ROW_SP, Theme.TEXT);
         textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
-                + ((loadedProg == 0) ? min : loadedProg) + "</font>"));
+                + nilaiTeks(nilaiAwal, desimal) + "</font>"));
 
         SeekBar seekBar = new SeekBar(getContext);
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
         seekBar.setThumb(Theme.seekbarThumb(getContext));
         seekBar.setThumbOffset(0);
         seekBar.setPadding(dp(2), dp(4), dp(2), dp(4));
-        seekBar.setMax(max);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            seekBar.setMin(min); //setMin for Oreo and above
-        seekBar.setProgress((loadedProg == 0) ? min : loadedProg);
+        // Rentang digeser ke nol supaya setMin yang hanya ada di Oreo ke atas
+        // tidak dibutuhkan.
+        seekBar.setMax(max - min);
+        seekBar.setProgress(nilaiAwal - min);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onStartTrackingTouch(SeekBar seekBar) {
             }
@@ -572,17 +607,40 @@ public class Menu {
             }
 
             public void onProgressChanged(SeekBar seekBar, int i, boolean z) {
-                //if progress is greater than minimum, don't go below. Else, set progress
-                seekBar.setProgress(i < min ? min : i);
-                Preferences.changeFeatureInt(featName, featNum, i < min ? min : i);
+                int nilai = i + min;
+                if (nilai < min)
+                    nilai = min;
+                if (nilai > max)
+                    nilai = max;
+                Preferences.changeFeatureInt(featName, featNum, nilai);
                 textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
-                        + (i < min ? min : i) + "</font>"));
+                        + nilaiTeks(nilai, desimal) + "</font>"));
             }
         });
 
+        sliderFitur.put(featNum, seekBar);
+        minFitur.put(featNum, min);
+        desimalFitur.put(featNum, desimal);
+
         kolom.addView(textView, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(34)));
-        linLayout.addView(baris(Theme.Ikon.SLIDER, kolom, null));
+        linLayout.addView(baris(IkonFitur.pola(featNum), kolom, null));
+    }
+
+    /** Angka slider ditampilkan dengan jumlah desimal yang ditulis di feature list. */
+    private String nilaiTeks(int nilai, int desimal) {
+        if (desimal <= 0)
+            return String.valueOf(nilai);
+        return String.format(Locale.US, "%." + desimal + "f", nilai / 10f);
+    }
+
+    /** Mengembalikan slider ke nilai bawaan lewat jalur yang sama dengan geseran. */
+    private void aturUlangSlider(int featNum, int nilai) {
+        SeekBar seekBar = sliderFitur.get(featNum);
+        Integer min = minFitur.get(featNum);
+        if (seekBar == null || min == null)
+            return;
+        seekBar.setProgress(Math.max(0, nilai - min));
     }
 
     private void Button(LinearLayout linLayout, final int featNum, final String featName) {
@@ -591,6 +649,12 @@ public class Menu {
             public void onClick(View v) {
                 switch (featNum) {
 
+                    case 25:
+                        aturUlangSlider(23, 10);
+                        break;
+                    case 26:
+                        aturUlangSlider(24, 10);
+                        break;
                     case -6:
                         scrollView.removeView(mSettings);
                         scrollView.addView(mods);
@@ -603,7 +667,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(Theme.Ikon.BUTTON, button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
     }
 
     private void ButtonLink(LinearLayout linLayout, final String featName, final String url) {
@@ -616,14 +680,15 @@ public class Menu {
                 getContext.startActivity(intent);
             }
         });
-        linLayout.addView(kotakTombol(Theme.Ikon.BUTTON, button));
+        // Tautan tidak punya nomor fitur, jadi ikonnya tetap roda gigi.
+        linLayout.addView(kotakTombol(IkonFitur.PENGATURAN, button));
     }
 
     private void ButtonOnOff(LinearLayout linLayout, final int featNum, String featName, boolean switchedOn) {
         final Button button = teksTombol("");
         final String finalfeatName = featName.replace("OnOff_", "");
         boolean isOn = Preferences.loadPrefBool(featName, featNum, switchedOn);
-        final LinearLayout kotak = kotakTombol(Theme.Ikon.TOGGLE, button);
+        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum), button);
         if (isOn) {
             button.setText(Html.fromHtml(finalfeatName + ": ON"));
             kotak.setBackground(Theme.tombolAktif(getContext));
@@ -697,7 +762,7 @@ public class Menu {
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-        linLayout.addView(baris(Theme.Ikon.SPINNER, spinner, null));
+        linLayout.addView(baris(IkonFitur.pola(featNum), spinner, null));
     }
 
     private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
@@ -769,7 +834,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
     }
 
     private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
@@ -842,7 +907,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
     }
 
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
@@ -896,7 +961,7 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(Theme.Ikon.TEXT, button));
+        linLayout.addView(kotakTombol(IkonFitur.pola(featNum), button));
     }
 
     private void CheckBox(LinearLayout linLayout, final int featNum, final String featName, boolean switchedOn) {
@@ -917,7 +982,7 @@ public class Menu {
                 }
             }
         });
-        linLayout.addView(barisPolos(checkBox));
+        linLayout.addView(baris(IkonFitur.pola(featNum), checkBox, null));
     }
 
     @SuppressLint("SetTextI18n")
@@ -1033,6 +1098,25 @@ public class Menu {
         linLayout.addView(section);
     }
 
+    private static final class KartuPemain {
+        final String nama;
+        final String peran;
+        final LinearLayout view;
+
+        KartuPemain(String nama, String peran, LinearLayout view) {
+            this.nama = nama;
+            this.peran = peran;
+            this.view = view;
+        }
+    }
+
+    /** Keadaan satu daftar pemain: kartu yang sudah ada dan isi terakhirnya. */
+    private static final class IsiDaftar {
+        final Map<String, KartuPemain> kartu = new LinkedHashMap<String, KartuPemain>();
+        String data;
+        TextView kosong;
+    }
+
     @SuppressLint("SetTextI18n")
     private void PlayerList(LinearLayout linLayout, final String featName) {
         LinearLayout container = new LinearLayout(getContext);
@@ -1042,25 +1126,27 @@ public class Menu {
         LinearLayout judulBaris = new LinearLayout(getContext);
         judulBaris.setOrientation(LinearLayout.HORIZONTAL);
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
-        judulBaris.setBackground(Theme.baris(getContext));
-        judulBaris.setPadding(dp(6), dp(5), dp(8), dp(5));
-        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(38));
+        judulBaris.setBackground(Theme.baris(getContext()));
+        judulBaris.setPadding(0, 0, dp(8), 0);
+        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
         paramsJudul.setMargins(0, dp(3), 0, dp(3));
         judulBaris.setLayoutParams(paramsJudul);
 
-        Theme.Ikon ikon = new Theme.Ikon(getContext, Theme.Ikon.PLAYER);
-        judulBaris.addView(ikon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        LinearLayout.LayoutParams paramsIkon = new LinearLayout.LayoutParams(dp(40), dp(40));
+        paramsIkon.setMargins(0, dp(4), dp(8), dp(4));
+        judulBaris.addView(new IkonFitur(getContext(), IkonFitur.PEMAIN, true), paramsIkon);
 
         TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
         LinearLayout.LayoutParams paramsJudulTeks = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        paramsJudulTeks.setMargins(dp(8), 0, dp(6), 0);
+        paramsJudulTeks.setMargins(dp(4), 0, dp(6), 0);
         judulBaris.addView(judul, paramsJudulTeks);
 
         final TextView jumlah = Theme.teks(getContext, "", Theme.DESC_SP, Theme.MUTED);
         judulBaris.addView(jumlah);
         container.addView(judulBaris);
 
-        TextView petunjuk = Theme.teks(getContext, "Salin skin atau tendang tamu langsung dari sini",
+        TextView petunjuk = Theme.teks(getContext,
+                "Ketuk kartu untuk memilih. Salin skin atau tendang tamu dari sini.",
                 Theme.DESC_SP, Theme.MUTED);
         petunjuk.setPadding(dp(4), dp(2), dp(4), dp(6));
         container.addView(petunjuk);
@@ -1069,11 +1155,13 @@ public class Menu {
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
-        Button muatUlang = tombolKecil("Muat ulang daftar", Theme.ROW,
+        Button muatUlang = tombolKecil("Muat ulang daftar", Theme.STROKE_KONTROL,
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        daftar.setTag(null);
+                        IsiDaftar isi = (IsiDaftar) daftar.getTag();
+                        if (isi != null)
+                            isi.data = null;
                         isiDaftarPemain(daftar, jumlah);
                     }
                 });
@@ -1086,64 +1174,106 @@ public class Menu {
         linLayout.addView(container);
         isiDaftarPemain(daftar, jumlah);
 
-        // Tamu bisa masuk atau keluar kapan saja, jadi daftar menyegarkan
-        // dirinya selama menu masih menempel di jendela.
-        daftar.postDelayed(new Runnable() {
+        // Detak satu detik hanya membaca data native saat section ini benar-benar
+        // terlihat. Saat menu ditutup atau section dilipat, tidak ada salinan
+        // daftar yang dibuat dan tidak ada view yang disentuh.
+        pantauSaatTerpasang(daftar, new Runnable() {
             @Override
             public void run() {
-                if (daftar.getWindowToken() == null) {
-                    return;
-                }
-                isiDaftarPemain(daftar, jumlah);
-                daftar.postDelayed(this, 2000);
+                if (daftar.isShown())
+                    isiDaftarPemain(daftar, jumlah);
+                daftar.postDelayed(this, 1000);
             }
-        }, 2000);
+        });
     }
 
     @SuppressLint("SetTextI18n")
     private void isiDaftarPemain(LinearLayout daftar, TextView jumlah) {
-        String data;
-        try {
-            data = DaftarPemain();
-        } catch (Throwable t) {
-            data = null;
+        String data = ambilDaftarPemain();
+
+        IsiDaftar isi = (IsiDaftar) daftar.getTag();
+        if (isi == null) {
+            isi = new IsiDaftar();
+            daftar.removeAllViews();
+            daftar.setTag(isi);
         }
-        if (data == null)
-            data = "";
-
-        // Daftar ini dibangun ulang tiap 2 detik, jadi isi yang sama dilewati.
-        // Tanpa itu, baris dan tombolnya diganti terus dan ketukan yang jatuh
-        // bertepatan dengan penggantian bisa hilang.
-        if (data.equals(daftar.getTag()))
+        if (data.equals(isi.data))
             return;
-        daftar.setTag(data);
-        daftar.removeAllViews();
+        isi.data = data;
 
-        if (data.length() == 0) {
-            jumlah.setText("");
+        Map<String, String[]> baru = new LinkedHashMap<String, String[]>();
+        for (String baris : data.split("\n")) {
+            String[] bagian = baris.split("\t", 3);
+            if (bagian.length < 3 || bagian[0].length() == 0 || bagian[1].length() == 0)
+                continue;
+            baru.put(bagian[1], new String[]{bagian[0], bagian[2]});
+        }
+
+        // Pemain yang keluar dibuang lebih dulu. Bila yang pergi adalah pilihan
+        // sekarang, pilihannya dilepas supaya tidak menunjuk kunci yang hilang.
+        Iterator<Map.Entry<String, KartuPemain>> it = isi.kartu.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, KartuPemain> entri = it.next();
+            if (!baru.containsKey(entri.getKey())) {
+                daftar.removeView(entri.getValue().view);
+                if (entri.getKey().equals(kunciTerpilih))
+                    kunciTerpilih = null;
+                it.remove();
+            }
+        }
+
+        if (isi.kosong != null) {
+            daftar.removeView(isi.kosong);
+            isi.kosong = null;
+        }
+
+        int indeks = 0;
+        for (Map.Entry<String, String[]> entri : baru.entrySet()) {
+            String kunci = entri.getKey();
+            String nama = entri.getValue()[0];
+            String peran = entri.getValue()[1];
+            KartuPemain kartu = isi.kartu.get(kunci);
+            if (kartu != null && kartu.nama.equals(nama) && kartu.peran.equals(peran)) {
+                // Isi sama: kartunya dipakai lagi, hanya urutannya yang dirapikan.
+                if (daftar.getChildAt(indeks) != kartu.view) {
+                    daftar.removeView(kartu.view);
+                    daftar.addView(kartu.view, Math.min(indeks, daftar.getChildCount()));
+                }
+            } else {
+                LinearLayout view = barisPemain(isi, kunci, nama, peran);
+                if (kartu != null)
+                    daftar.removeView(kartu.view);
+                daftar.addView(view, Math.min(indeks, daftar.getChildCount()));
+                isi.kartu.put(kunci, new KartuPemain(nama, peran, view));
+            }
+            indeks++;
+        }
+
+        jumlah.setText(indeks == 0 ? "" : indeks + " pemain");
+        if (indeks == 0) {
             TextView kosong = Theme.teks(getContext, "Tidak ada pemain di room ini",
                     Theme.DESC_SP, Theme.MUTED);
             kosong.setGravity(Gravity.CENTER);
             kosong.setPadding(0, dp(14), 0, dp(14));
             daftar.addView(kosong);
-            return;
+            isi.kosong = kosong;
         }
+    }
 
-        int barisTerisi = 0;
-        for (String baris : data.split("\n")) {
-            String[] bagian = baris.split("\t", 3);
-            if (bagian.length < 3 || bagian[0].length() == 0 || bagian[1].length() == 0)
-                continue;
-            daftar.addView(barisPemain(bagian[0], bagian[1], bagian[2]));
-            barisTerisi++;
+    private String ambilDaftarPemain() {
+        try {
+            String data = DaftarPemain();
+            return data == null ? "" : data;
+        } catch (Throwable t) {
+            return "";
         }
-        jumlah.setText(barisTerisi + " pemain");
     }
 
     // Satu pemain menjadi satu kartu: nama dan lencana perannya di atas, aksi di
-    // bawah. Baris sendiri tidak punya aksi karena menyalin atau menendang diri
+    // bawah. Kartu sendiri tidak punya aksi karena menyalin atau menendang diri
     // sendiri tidak berguna, dan tendang hanya ada untuk tamu.
-    private LinearLayout barisPemain(final String nama, final String kunci, String peran) {
+    private LinearLayout barisPemain(final IsiDaftar isi, final String kunci,
+                                     final String nama, String peran) {
         LinearLayout baris = new LinearLayout(getContext);
         baris.setOrientation(LinearLayout.VERTICAL);
         baris.setPadding(dp(10), dp(8), dp(10), dp(8));
@@ -1151,9 +1281,11 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsBaris.setMargins(0, 0, 0, dp(6));
         baris.setLayoutParams(paramsBaris);
-        baris.setBackground(Theme.kartu(getContext));
+        baris.setBackground(kunci.equals(kunciTerpilih)
+                ? Theme.kartuTerpilih(getContext())
+                : Theme.kartu(getContext()));
 
-        LinearLayout kepala = new LinearLayout(getContext);
+        LinearLayout kepala = new LinearLayout(getContext());
         kepala.setOrientation(LinearLayout.HORIZONTAL);
         kepala.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -1165,16 +1297,24 @@ public class Menu {
         kepala.addView(lencanaPeran(peran));
         baris.addView(kepala);
 
+        baris.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                kunciTerpilih = kunci.equals(kunciTerpilih) ? null : kunci;
+                segarkanPilihan(isi);
+            }
+        });
+
         if ("kamu".equals(peran))
             return baris;
 
-        LinearLayout aksi = new LinearLayout(getContext);
+        LinearLayout aksi = new LinearLayout(getContext());
         aksi.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams paramsAksi =
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsAksi.setMargins(0, dp(6), 0, 0);
         aksi.setLayoutParams(paramsAksi);
-        aksi.addView(tombolKecil("Salin skin", Theme.ROW, new View.OnClickListener() {
+        aksi.addView(tombolKecil("Salin skin", Theme.STROKE_KONTROL, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 boolean diterima;
@@ -1191,7 +1331,7 @@ public class Menu {
             }
         }));
         if ("tamu".equals(peran)) {
-            aksi.addView(tombolKecil("Tendang", Theme.ACCENT, new View.OnClickListener() {
+            aksi.addView(tombolKecil("Tendang", Theme.STROKE_KONTROL, new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     boolean diterima;
@@ -1208,6 +1348,14 @@ public class Menu {
         }
         baris.addView(aksi);
         return baris;
+    }
+
+    private void segarkanPilihan(IsiDaftar isi) {
+        for (Map.Entry<String, KartuPemain> entri : isi.kartu.entrySet()) {
+            entri.getValue().view.setBackground(entri.getKey().equals(kunciTerpilih)
+                    ? Theme.kartuTerpilih(getContext())
+                    : Theme.kartu(getContext()));
+        }
     }
 
     private Button tombolKecil(String teks, int warnaGaris, View.OnClickListener pendengar) {
@@ -1293,38 +1441,95 @@ public class Menu {
         linLayout.addView(wView);
     }
 
-    private LinearLayout baris(int jenisIkon, View isi, View kontrol) {
+    /**
+     * Baris kontrol: kotak ikon menempel di tepi kiri (hanya sudut kiri yang
+     * melengkung), label di tengah, dan kontrol di kanan. Tinggi minimum 48dp
+     * supaya seluruh baris nyaman disentuh.
+     */
+    private LinearLayout baris(String[] pola, View isi, View kontrol) {
         LinearLayout baris = new LinearLayout(getContext);
         baris.setOrientation(LinearLayout.HORIZONTAL);
         baris.setGravity(Gravity.CENTER_VERTICAL);
         baris.setBackground(Theme.baris(getContext));
-        baris.setPadding(dp(6), dp(5), dp(8), dp(5));
+        baris.setMinimumHeight(dp(48));
+        baris.setPadding(0, 0, dp(8), 0);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         params.setMargins(0, dp(3), 0, dp(3));
         baris.setLayoutParams(params);
 
-        baris.addView(new Theme.Ikon(getContext, jenisIkon),
-                new LinearLayout.LayoutParams(dp(32), dp(32)));
+        LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        ikonParams.setMargins(0, dp(4), dp(8), dp(4));
+        baris.addView(new IkonFitur(getContext(), pola, true), ikonParams);
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        isiParams.setMargins(dp(8), 0, dp(6), 0);
+        isiParams.setMargins(0, dp(4), dp(6), dp(4));
         baris.addView(isi, isiParams);
 
         if (kontrol != null)
-            baris.addView(kontrol, new LinearLayout.LayoutParams(dp(48), dp(28)));
+            baris.addView(kontrol, new LinearLayout.LayoutParams(dp(52), dp(48)));
         return baris;
     }
 
-    private LinearLayout barisPolos(View isi) {
-        LinearLayout baris = new LinearLayout(getContext);
-        baris.setOrientation(LinearLayout.VERTICAL);
-        baris.setBackground(Theme.baris(getContext));
-        baris.setPadding(dp(2), 0, dp(2), 0);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        params.setMargins(0, dp(3), 0, dp(3));
-        baris.setLayoutParams(params);
-        baris.addView(isi, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
-        return baris;
+    /**
+     * Baris posisi pemain: koordinat tile dan dunia dibaca ulang tiap detik
+     * selama barisnya terlihat.
+     */
+    private void BarisPosisi(LinearLayout linLayout, String featName) {
+        LinearLayout kolom = new LinearLayout(getContext);
+        kolom.setOrientation(LinearLayout.VERTICAL);
+
+        TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
+        final TextView nilai = Theme.teks(getContext, "Menunggu posisi...", Theme.DESC_SP,
+                Theme.ICON_BOX);
+        kolom.addView(judul);
+        kolom.addView(nilai);
+
+        final LinearLayout baris = baris(IkonFitur.POSISI, kolom, null);
+        linLayout.addView(baris);
+
+        pantauSaatTerpasang(baris, new Runnable() {
+            @Override
+            public void run() {
+                if (baris.isShown())
+                    nilai.setText(PosisiTeks());
+                baris.postDelayed(this, 1000);
+            }
+        });
+    }
+
+    /** Menjalankan detak hanya selama view menempel di jendela. */
+    private void pantauSaatTerpasang(final View view, final Runnable detak) {
+        view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                view.removeCallbacks(detak);
+                view.postDelayed(detak, 1000);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                view.removeCallbacks(detak);
+            }
+        });
+        view.postDelayed(detak, 1000);
+    }
+
+    private String PosisiTeks() {
+        String data;
+        try {
+            data = PosisiPemain();
+        } catch (Throwable t) {
+            data = null;
+        }
+        if (data == null || data.length() == 0)
+            return "Posisi belum terbaca";
+
+        String[] bagian = data.split("\t", -1);
+        if (bagian.length < 4)
+            return "Posisi belum terbaca";
+        if (bagian[0].length() > 0 && bagian[1].length() > 0)
+            return "Tile " + bagian[0] + ", " + bagian[1] + "   Dunia " + bagian[2] + ", " + bagian[3];
+        return "Dunia " + bagian[2] + ", " + bagian[3];
     }
 
     private Button teksTombol(CharSequence teks) {
@@ -1346,22 +1551,21 @@ public class Menu {
         return button;
     }
 
-    private LinearLayout kotakTombol(int jenisIkon, View isi) {
+    private LinearLayout kotakTombol(String[] pola, View isi) {
         LinearLayout kotak = new LinearLayout(getContext);
         kotak.setOrientation(LinearLayout.HORIZONTAL);
         kotak.setGravity(Gravity.CENTER_VERTICAL);
         kotak.setBackground(Theme.tombol(getContext));
-        kotak.setPadding(dp(6), 0, dp(6), 0);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, dp(44));
+        kotak.setPadding(0, 0, dp(8), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
         params.setMargins(0, dp(6), 0, dp(6));
         kotak.setLayoutParams(params);
 
-        kotak.addView(new Theme.Ikon(getContext, jenisIkon, Theme.ICON_BOX, 0, 0f,
-                        Theme.TITLE_TEXT, 26),
-                new LinearLayout.LayoutParams(dp(26), dp(26)));
+        LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        ikonParams.setMargins(0, dp(4), dp(8), dp(4));
+        kotak.addView(new IkonFitur(getContext(), pola, true), ikonParams);
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f);
-        isiParams.setMargins(dp(6), 0, 0, 0);
         kotak.addView(isi, isiParams);
         return kotak;
     }

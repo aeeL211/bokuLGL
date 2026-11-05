@@ -20,6 +20,8 @@ int RegisterMenu(JNIEnv *env) {
                                                    "()[Ljava/lang/String;"),                                                          reinterpret_cast<void *>(GetFeatureList)},
             {OBFUSCATE("DaftarPemain"),    OBFUSCATE(
                                                    "()Ljava/lang/String;"),                                                           reinterpret_cast<void *>(DaftarPemain)},
+            {OBFUSCATE("PosisiPemain"),    OBFUSCATE(
+                                                   "()Ljava/lang/String;"),                                                           reinterpret_cast<void *>(PosisiPemain)},
             {OBFUSCATE("TendangPemain"),   OBFUSCATE(
                                                    "(Ljava/lang/String;Ljava/lang/String;)Z"),                                        reinterpret_cast<void *>(TendangPemain)},
             {OBFUSCATE("SalinSkinPemain"), OBFUSCATE(

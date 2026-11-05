@@ -98,6 +98,13 @@ jstring DaftarPemain(JNIEnv *env, jclass clazz) {
     return env->NewStringUTF(teks);
 }
 
+jstring PosisiPemain(JNIEnv *env, jclass clazz) {
+    (void) clazz;
+    char teks[128] = {};
+    salinPosisiPemain(teks, sizeof(teks));
+    return env->NewStringUTF(teks);
+}
+
 jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
     (void) clazz;
     return antrekanAksi(env, kunci, nama, false);

@@ -25,6 +25,10 @@ struct Fitur {
     std::atomic<bool> efek{true};
     std::atomic<bool> terpental{true};
     std::atomic<bool> noClip{false};
+    // Nilai slider dikirim menu sebagai bilangan bulat: kecepatan 5..50 berarti
+    // 0,5x..5,0x dan gravitasi 0..30 berarti 0,0x..3,0x. Nilai 10 adalah 1,0x.
+    std::atomic<int32_t> kecepatanPemain{10};
+    std::atomic<int32_t> gravitasiPemain{10};
 };
 
 // Tombol menu berjalan di thread UI, sedangkan posisi dibaca hook update pemain

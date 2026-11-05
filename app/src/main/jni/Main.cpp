@@ -17,18 +17,14 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     // memindahkan sebuah baris ke section lain tidak menggeser nomor mana pun
     // dan Changes() tetap memakai nomor yang sama.
     const char *features[] = {
-            OBFUSCATE("Collapse_Room"),
+            OBFUSCATE("Collapse_Room dan Dunia"),
             OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
+            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
             OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
-            OBFUSCATE("Collapse_Dunia"),
-            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
-
-            OBFUSCATE("Collapse_Nama"),
+            OBFUSCATE("Collapse_Nama dan Profil"),
             OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
-
-            OBFUSCATE("Collapse_Profil"),
             OBFUSCATE("CollapseAdd_3_Toggle_True_Posisi skin bisa digeser jauh"),
             OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
             OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
@@ -49,8 +45,13 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
             OBFUSCATE("Collapse_Gerak"),
             OBFUSCATE("CollapseAdd_19_Toggle_Tembus dinding"),
-            OBFUSCATE("CollapseAdd_20_InputValue_600_Titik X tujuan"),
-            OBFUSCATE("CollapseAdd_21_InputValue_300_Titik Y tujuan"),
+            OBFUSCATE("CollapseAdd_23_SeekBar_Kecepatan pemain_5_50_10_1"),
+            OBFUSCATE("CollapseAdd_25_Button_Reset kecepatan (1.0x)"),
+            OBFUSCATE("CollapseAdd_24_SeekBar_Gravitasi pemain_0_30_10_1"),
+            OBFUSCATE("CollapseAdd_26_Button_Reset gravitasi (1.0x)"),
+            OBFUSCATE("CollapseAdd_LivePos_Posisi pemain"),
+            OBFUSCATE("CollapseAdd_20_InputValue_1024_Titik X tujuan"),
+            OBFUSCATE("CollapseAdd_21_InputValue_1024_Titik Y tujuan"),
             OBFUSCATE("CollapseAdd_22_Button_Pindahkan pemain"),
     };
 
@@ -135,6 +136,18 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             break;
         case 22:
             permintaanTeleport().menunggu.store(true);
+            break;
+        case 23:
+            sakelar.kecepatanPemain.store(value);
+            break;
+        case 24:
+            sakelar.gravitasiPemain.store(value);
+            break;
+        case 25:
+            sakelar.kecepatanPemain.store(10);
+            break;
+        case 26:
+            sakelar.gravitasiPemain.store(10);
             break;
         default:
             break;

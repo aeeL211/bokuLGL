@@ -26,6 +26,10 @@ constexpr size_t kKarakterNama = 96;
 constexpr double kJedaAksi = 0.25;
 constexpr double kJedaDaftar = 0.4;
 
+// Daftar hanya disusun selama menu memintanya. Menu membaca sekali per detik,
+// jadi salinan tetap hidup dua detik sesudah pembacaan terakhir.
+constexpr double kMasaDaftar = 2.0;
+
 Field fieldTamuManajer = {};
 Field fieldMultiManajer = {};
 Field fieldPemainManajer = {};
@@ -52,6 +56,7 @@ pthread_mutex_t kunciDaftar = PTHREAD_MUTEX_INITIALIZER;
 PemainRingkas daftarPemain[kMaksPemain] = {};
 int jumlahPemain = 0;
 double berikutDaftar = 0.0;
+std::atomic<double> daftarDiminta{0.0};
 
 enum class JenisAksi { Tendang, Salin };
 
@@ -137,7 +142,7 @@ int32_t tamuDiRoom(void* manajerTamu) {
 // untuk tamu: menendang keduanya mengakhiri room.
 void segarkanDaftar(void* manajerTamu) {
     double sekarang = sekarangDetik();
-    if (sekarang < berikutDaftar)
+    if (sekarang < berikutDaftar || sekarang > daftarDiminta.load())
         return;
     berikutDaftar = sekarang + kJedaDaftar;
 
@@ -310,6 +315,7 @@ void salinDaftarPemain(char* keluaran, size_t ukuran) {
     if (!keluaran || ukuran == 0)
         return;
     keluaran[0] = '\0';
+    daftarDiminta.store(sekarangDetik() + kMasaDaftar);
 
     PemainRingkas salinan[kMaksPemain] = {};
     int jumlah = 0;

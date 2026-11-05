@@ -26,12 +26,18 @@ dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat ga
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
 Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
-**Room**
+**Room dan Dunia**
 
 - Room bersandi bisa dimasuki tanpa mengisi sandi.
+- Save world tetap bisa dilakukan walaupun host mematikan izinnya di awal.
+- Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
+- Ukuran dunia baru bisa dipilih sampai 600x300.
 - **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
-  masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Daftarnya diperbarui dari
-  thread game tiap 0,4 detik dan disegarkan ulang di menu tiap 2 detik.
+  masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Menu membacanya sekali per
+  detik selama barisnya terlihat; salinan di sisi native hanya disusun selama dua detik sesudah
+  pembacaan terakhir, jadi daftar berhenti disegarkan saat menu ditutup atau section dilipat.
+  Kartu yang isinya tidak berubah dipakai ulang, dan pilihan pemain disimpan sebagai kunci
+  sehingga tetap menunjuk orang yang sama saat urutan daftar berubah.
 - **Salin skin** menulis model pemain yang dipilih ke slot model kosong pertama, lalu menulis
   nama pemiliknya ke `Name.txt` slot itu. Model dicatat di memori saat tamu masuk room; bila
   tamu itu sudah ada sebelum mod dimuat, modelnya dibaca dari daftar tamu yang sedang hidup.
@@ -40,18 +46,9 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
   sebagai host, sama seperti tombol tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
 - Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
 
-**Dunia**
-
-- Save world tetap bisa dilakukan walaupun host mematikan izinnya di awal.
-- Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
-- Ukuran dunia baru bisa dipilih sampai 600x300.
-
-**Nama**
+**Nama dan Profil**
 
 - Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
-
-**Profil**
-
 - Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
 - Kata terlarang tidak disaring lagi di perangkat ini.
 - Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
@@ -81,24 +78,43 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - **No Clip** (tembus dinding dan benda) melebarkan kotak gerak pemain ke kiri, kanan, dan atas
   pada tiap pemeriksaan fisika tile, jadi dinding dan langit-langit tidak lagi menahan langkah.
   Sisi bawah dibiarkan apa adanya supaya lantai tetap dipijak.
+- **Kecepatan pemain** 0,5x sampai 5,0x dengan langkah 0,1x dan bawaan 1,0x. Nilai ini mengalikan
+  `speed.x` pemain lokal pada tiap frame. Nilai yang pernah ditulis dibagi lagi sebelum dikali,
+  jadi pengali tidak menumpuk saat game menulis ulang kecepatannya sendiri.
+- **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Game memakai fisika
+  tile sendiri, bukan `Rigidbody2D`, jadi yang diskalakan adalah tambahan turun `speed.y` tiap
+  frame; lompatan dan pendaratan tidak disentuh.
+- Tombol **Reset kecepatan** dan **Reset gravitasi** mengembalikan slider ke 1,0x sekaligus
+  mengirim nilai bawaannya ke hook.
 - **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Nilainya adalah
-  koordinat tile dunia yang dipakai fisika game, sama seperti yang ditulis game saat teleport
-  bawaan, bukan piksel layar. Tombol hanya menitipkan permintaan; posisi baru dipasang di hook
-  update pemain pada thread game, sekaligus memindahkan seluruh titik jejak fisika, menolkan
-  kecepatan, dan meminta tile di sekitar badan dibangun ulang supaya pemain tidak kembali ke
-  tempat semula.
+  koordinat tile dunia yang dipakai fisika game, bukan piksel layar. Rumus konversinya
+  `dunia = offset + tile * skala`, dengan skala dan offset dikalibrasi dari perpindahan pemain
+  sendiri; sumbu yang belum punya sampel meminjam skala sumbu lain, dan bila keduanya belum
+  terkalibrasi skalanya dianggap 1.
+  Teleport menulis `Physics.pos.tile` dan `Physics.pos.world` sekaligus, memindahkan seluruh
+  titik jejak `_world`, menolkan kecepatan, lalu meminta tile di sekitar badan dibangun ulang.
+  Sebelum, target, sesudah, dan selisih setiap teleport dicatat di log.
+- Baris **Posisi pemain** menampilkan tile dan koordinat dunia pemain sekali per detik selama
+  barisnya terlihat.
 
 ## Batasan
 
 - Hanya `arm64-v8a`. Tidak ada komponen Java tambahan, Xposed, atau LSPosed di luar menu LGL.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
+- Kecepatan dan gravitasi hanya berlaku untuk pemain lokal. Nilai asli game tidak disimpan
+  permanen: pada 1,0x hook berhenti mengalikan, dan setelah respawn atau pindah scene hook membaca
+  nilai baru dari game.
 - Cache model tamu menyimpan 16 tamu terakhir. Tamu yang sudah keluar tidak lagi ditawarkan,
   dan model tamu yang tidak ada di cache maupun di daftar tamu hidup dilaporkan lewat toast
   "belum tercatat", bukan disalin dengan tebakan.
 - Teleport tidak memeriksa isi tile di titik tujuan, jadi memindahkan pemain ke dalam dinding bisa
-  membuat fisika game mendorongnya keluar lagi.
+  membuat fisika game mendorongnya keluar lagi. Input di luar -1024..1024 ditolak dan dicatat di
+  log.
 - Koordinat Teleport adalah tile dunia. Titik yang jauh di luar peta bisa membuat pemain jatuh
   tanpa lantai di bawahnya.
+- Kalibrasi skala tile per sumbu butuh perpindahan minimal satu tile. Sebelum itu tebakan awal
+  dari rasio dunia/tile dipakai bila pemain berada di atas tile 1; kalau tidak, sumbu itu
+  meminjam skala sumbu lain atau memakai skala 1 sehingga titik tujuan bisa meleset.
 
 ## Build
 

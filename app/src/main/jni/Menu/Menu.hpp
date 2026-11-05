@@ -15,8 +15,11 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject);
 
 jobjectArray GetFeatureList(JNIEnv *env, jobject context);
 
-// Section Room: teks "nama<TAB>kunci" per tamu, dipisah newline.
+// Section Room: teks "nama<TAB>kunci<TAB>peran" per tamu, dipisah newline.
 jstring DaftarPemain(JNIEnv *env, jclass clazz);
+
+// Baris posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY".
+jstring PosisiPemain(JNIEnv *env, jclass clazz);
 
 jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
 
