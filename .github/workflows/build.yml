@@ -1,0 +1,218 @@
+# Builds the mod menu APK: the menu, the ported hooks and the statically linked
+# ShadowHook end up in one lib/arm64-v8a/libboku.so inside the APK.
+#
+# A push to main builds. The workflow can also be started by hand to change the
+# ShadowHook tag or the runner image without editing this file.
+name: Build bokuLGL
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      shadowhook_tag:
+        description: "ShadowHook upstream tag to fetch (built statically, never vendored)"
+        type: string
+        default: "v2.0.1"
+      runner:
+        description: "Runner image label"
+        type: string
+        default: "ubuntu-24.04"
+
+env:
+  # Pinned in one place. 1.1.1 is known broken (error 12 on many devices,
+  # upstream issue #91); the tag is checked against shadowhook.h below.
+  SHADOWHOOK_TAG: ${{ inputs.shadowhook_tag || 'v2.0.1' }}
+
+jobs:
+  format:
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install clang-format
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang-format
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files 'app/src/main/jni/boku/*.cpp' \
+            'app/src/main/jni/boku/*.h' 'app/src/main/jni/boku/hooks/*.cpp')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No C++ sources tracked"
+            exit 0
+          fi
+          echo "Checking ${#files[@]} files"
+          if clang-format --dry-run --Werror "${files[@]}"; then
+            echo "Formatting OK"
+            exit 0
+          fi
+          clang-format -i "${files[@]}"
+          git diff > "$RUNNER_TEMP/format.patch"
+          {
+            echo "### clang-format differences"
+            echo 'Download the `format-patch` artifact and run `git apply format.patch`.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::clang-format found differences, see the format-patch artifact"
+          exit 1
+
+      - name: Upload format patch
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: format-patch
+          path: ${{ runner.temp }}/format.patch
+          if-no-files-found: ignore
+
+  build:
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1.6.0
+        with:
+          ndk-version: r30
+          add-to-path: false
+
+      - name: Setup JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Fetch ShadowHook source
+        run: |
+          set -euo pipefail
+          TAG="$SHADOWHOOK_TAG"
+          URL="https://github.com/bytedance/android-inline-hook/archive/refs/tags/${TAG}.tar.gz"
+          curl -fsSL --retry 3 -o shadowhook.tar.gz "$URL"
+          mkdir -p shadowhook
+          tar -xzf shadowhook.tar.gz -C shadowhook --strip-components=1
+
+          HDR="shadowhook/shadowhook/src/main/cpp/include/shadowhook.h"
+          [ -f "$HDR" ] || { echo "::error::shadowhook.h missing after extract"; exit 1; }
+
+          # A moved or mistyped tag must fail here, not at link time.
+          WANT="${TAG#v}"
+          HAVE="$(sed -n 's/^#define SHADOWHOOK_VERSION "\(.*\)"$/\1/p' "$HDR")"
+          echo "ShadowHook tag=$TAG header version=$HAVE"
+          [ "$HAVE" = "$WANT" ] || { echo "::error::tag $TAG does not contain version $WANT"; exit 1; }
+
+          # The JNI shim would define a second JNI_OnLoad; the static build in
+          # CMakeLists.txt excludes it and links everything else.
+          [ -f "shadowhook/shadowhook/src/main/cpp/sh_jni.c" ] \
+            || { echo "::error::upstream layout changed"; exit 1; }
+          ls shadowhook/shadowhook/src/main/cpp/arch/arm64/sh_glue.S
+
+      - name: Patch ShadowHook for static linking
+        run: |
+          set -euo pipefail
+          # A statically linked ShadowHook still dlopen()s libshadowhook_nothing.so
+          # inside sh_linker_init() to locate the soinfo field offsets. This build
+          # ships one file, so the stub is absent and the scan fails, which would
+          # abort shadowhook_init() with errno 12 before any hook is installed.
+          # Only shadowhook_hook_func_addr() is used here: the dlopen tracking that
+          # needs those offsets is unused, and every consumer of them is gated by
+          # soinfo_offset_scan_ok, so linker init must not be fatal.
+          python3 - <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path("shadowhook/shadowhook/src/main/cpp/shadowhook.c")
+          source = path.read_text()
+          original = (
+              "      if (__predict_false(0 != sh_linker_init())) "
+              "GOTO_END(SHADOWHOOK_ERRNO_INIT_LINKER);\n"
+          )
+          patched = (
+              "      // Static build ships no libshadowhook_nothing.so: linker init is optional.\n"
+              "      (void)sh_linker_init();\n"
+          )
+          if source.count(original) != 1:
+              sys.exit("patch: sh_linker_init call not found, upstream layout changed")
+
+          path.write_text(source.replace(original, patched))
+          print("patched", path)
+          PY
+          grep -n "sh_linker_init" shadowhook/shadowhook/src/main/cpp/shadowhook.c
+
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon -Porg.gradle.jvmargs=-Xmx3g assembleDebug \
+            -PSHADOWHOOK_ROOT="$GITHUB_WORKSPACE/shadowhook" \
+            -PBOKU_BUILD_SEED="$GITHUB_RUN_ID" \
+            -PBOKU_BUILD_COMMIT="$GITHUB_SHA"
+
+      - name: Verify native library inside the APK
+        run: |
+          set -euo pipefail
+          RE="${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          APK="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          [ -n "$APK" ] || { echo "::error::no debug APK was produced"; exit 1; }
+          echo "APK: $APK"
+
+          mkdir -p apkcheck
+          unzip -o -q "$APK" 'lib/arm64-v8a/libboku.so' -d apkcheck
+          SO="apkcheck/lib/arm64-v8a/libboku.so"
+          [ -f "$SO" ] || { echo "::error::libboku.so is missing from the APK"; exit 1; }
+
+          "$RE" -h "$SO" | grep -E "Class:|Machine:"
+          "$RE" -h "$SO" | grep -Eq "Class:[[:space:]]+ELF64[[:space:]]*$" \
+            || { echo "::error::wrong ELF class"; exit 1; }
+          "$RE" -h "$SO" | grep -Eq "Machine:[[:space:]]+AArch64[[:space:]]*$" \
+            || { echo "::error::wrong machine"; exit 1; }
+          "$RE" -d "$SO" | grep -E "NEEDED|SONAME" || true
+
+          if "$RE" -d "$SO" | grep -q "libshadowhook"; then
+            echo "::error::libboku.so still needs libshadowhook.so"
+            exit 1
+          fi
+
+          if "$RE" --dyn-syms "$SO" | grep -Eq " (shadowhook_|sh_)[A-Za-z0-9_]"; then
+            echo "::error::ShadowHook symbols are exported"
+            "$RE" --dyn-syms "$SO" | grep -E " (shadowhook_|sh_)[A-Za-z0-9_]"
+            exit 1
+          fi
+
+          # ART resolves JNI_OnLoad from the loaded library itself.
+          "$RE" --dyn-syms "$SO" | grep -Eq "FUNC +GLOBAL +DEFAULT +[0-9]+ JNI_OnLoad$" \
+            || { echo "::error::libboku.so does not export JNI_OnLoad"; exit 1; }
+
+      - name: Collect artifact
+        run: |
+          set -euo pipefail
+          OUT="dist"
+          mkdir -p "$OUT"
+          APK="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          cp "$APK" "$OUT/bokuLGL-debug.apk"
+          cp "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib/arm64-v8a/libboku.so" \
+            "$OUT/libboku.so" 2>/dev/null || true
+          cp "shadowhook/LICENSE" "$OUT/LICENSE-shadowhook"
+          {
+            echo "ShadowHook ${SHADOWHOOK_TAG}"
+            echo "  MIT, https://github.com/bytedance/android-inline-hook"
+            echo
+            cat "$OUT/LICENSE-shadowhook"
+            echo
+            echo "xdl (bundled with ShadowHook)"
+            echo "  Apache License 2.0"
+            cat "shadowhook/shadowhook/src/main/cpp/third_party/xdl/LICENSE"
+            echo
+            echo "linux-syscall-support (bundled with ShadowHook)"
+            echo "  Apache License 2.0"
+            cat "shadowhook/shadowhook/src/main/cpp/third_party/lss/LICENSE"
+          } > "$OUT/THIRD_PARTY_LICENSES"
+          rm -f "$OUT/LICENSE-shadowhook"
+          ls -l "$OUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: bokuLGL-apk
+          path: dist/
+          if-no-files-found: error

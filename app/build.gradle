@@ -1,0 +1,54 @@
+apply plugin: 'com.android.application'
+
+// ShadowHook is fetched by CI and passed in; nothing is vendored.
+def shadowhookRoot = project.findProperty("SHADOWHOOK_ROOT") ?: System.getenv("SHADOWHOOK_ROOT") ?: ""
+
+android {
+    compileSdkVersion 36
+    defaultConfig {
+        applicationId "com.android.support"
+        // The native library and the IL2CPP API require Android 7.0 or newer.
+        minSdkVersion 24
+        targetSdkVersion 36
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            //noinspection ChromeOsAbiSupport
+            abiFilters 'arm64-v8a'
+        }
+    }
+    android.buildFeatures.buildConfig = true
+    buildTypes {
+        release {
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            shrinkResources false
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/jni/CMakeLists.txt')
+            arguments "-DSHADOWHOOK_ROOT=" + shadowhookRoot,
+                    "-DBOKU_BUILD_SEED=" + (project.findProperty("BOKU_BUILD_SEED") ?: "1"),
+                    "-DBOKU_BUILD_COMMIT=" + (project.findProperty("BOKU_BUILD_COMMIT") ?: "dev"),
+                    "-DBOKU_LIB_NAME=libboku.so"
+        }
+    }
+    namespace 'com.android.support'
+}
+
+// CI installs the NDK itself; pointing AGP at it avoids downloading another copy.
+def ndkHome = System.getenv("ANDROID_NDK_HOME")
+if (ndkHome) {
+    android.ndkPath = ndkHome
+}
+
+//dependencies must be placed below 'android' brackets to get it work on AIDE
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
