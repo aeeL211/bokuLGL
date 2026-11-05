@@ -2,8 +2,8 @@
 
 Mod menu untuk **Boku Boku** (`com.pixticle.bokuboku`), dibangun dari template
 [LGL Mod Menu](https://github.com/LGLTeam/Android-Mod-Menu). Seluruh hook ditulis di C++ dan
-memakai IL2CPP lewat nama kelas dan method, bukan offset. Hook memakai Dobby yang sudah
-disertakan template dan ikut di dalam satu `libboku.so`.
+memakai IL2CPP lewat nama kelas dan method, bukan offset. Hook memakai ShadowHook v2.0.1 yang
+sumbernya ikut di dalam repo dan dikompilasi menjadi satu `libboku.so`.
 
 Hanya `arm64-v8a`, Android 7.0 ke atas.
 
@@ -119,8 +119,10 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 ## Build
 
 Build hanya lewat GitHub Actions (`.github/workflows/build.yml`): NDK r30, CMake, lalu
-`assembleDebug`. Dobby sudah ada di `app/src/main/jni/Dobby/arm64-v8a/libdobby.a`, jadi tidak ada
-unduhan tambahan saat build. Hasilnya `bokuLGL-debug.apk` dengan `lib/arm64-v8a/libboku.so`.
+`assembleDebug`. Sumber ShadowHook v2.0.1 sudah ada di `app/src/main/jni/ShadowHook/` dan
+dikompilasi menjadi arsip statis di dalam `libboku.so`, jadi tidak ada unduhan tambahan saat
+build dan tidak ada `libshadowhook.so` terpisah. Hasilnya `bokuLGL-debug.apk` dengan
+`lib/arm64-v8a/libboku.so`.
 
 Parameter CMake yang dipakai CI:
 
@@ -132,7 +134,7 @@ Parameter CMake yang dipakai CI:
 Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting saat start:
 
 ```
-Dobby siap
+ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Scan selesai: 85 dari 85 metode ditemukan
 Field model skin OK
 Field daftar tamu OK

@@ -28,8 +28,6 @@ void* pekerja(void*) {
     catatLingkungan();
     if (!inisialisasiTarget())
         return nullptr;
-    if (!inisialisasiHook())
-        return nullptr;
 
     // Menu menanyakan IsGameLibLoaded() sebelum menampilkan daftar fitur, jadi
     // penantian ini sekaligus menandai bahwa libil2cpp.so sudah tersedia.
@@ -42,12 +40,17 @@ void* pekerja(void*) {
         LOGE("API IL2CPP tidak ditemukan");
         return nullptr;
     }
-    // Unity memasang penangannya sendiri saat startup, jadi ambil alih hanya
-    // setelah itu selesai dan sambungkan kembali ke sana dari penangan crash.
-    // Probe dipasang setelah tabel modul yang dipakai untuk menyelesaikannya
-    // dipotret.
+    // ShadowHook memasang penangan SIGSEGV/SIGBUS sendiri untuk proteksi saat
+    // menulis kode. Penangan crash mod dipasang lebih dulu, lalu ShadowHook
+    // diinisialisasi setelah Unity selesai memasang penangannya, sehingga
+    // rantainya bytesig -> log mod -> penangan Unity. Probe dipasang setelah
+    // tabel modul yang dipakai untuk menyelesaikannya dipotret.
     pasangLogCrash();
-    pasangProbeCrash();
+    // Kegagalan inisialisasi tidak menghentikan mod: setiap hook akan mencatat
+    // kegagalannya sendiri, fitur yang hanya membaca field tetap berjalan, dan
+    // permainan dibiarkan pada perilaku vanilla.
+    if (inisialisasiHook())
+        pasangProbeCrash();
     // libil2cpp dan pustaka pendampingnya selesai dimuat sebelum titik ini,
     // jadi tabel modul dipotret ulang supaya frame crash nanti bisa dinamai.
     segarkanModul();

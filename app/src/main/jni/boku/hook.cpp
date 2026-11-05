@@ -1,19 +1,46 @@
 #include "hook.h"
 
-#include "Dobby/dobby.h"
+#include <shadowhook.h>
+
 #include "log.h"
 
 namespace {
 
 int jumlahTerpasang = 0;
+bool hookSiap = false;
+// ShadowHook menyimpan hasil init-nya sendiri, jadi kegagalan di sini bersifat
+// permanen. Diingat supaya hook berikutnya tidak mencoba lagi dan tidak
+// membanjiri logcat dengan pesan yang sama.
+bool hookGagal = false;
+
+#ifdef BOKU_HOOK_DEBUG
+constexpr bool kDebugHook = true;
+#else
+constexpr bool kDebugHook = false;
+#endif
 
 } // namespace
 
-// Dobby tidak punya mode global yang harus dipilih sebelum hook pertama, jadi
-// inisialisasi hanya menandai backend siap. Setiap DobbyHook tetap memeriksa
-// hasilnya sendiri.
+// ShadowHook harus diinisialisasi sekali sebelum hook pertama. Mode multi
+// dipakai karena setiap proxy di sini selalu memanggil aslinya lewat
+// Target::orig: biayanya sama dengan mode unique, tetapi dua pemasangan pada
+// satu alamat tetap diterima dan dirantai, bukan gagal. Mode shared tidak
+// dipakai karena proxy-nya wajib memakai SHADOWHOOK_CALL_PREV dan
+// SHADOWHOOK_STACK_SCOPE.
 bool inisialisasiHook() {
-    LOGI("Dobby siap");
+    if (hookSiap)
+        return true;
+    if (hookGagal)
+        return false;
+
+    int kode = shadowhook_init(SHADOWHOOK_MODE_MULTI, kDebugHook);
+    if (kode != SHADOWHOOK_ERRNO_OK) {
+        hookGagal = true;
+        LOGE("ShadowHook gagal diinisialisasi: %d %s", kode, shadowhook_to_errmsg(kode));
+        return false;
+    }
+    hookSiap = true;
+    LOGI("ShadowHook siap (%s, mode multi)", shadowhook_get_version());
     return true;
 }
 
@@ -22,18 +49,22 @@ bool pasangHook(Target& entri, void* pengganti) {
         LOGE("Target tidak ditemukan: %s.%s", entri.cls, entri.name);
         return false;
     }
-    // Dua berkas bisa menamai method yang sama, dan Dobby menolak alamat yang
-    // sudah pernah di-hook. Target mengingat pemasangan pertamanya dan
-    // melaporkan pengulangan sebagai terpasang, bukan menimpa trampoline yang
-    // sudah dipanggil berkas pertama.
+    // Dua berkas bisa menamai method yang sama. Target mengingat pemasangan
+    // pertamanya supaya rantai multi tidak memanggil proxy yang sama dua kali.
     if (entri.terpasang)
         return true;
-    int kode = DobbyHook(entri.addr, reinterpret_cast<dobby_dummy_func_t>(pengganti),
-                         reinterpret_cast<dobby_dummy_func_t*>(&entri.orig));
-    if (kode != 0) {
-        LOGE("Hook gagal: %s.%s (Dobby %d)", entri.cls, entri.name, kode);
+    if (!inisialisasiHook())
+        return false;
+
+    void* stub = shadowhook_hook_func_addr_2(entri.addr, pengganti, &entri.orig,
+                                             SHADOWHOOK_HOOK_WITH_MULTI_MODE);
+    if (!stub) {
+        int kode = shadowhook_get_errno();
+        LOGE("Hook gagal: %s.%s (ShadowHook %d: %s)", entri.cls, entri.name, kode,
+             shadowhook_to_errmsg(kode));
         return false;
     }
+    entri.stub = stub;
     entri.terpasang = true;
     jumlahTerpasang++;
     return true;
@@ -46,10 +77,21 @@ bool pasangHookProbe(void* alamat, void* pengganti, void** asli, const char* nam
         LOGE("Probe tidak ditemukan: %s", nama);
         return false;
     }
-    int kode = DobbyHook(alamat, reinterpret_cast<dobby_dummy_func_t>(pengganti),
-                         reinterpret_cast<dobby_dummy_func_t*>(asli));
-    if (kode != 0) {
-        LOGE("Probe gagal: %s (Dobby %d)", nama, kode);
+    if (!pengganti || !asli) {
+        LOGE("Probe tidak valid: %s", nama);
+        return false;
+    }
+    // Probe hanya dipasang sekali, jadi jangan merantai proxy yang sama dua kali.
+    if (*asli)
+        return true;
+    if (!inisialisasiHook())
+        return false;
+
+    void* stub =
+        shadowhook_hook_func_addr_2(alamat, pengganti, asli, SHADOWHOOK_HOOK_WITH_MULTI_MODE);
+    if (!stub) {
+        int kode = shadowhook_get_errno();
+        LOGE("Probe gagal: %s (ShadowHook %d: %s)", nama, kode, shadowhook_to_errmsg(kode));
         return false;
     }
     return true;

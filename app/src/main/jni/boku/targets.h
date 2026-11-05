@@ -12,6 +12,10 @@ struct Target {
     void* addr;
     void* method;
     void* orig;
+    // Stub milik ShadowHook untuk unhook. Selama mod berjalan tidak pernah
+    // dilepas, tetapi disimpan supaya pemasangan bisa dilacak dan di-unhook
+    // dengan benar bila suatu saat dibutuhkan.
+    void* stub;
     bool terpasang;
 };
 

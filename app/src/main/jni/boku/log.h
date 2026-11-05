@@ -13,7 +13,7 @@ void pasangLogCrash();
 void segarkanModul();
 
 // Mencatat pemanggil abort() dan __stack_chk_fail() supaya SIGABRT berikutnya
-// menyebut kode yang memutuskan mematikan proses. Panggil setelah Dobby siap.
+// menyebut kode yang memutuskan mematikan proses. Panggil setelah ShadowHook siap.
 void pasangProbeCrash();
 
 // Path lengkap berkas yang ditulis sesi ini, atau nullptr sebelum dibuka.

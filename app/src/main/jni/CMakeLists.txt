@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(boku C CXX)
+enable_language(ASM)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
@@ -26,21 +27,53 @@ if(NOT DEFINED ANDROID_ABI OR NOT ANDROID_ABI MATCHES "^arm64-v8a$")
     "Use the NDK toolchain file with arm64-v8a.")
 endif()
 
-# Dobby ships as a prebuilt static archive in the template (arm64-v8a only),
-# so there is nothing to compile here: the linker pulls the objects the hook
-# wrapper reaches and --exclude-libs,ALL keeps their symbols out of .dynsym.
-set(DOBBY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Dobby")
-if(NOT EXISTS "${DOBBY_DIR}/arm64-v8a/libdobby.a")
-  message(FATAL_ERROR "Dobby archive not found in ${DOBBY_DIR}/arm64-v8a")
+# ShadowHook is vendored as source (v2.0.1) and built into libboku.so as a
+# static archive. Upstream only publishes a shared library through Prefab, but
+# this mod is injected as one .so; the static build keeps that contract and
+# avoids a second libshadowhook.so in the game process.
+set(SHADOWHOOK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ShadowHook")
+if(NOT EXISTS "${SHADOWHOOK_DIR}/shadowhook.c")
+  message(FATAL_ERROR "ShadowHook sources not found in ${SHADOWHOOK_DIR}")
 endif()
-add_library(dobby STATIC IMPORTED)
-set_target_properties(dobby PROPERTIES
-  IMPORTED_LOCATION "${DOBBY_DIR}/arm64-v8a/libdobby.a"
-  INTERFACE_INCLUDE_DIRECTORIES "${DOBBY_DIR}"
-)
+file(GLOB SHADOWHOOK_SOURCES CONFIGURE_DEPENDS
+  "${SHADOWHOOK_DIR}/*.c"
+  "${SHADOWHOOK_DIR}/arch/arm64/*.c"
+  "${SHADOWHOOK_DIR}/arch/arm64/*.S"
+  "${SHADOWHOOK_DIR}/common/*.c"
+  "${SHADOWHOOK_DIR}/third_party/*/*.c")
+# sh_jni.c defines a second JNI_OnLoad and the Java API; the menu owns the only
+# JNI_OnLoad exported by libboku.so.
+list(FILTER SHADOWHOOK_SOURCES EXCLUDE REGEX "/sh_jni\\.c$")
+add_library(shadowhook STATIC ${SHADOWHOOK_SOURCES})
+set_target_properties(shadowhook PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+  C_VISIBILITY_PRESET hidden)
+target_compile_features(shadowhook PRIVATE c_std_11)
+# The same size-oriented flags as upstream, minus -Weverything -Werror. Stack
+# protection is off because the crash probe hooks __stack_chk_fail and the hook
+# engine must never call into that proxy from its own frames.
+target_compile_options(shadowhook PRIVATE
+  -Os
+  -funwind-tables
+  -fno-stack-protector
+  -fno-ident
+  -ffunction-sections
+  -fdata-sections)
+target_include_directories(shadowhook PRIVATE
+  "${SHADOWHOOK_DIR}"
+  "${SHADOWHOOK_DIR}/include"
+  "${SHADOWHOOK_DIR}/arch/arm64"
+  "${SHADOWHOOK_DIR}/common"
+  "${SHADOWHOOK_DIR}/third_party/xdl"
+  "${SHADOWHOOK_DIR}/third_party/bsd"
+  "${SHADOWHOOK_DIR}/third_party/lss")
 
 # File logging is on by default; -DBOKU_LOG=OFF drops it for the smallest .so.
 option(BOKU_LOG "Enable file logging" ON)
+
+# ShadowHook debug logs go to logcat with tag "shadowhook_tag". They are
+# expensive, so keep them off unless a build is being diagnosed.
+option(BOKU_HOOK_DEBUG "Enable ShadowHook debug logs" OFF)
 
 # The target names are shipped as one encrypted blob. The key is derived from
 # BOKU_BUILD_SEED, so every build ships a different blob and no class or method
@@ -118,6 +151,7 @@ target_include_directories(boku PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/Includes"
   "${BOKU_ROOT}"
   "${TARGETS_DIR}"
+  "${SHADOWHOOK_DIR}/include"
 )
 add_dependencies(boku targets_generated)
 
@@ -148,7 +182,9 @@ target_compile_options(boku PRIVATE
 target_link_options(boku PRIVATE
   -flto
   -Wl,--gc-sections
-  -Wl,--icf=all
+  # Inline hook engines identify proxies by address. Safe ICF only folds
+  # functions whose address is never taken, so two hook proxies stay distinct.
+  -Wl,--icf=safe
   -Wl,--strip-all
   -Wl,--exclude-libs,ALL
   -Wl,--build-id=none
@@ -159,9 +195,14 @@ target_link_options(boku PRIVATE
   -Wl,--pack-dyn-relocs=android
 )
 
-# Dobby: static archive. dl: dlopen, dlsym, dladdr. log: Android logging used
-# by the template and the crash handler.
-target_link_libraries(boku PRIVATE dobby dl log)
+# ShadowHook: static archive built from the vendored source. dl: dlopen,
+# dlsym, dladdr. log: Android logging used by the template, ShadowHook and the
+# crash handler.
+target_link_libraries(boku PRIVATE shadowhook dl log)
+
+if(BOKU_HOOK_DEBUG)
+  target_compile_definitions(boku PRIVATE BOKU_HOOK_DEBUG)
+endif()
 
 if(BOKU_LOG)
   target_compile_definitions(boku PRIVATE BOKU_LOG)

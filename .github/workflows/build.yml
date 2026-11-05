@@ -1,5 +1,5 @@
-# Builds the mod menu APK: the menu, the ported hooks and the bundled Dobby
-# static archive end up in one lib/arm64-v8a/libboku.so inside the APK.
+# Builds the mod menu APK: the menu, the ported hooks and the vendored
+# ShadowHook sources compile into one lib/arm64-v8a/libboku.so inside the APK.
 #
 # A push to main builds. The workflow can also be started by hand to try a
 # different runner image without editing this file.
@@ -114,11 +114,16 @@ jobs:
             || { echo "::error::wrong machine"; exit 1; }
           "$RE" -d "$SO" | grep -E "NEEDED|SONAME" || true
 
-          # Dobby is linked statically: no companion .so, and its symbols stay
-          # local so two mods can load without clashing in .dynsym.
-          if "$RE" --dyn-syms "$SO" | grep -Eq " (Dobby|dobby_)[A-Za-z0-9_]"; then
-            echo "::error::Dobby symbols are exported"
-            "$RE" --dyn-syms "$SO" | grep -E " (Dobby|dobby_)[A-Za-z0-9_]"
+          # ShadowHook is compiled from the vendored source into libboku.so:
+          # no companion .so, and its symbols stay local so two mods can load
+          # without clashing in .dynsym.
+          if "$RE" --dyn-syms "$SO" | grep -Eq " (shadowhook_|sh_)[A-Za-z0-9_]"; then
+            echo "::error::ShadowHook symbols are exported"
+            "$RE" --dyn-syms "$SO" | grep -E " (shadowhook_|sh_)[A-Za-z0-9_]"
+            exit 1
+          fi
+          if "$RE" -d "$SO" | grep -q "libshadowhook"; then
+            echo "::error::libboku.so depends on a separate libshadowhook.so"
             exit 1
           fi
 
@@ -136,10 +141,24 @@ jobs:
           cp "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib/arm64-v8a/libboku.so" \
             "$OUT/libboku.so" 2>/dev/null || true
           {
-            echo "Dobby (prebuilt static archive bundled with the template)"
-            echo "  Apache License 2.0, https://github.com/jmpews/Dobby"
+            echo "ShadowHook (MIT License)"
+            echo "  https://github.com/bytedance/android-inline-hook"
             echo
-            cat "app/src/main/jni/Dobby/LICENSE"
+            cat "app/src/main/jni/ShadowHook/LICENSE"
+            echo
+            echo "ShadowHook third-party: xDL (MIT License)"
+            echo "  https://github.com/hexhacking/xDL"
+            echo
+            cat "app/src/main/jni/ShadowHook/third_party/xdl/LICENSE"
+            echo
+            echo "ShadowHook third-party: linux-syscall-support (BSD 3-Clause License)"
+            echo "  https://chromium.googlesource.com/linux-syscall-support/"
+            echo
+            cat "app/src/main/jni/ShadowHook/third_party/lss/LICENSE"
+            echo
+            echo "ShadowHook third-party: queue.h (BSD 3-Clause) and tree.h (BSD 2-Clause)"
+            echo
+            cat "app/src/main/jni/ShadowHook/third_party/bsd/LICENSE"
             echo
             echo "Itim font (Google Fonts, SIL Open Font License 1.1)"
             echo "  https://github.com/google/fonts/tree/main/ofl/itim"

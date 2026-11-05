@@ -2,8 +2,9 @@
 
 #include "targets.h"
 
-// Pembungkus tipis Dobby. Setiap hook lewat sini supaya kegagalan tercatat
-// di satu tempat dan pemanggil bisa membiarkan fitur itu pada perilaku vanilla.
+// Pembungkus tipis ShadowHook. Setiap hook lewat sini supaya inisialisasi, mode,
+// dan kegagalan tercatat di satu tempat; pemanggil bisa membiarkan fitur itu
+// pada perilaku vanilla.
 bool inisialisasiHook();
 bool pasangHook(Target& entri, void* pengganti);
 
