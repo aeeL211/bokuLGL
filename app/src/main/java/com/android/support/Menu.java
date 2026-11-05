@@ -10,6 +10,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.net.Uri;
@@ -20,6 +21,7 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.method.DigitsKeyListener;
+import android.text.method.LinkMovementMethod;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
@@ -28,8 +30,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -78,10 +78,11 @@ public class Menu {
     WindowManager mWindowManager;
     WindowManager.LayoutParams vmParams;
     ImageView startimage;
-    WebView webIkon;
+    ImageView ikonGambar;
+    Drawable ikonDrawable;
     String sumberIkon = "";
-    String sumberWebTerpasang;
-    boolean webSiap;
+    String sumberTerpasang;
+    boolean gambarSiap;
     FrameLayout rootFrame;
     ScrollView scrollView;
     boolean stopChecking, overlayRequired;
@@ -115,6 +116,9 @@ public class Menu {
     // kunci, bukan indeks, jadi tetap menunjuk pemain yang sama saat daftar
     // berubah urutan dan otomatis dilepas saat pemain itu keluar.
     String kunciTerpilih;
+
+    // Pengembali nilai bawaan untuk setelan tampilan (ukuran, opasitas, gambar ikon).
+    private final List<Runnable> penyetelUlang = new LinkedList<Runnable>();
 
     // Satu detak milik Menu untuk semua isi yang harus tetap segar (daftar
     // pemain, posisi). Detak berjalan selama menu terbuka, tidak bergantung
@@ -158,6 +162,7 @@ public class Menu {
     }
 
     private void bukaMenu() {
+        aturAnimasiIkon(false);
         mCollapsed.setVisibility(View.GONE);
         mExpanded.setVisibility(View.VISIBLE);
         jalankanPemantau();
@@ -165,12 +170,12 @@ public class Menu {
 
     /**
      * Menyamakan ukuran, opasitas, dan sumber ikon collapsed dengan setelan.
-     * Ikon bawaan tetap di ImageView; sumber dari pengguna dimuat di WebView
-     * supaya gambar bergerak (GIF) ikut berjalan.
+     * Ikon bawaan tetap di startimage. Sumber dari pengguna (URL, GIF) didekode
+     * IkonGambar menjadi Drawable dan ditampilkan di ImageView biasa, tanpa WebView.
      */
     private void terapkanIkon() {
         int sisi = dp(ICON_SIZE);
-        for (View ikon : new View[]{startimage, webIkon}) {
+        for (View ikon : new View[]{startimage, ikonGambar}) {
             ViewGroup.LayoutParams params = ikon.getLayoutParams();
             params.width = sisi;
             params.height = sisi;
@@ -182,56 +187,59 @@ public class Menu {
         if (sumber.length() == 0)
             sumber = IconWebViewData();
         if (sumber == null || sumber.length() == 0) {
-            sumberWebTerpasang = null;
-            webSiap = false;
+            sumberTerpasang = null;
+            lepasGambar();
             tampilkanIkon();
             return;
         }
 
         // Sumber yang sama tidak dimuat lagi, jadi geseran slider ukuran dan
-        // opasitas tidak memicu unduhan atau muat ulang.
-        if (!sumber.equals(sumberWebTerpasang)) {
-            sumberWebTerpasang = sumber;
-            webSiap = false;
-            if (IkonCache.cocok(sumber)) {
-                // URL: dari cache bila sudah ada, diunduh sekali bila belum. Ikon
-                // bawaan tetap tampil sampai gambarnya siap.
-                final String target = sumber;
-                IkonCache.muat(getContext, target, new IkonCache.Pendengar() {
-                    @Override
-                    public void siap(String dataUri) {
-                        if (!target.equals(sumberWebTerpasang))
-                            return;
-                        webIkon.loadDataWithBaseURL(null, htmlIkon(dataUri),
-                                "text/html", "utf-8", null);
-                        webSiap = true;
-                        tampilkanIkon();
-                    }
+        // opasitas tidak memicu unduhan atau dekode ulang.
+        if (!sumber.equals(sumberTerpasang)) {
+            sumberTerpasang = sumber;
+            lepasGambar();
+            // Ikon bawaan tetap tampil sampai gambarnya siap. Bila gagal, tetap
+            // dipakai dan dicoba lagi saat menu dibuat berikutnya.
+            final String target = sumber;
+            IkonCache.muat(getContext, target, new IkonCache.Pendengar() {
+                @Override
+                public void siap(Drawable ikon) {
+                    if (!target.equals(sumberTerpasang))
+                        return;
+                    ikonDrawable = ikon;
+                    ikonGambar.setLayerType(IkonGambar.butuhSoftware(ikon)
+                            ? View.LAYER_TYPE_SOFTWARE : View.LAYER_TYPE_NONE, null);
+                    ikonGambar.setImageDrawable(ikon);
+                    gambarSiap = true;
+                    tampilkanIkon();
+                    aturAnimasiIkon(isViewCollapsed());
+                }
 
-                    @Override
-                    public void gagal() {
-                        // Ikon bawaan tetap dipakai. Dicoba lagi saat menu dibuat berikutnya.
-                        Log.d(TAG, "Ikon dari URL gagal dimuat, memakai ikon bawaan");
-                    }
-                });
-            } else {
-                webIkon.loadDataWithBaseURL(null, htmlIkon(sumber), "text/html", "utf-8", null);
-                webSiap = true;
-            }
+                @Override
+                public void gagal() {
+                    Log.d(TAG, "Ikon gagal dimuat, memakai ikon bawaan");
+                }
+            });
         }
         tampilkanIkon();
     }
 
-    private void tampilkanIkon() {
-        webIkon.setVisibility(webSiap ? View.VISIBLE : View.GONE);
-        startimage.setVisibility(webSiap ? View.GONE : View.VISIBLE);
+    private void lepasGambar() {
+        aturAnimasiIkon(false);
+        ikonGambar.setImageDrawable(null);
+        ikonDrawable = null;
+        gambarSiap = false;
     }
 
-    private String htmlIkon(String sumber) {
-        return "<html><head></head><body style=\"margin:0;padding:0;overflow:hidden\">"
-                + "<img src=\"" + TextUtils.htmlEncode(sumber)
-                + "\" style=\"width:100%;height:100%;object-fit:contain\">"
-                + "</body></html>";
+    private void tampilkanIkon() {
+        ikonGambar.setVisibility(gambarSiap ? View.VISIBLE : View.GONE);
+        startimage.setVisibility(gambarSiap ? View.GONE : View.VISIBLE);
+    }
+
+    /** GIF hanya berjalan saat ikon kecil terlihat; saat menu terbuka dihentikan supaya hemat CPU. */
+    private void aturAnimasiIkon(boolean jalan) {
+        if (ikonDrawable != null)
+            IkonGambar.jalankan(ikonDrawable, jalan);
     }
 
     //Here we write the code for our Menu
@@ -273,21 +281,25 @@ public class Menu {
         });
 
         //********** Ikon dari sumber pilihan pengguna (URL atau GIF) **********
-        webIkon = new WebView(context);
-        webIkon.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        webIkon.getLayoutParams().height = dp(ICON_SIZE);
-        webIkon.getLayoutParams().width = dp(ICON_SIZE);
-        ((ViewGroup.MarginLayoutParams) webIkon.getLayoutParams()).topMargin = dp(10);
-        webIkon.setBackgroundColor(0x00000000); //Transparent
-        webIkon.setVisibility(View.GONE);
-        webIkon.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-        webIkon.setOnTouchListener(onTouchListener());
+        ikonGambar = new ImageView(context);
+        ikonGambar.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+        ikonGambar.getLayoutParams().height = dp(ICON_SIZE);
+        ikonGambar.getLayoutParams().width = dp(ICON_SIZE);
+        ((ViewGroup.MarginLayoutParams) ikonGambar.getLayoutParams()).topMargin = dp(10);
+        ikonGambar.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        ikonGambar.setVisibility(View.GONE);
+        ikonGambar.setOnTouchListener(onTouchListener());
+        ikonGambar.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                bukaMenu();
+            }
+        });
 
         //********** Settings **********
         mSettings = new LinearLayout(context);
         mSettings.setOrientation(LinearLayout.VERTICAL);
         mSettings.setPadding(dp(10), dp(6), dp(10), dp(8));
-        featureList(SettingsList(), mSettings);
+        isiSetelan(SettingsList());
 
         //********** Header panel: judul di tengah, hanya tombol minimize di kanan **********
         RelativeLayout header = new RelativeLayout(context);
@@ -316,6 +328,7 @@ public class Menu {
                 mCollapsed.setVisibility(View.VISIBLE);
                 mCollapsed.setAlpha(ICON_ALPHA);
                 mExpanded.setVisibility(View.GONE);
+                aturAnimasiIkon(true);
             }
         });
 
@@ -400,6 +413,7 @@ public class Menu {
                 mCollapsed.setVisibility(View.VISIBLE);
                 mCollapsed.setAlpha(0);
                 mExpanded.setVisibility(View.GONE);
+                aturAnimasiIkon(false);
                 Toast.makeText(view.getContext(), "Ikon disembunyikan. Ingat posisi ikon tersembunyi", Toast.LENGTH_LONG).show();
             }
         });
@@ -409,7 +423,7 @@ public class Menu {
         mRootContainer.addView(mCollapsed);
         mRootContainer.addView(mExpanded);
         mCollapsed.addView(startimage);
-        mCollapsed.addView(webIkon);
+        mCollapsed.addView(ikonGambar);
         mExpanded.addView(header);
         Theme.Zigzag zigAtas = new Theme.Zigzag(context, Theme.HEADER, true);
         zigAtas.setBackgroundColor(Theme.BODY);
@@ -547,6 +561,73 @@ public class Menu {
                 }
             }
         };
+    }
+
+    private static final String GRUP_UMUM = "Umum";
+    private static final String GRUP_IKON = "Ikon melayang";
+
+    /**
+     * Halaman setelan: fitur dikelompokkan dengan judul kecil (Umum, Ikon
+     * melayang) dan diakhiri tombol setel ulang tampilan. Pengelompokan hanya
+     * dipakai bila semua entri punya nomor fitur dan native tidak membuat
+     * kategori sendiri; selain itu daftar dari native dipakai apa adanya.
+     */
+    private void isiSetelan(String[] daftar) {
+        if (daftar == null)
+            return;
+        featureList(kelompokkanSetelan(daftar), mSettings);
+
+        if (!penyetelUlang.isEmpty()) {
+            final Button ulang = teksTombol("Setel ulang tampilan");
+            ulang.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    for (Runnable r : new LinkedList<Runnable>(penyetelUlang))
+                        r.run();
+                    Toast.makeText(getContext, "Tampilan disetel ulang", Toast.LENGTH_SHORT).show();
+                }
+            });
+            LinearLayout kotak = kotakTombol(IkonFitur.ULANG, ulang);
+            ((LinearLayout.LayoutParams) kotak.getLayoutParams()).topMargin = dp(12);
+            mSettings.addView(kotak);
+        }
+    }
+
+    private String[] kelompokkanSetelan(String[] daftar) {
+        List<String> umum = new LinkedList<String>();
+        List<String> ikon = new LinkedList<String>();
+        for (String entri : daftar) {
+            Integer nomor = nomorEntri(entri);
+            if (nomor == null)
+                return daftar;
+            if (nomor == -4 || nomor == -5 || nomor == -6)
+                ikon.add(entri);
+            else
+                umum.add(entri);
+        }
+        if (umum.isEmpty() || ikon.isEmpty())
+            return daftar;
+
+        List<String> hasil = new LinkedList<String>();
+        hasil.add("Category_" + GRUP_UMUM);
+        hasil.addAll(umum);
+        hasil.add("Category_" + GRUP_IKON);
+        hasil.addAll(ikon);
+        return hasil.toArray(new String[0]);
+    }
+
+    /** Nomor fitur di awal entri, atau null bila entri tidak bernomor (kategori, teks, tautan). */
+    private Integer nomorEntri(String entri) {
+        String f = entri.replaceFirst("_True", "").replaceFirst("CollapseAdd_", "");
+        String awal = f.split("_")[0];
+        if (awal.length() > 0 && (TextUtils.isDigitsOnly(awal) || awal.matches("-[0-9]+"))) {
+            try {
+                return Integer.parseInt(awal);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private void featureList(String[] listFT, LinearLayout linearLayout) {
@@ -767,6 +848,15 @@ public class Menu {
                 seekBar.setProgress(Math.max(0, Math.min(max, def) - min));
             }
         });
+
+        if (featNum == -4 || featNum == -5) {
+            penyetelUlang.add(new Runnable() {
+                @Override
+                public void run() {
+                    seekBar.setProgress(Math.max(0, Math.min(max, def) - min));
+                }
+            });
+        }
 
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
@@ -1047,23 +1137,20 @@ public class Menu {
     }
 
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
-        final Button button = teksTombol("");
         String string = Preferences.loadPrefString(featName, featNum);
-        if (featNum == -6)
-            sumberIkon = string;
-        String tampil = featNum == -6 && string.length() == 0 ? "bawaan" : string;
-        button.setText(Html.fromHtml(featName + ": " + tampil));
+        if (featNum == -6) {
+            InputGambar(linLayout, featNum, featName, string);
+            return;
+        }
+
+        final Button button = teksTombol("");
+        button.setText(Html.fromHtml(featName + ": " + string));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
 
                 final EditText editText = new EditText(getContext);
-                if (featNum == -6) {
-                    editText.setHint("URL gambar atau GIF, kosongkan untuk bawaan");
-                    editText.setText(sumberIkon);
-                    editText.setSelection(editText.length());
-                }
                 editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
                     @Override
                     public void onFocusChange(View v, boolean hasFocus) {
@@ -1077,7 +1164,7 @@ public class Menu {
                 });
                 editText.requestFocus();
 
-                alertName.setTitle(featNum == -6 ? "Sumber gambar ikon" : "Masukkan teks");
+                alertName.setTitle("Masukkan teks");
                 alertName.setView(editText);
                 LinearLayout layoutName = new LinearLayout(getContext);
                 layoutName.setOrientation(LinearLayout.VERTICAL);
@@ -1087,15 +1174,7 @@ public class Menu {
                 alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         String str = editText.getText().toString();
-                        if (featNum == -6) {
-                            str = str.trim();
-                            sumberIkon = str;
-                            button.setText(Html.fromHtml(featName + ": "
-                                    + (str.length() == 0 ? "bawaan" : str)));
-                            terapkanIkon();
-                        } else {
-                            button.setText(Html.fromHtml(featName + ": " + str));
-                        }
+                        button.setText(Html.fromHtml(featName + ": " + str));
                         Preferences.changeFeatureString(featName, featNum, str);
                         editText.setFocusable(false);
                     }
@@ -1114,6 +1193,104 @@ public class Menu {
         });
 
         linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
+    }
+
+    /**
+     * Setelan gambar ikon: baris dua tingkat (nama di atas, sumber saat ini
+     * di bawah dengan warna redup). Ketuk baris untuk mengubah, atau pilih
+     * Bawaan di dialog untuk kembali ke ikon bawaan.
+     */
+    private void InputGambar(LinearLayout linLayout, final int featNum, final String featName,
+                             String awal) {
+        sumberIkon = awal == null ? "" : awal;
+
+        LinearLayout kolom = new LinearLayout(getContext);
+        kolom.setOrientation(LinearLayout.VERTICAL);
+
+        TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
+        judul.setSingleLine(true);
+        judul.setEllipsize(TextUtils.TruncateAt.END);
+        kolom.addView(judul);
+
+        final TextView nilai = Theme.teks(getContext, ringkasSumber(sumberIkon), Theme.DESC_SP,
+                Theme.MUTED);
+        nilai.setSingleLine(true);
+        nilai.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        kolom.addView(nilai);
+
+        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), kolom, null);
+        baris.setBackground(Theme.barisTekan(getContext));
+        baris.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
+
+                final EditText editText = new EditText(getContext);
+                editText.setHint("URL gambar atau GIF, kosongkan untuk bawaan");
+                editText.setText(sumberIkon);
+                editText.setSelection(editText.length());
+                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChange(View v, boolean hasFocus) {
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (hasFocus) {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+                        } else {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                        }
+                    }
+                });
+                editText.requestFocus();
+
+                alertName.setTitle("Sumber gambar ikon");
+                LinearLayout layoutName = new LinearLayout(getContext);
+                layoutName.setOrientation(LinearLayout.VERTICAL);
+                layoutName.addView(editText);
+                alertName.setView(layoutName);
+
+                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        setSumberIkon(editText.getText().toString(), featNum, featName, nilai);
+                        editText.setFocusable(false);
+                    }
+                });
+                alertName.setNeutralButton("Bawaan", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        setSumberIkon("", featNum, featName, nilai);
+                    }
+                });
+                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                    }
+                });
+
+                tampilkanDialog(alertName);
+            }
+        });
+
+        penyetelUlang.add(new Runnable() {
+            @Override
+            public void run() {
+                if (sumberIkon.length() > 0)
+                    setSumberIkon("", featNum, featName, nilai);
+            }
+        });
+
+        linLayout.addView(baris);
+    }
+
+    private void setSumberIkon(String sumber, int featNum, String featName, TextView nilai) {
+        sumber = sumber == null ? "" : sumber.trim();
+        sumberIkon = sumber;
+        nilai.setText(ringkasSumber(sumber));
+        terapkanIkon();
+        Preferences.changeFeatureString(featName, featNum, sumber);
+    }
+
+    private String ringkasSumber(String sumber) {
+        return sumber.length() == 0 ? "Bawaan" : sumber;
     }
 
     private void CheckBox(LinearLayout linLayout, final int featNum, final String featName, boolean switchedOn) {
@@ -1549,6 +1726,13 @@ public class Menu {
     }
 
     private void Category(LinearLayout linLayout, String text) {
+        if (linLayout == mSettings) {
+            // Setelan memakai judul kelompok yang ringan, bukan pita cokelat.
+            TextView judul = Theme.teks(getContext, Html.fromHtml(text), Theme.DESC_SP, Theme.MUTED);
+            judul.setPadding(dp(4), dp(12), dp(4), dp(2));
+            linLayout.addView(judul);
+            return;
+        }
         LinearLayout baris = new LinearLayout(getContext);
         baris.setOrientation(LinearLayout.HORIZONTAL);
         baris.setGravity(Gravity.CENTER_VERTICAL);
@@ -1571,13 +1755,16 @@ public class Menu {
         linLayout.addView(textView);
     }
 
+    /**
+     * RichWebView tidak lagi memakai WebView. Tag dasar (b, i, u, font, a, br)
+     * dirender TextView biasa, dan tautan tetap bisa diketuk.
+     */
     private void WebTextView(LinearLayout linLayout, String text) {
-        WebView wView = new WebView(getContext);
-        wView.loadData(text, "text/html", "utf-8");
-        wView.setBackgroundColor(0x00000000); //Transparent
-        wView.setPadding(0, 5, 0, 5);
-        wView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
-        linLayout.addView(wView);
+        TextView textView = Theme.teks(getContext, Html.fromHtml(text), Theme.DESC_SP, Theme.TEXT);
+        textView.setMovementMethod(LinkMovementMethod.getInstance());
+        textView.setLinkTextColor(Theme.ICON_BOX);
+        textView.setPadding(dp(10), dp(4), dp(10), dp(4));
+        linLayout.addView(textView);
     }
 
     /**
@@ -1718,6 +1905,7 @@ public class Menu {
 
     public void onDestroy() {
         detakJalan = false;
+        aturAnimasiIkon(false);
         handlerDetak.removeCallbacksAndMessages(null);
         if (rootFrame != null) {
             mWindowManager.removeView(rootFrame);

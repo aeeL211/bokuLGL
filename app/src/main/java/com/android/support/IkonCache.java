@@ -1,6 +1,7 @@
 package com.android.support;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
@@ -14,19 +15,16 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
-import java.util.Locale;
 
 /**
- * Cache ikon dari URL, supaya gambar atau GIF tidak diunduh ulang tiap menu dibuka.
+ * Memuat ikon melayang dari URL, data URI, atau berkas, lalu mendekodenya
+ * menjadi Drawable lewat {@link IkonGambar}. Tidak memakai WebView.
  *
- * Urutan: memori (selama proses hidup), lalu berkas di cacheDir/ikon, dan
- * baru terakhir jaringan. Berkas yang lebih tua dari {@link #UMUR_SEGAR_MS}
- * tetap langsung dipakai, lalu diperbarui diam-diam di latar belakang untuk
- * dipakai pada pembukaan berikutnya. Hanya satu ikon yang disimpan: berkas
- * milik URL lama dihapus begitu URL baru berhasil diunduh.
- *
- * Hasilnya berupa data URI sehingga WebView tidak perlu menyentuh jaringan
- * dan GIF tetap bergerak.
+ * URL tidak diunduh ulang tiap menu dibuka. Urutannya memori (selama proses
+ * hidup), berkas di cacheDir/ikon, lalu jaringan. Berkas yang lebih tua dari
+ * {@link #UMUR_SEGAR_MS} tetap langsung dipakai dan diperbarui diam-diam untuk
+ * pembukaan berikutnya. Hanya satu ikon yang disimpan: berkas URL lama dihapus
+ * begitu URL baru berhasil diunduh.
  */
 public final class IkonCache {
     private static final String TAG = "Mod_Menu";
@@ -38,48 +36,39 @@ public final class IkonCache {
 
     /** Dipanggil di thread utama. */
     public interface Pendengar {
-        void siap(String dataUri);
+        void siap(Drawable ikon);
 
         void gagal();
     }
 
     private static final Object kunci = new Object();
-    private static String urlMemori;
-    private static String dataMemori;
+    private static String sumberMemori;
+    private static byte[] isiMemori;
 
     private IkonCache() {
     }
 
-    public static boolean cocok(String sumber) {
-        return sumber != null && (sumber.startsWith("http://") || sumber.startsWith("https://"));
-    }
-
-    /** Memuat ikon dari memori, berkas, atau jaringan, lalu memanggil pendengar di thread utama. */
-    public static void muat(Context context, final String url, final Pendengar pendengar) {
+    public static void muat(Context context, final String sumber, final Pendengar pendengar) {
         final Context app = context.getApplicationContext();
         final Handler utama = new Handler(Looper.getMainLooper());
-
-        String dariMemori = ambilMemori(url);
-        if (dariMemori != null) {
-            pendengar.siap(dariMemori);
-            return;
-        }
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String data = null;
+                Drawable hasil = null;
                 try {
-                    data = ambil(app, url);
+                    byte[] isi = ambil(app, sumber);
+                    if (isi != null)
+                        hasil = IkonGambar.buat(app.getResources(), isi);
                 } catch (Throwable t) {
                     Log.d(TAG, "Ikon gagal dimuat: " + t);
                 }
-                final String hasil = data;
+                final Drawable ikon = hasil;
                 utama.post(new Runnable() {
                     @Override
                     public void run() {
-                        if (hasil != null)
-                            pendengar.siap(hasil);
+                        if (ikon != null)
+                            pendengar.siap(ikon);
                         else
                             pendengar.gagal();
                     }
@@ -88,31 +77,56 @@ public final class IkonCache {
         }, "IkonCache").start();
     }
 
-    private static String ambil(Context app, String url) {
+    private static byte[] ambil(Context app, String sumber) {
+        byte[] dariMemori = ambilMemori(sumber);
+        if (dariMemori != null)
+            return dariMemori;
+
+        byte[] isi;
+        if (sumber.startsWith("http://") || sumber.startsWith("https://"))
+            isi = ambilUrl(app, sumber);
+        else if (sumber.startsWith("data:"))
+            isi = dariDataUri(sumber);
+        else
+            isi = baca(new File(sumber.startsWith("file://") ? sumber.substring(7) : sumber));
+
+        if (isi != null && bentukGambar(isi))
+            simpanMemori(sumber, isi);
+        else
+            isi = null;
+        return isi;
+    }
+
+    private static byte[] ambilUrl(Context app, String url) {
         File berkas = berkasUntuk(app, url);
 
         if (berkas.isFile() && berkas.length() > 0) {
             byte[] isi = baca(berkas);
-            String data = isi == null ? null : keDataUri(isi);
-            if (data != null) {
-                simpanMemori(url, data);
+            if (isi != null && bentukGambar(isi)) {
                 if (System.currentTimeMillis() - berkas.lastModified() > UMUR_SEGAR_MS)
                     segarkanDiam(app, url, berkas);
-                return data;
+                return isi;
             }
             // Berkas rusak: dibuang, lalu diunduh ulang.
             berkas.delete();
         }
 
         byte[] isi = unduh(url);
-        if (isi == null)
-            return null;
-        String data = keDataUri(isi);
-        if (data == null)
+        if (isi == null || !bentukGambar(isi))
             return null;
         tulis(app, berkas, isi);
-        simpanMemori(url, data);
-        return data;
+        return isi;
+    }
+
+    private static byte[] dariDataUri(String uri) {
+        int koma = uri.indexOf(',');
+        if (koma < 0)
+            return null;
+        try {
+            return Base64.decode(uri.substring(koma + 1), Base64.DEFAULT);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     /** Memperbarui berkas lama di thread sendiri; hasilnya dipakai pada pembukaan berikutnya. */
@@ -121,7 +135,7 @@ public final class IkonCache {
             @Override
             public void run() {
                 byte[] isi = unduh(url);
-                if (isi == null || keDataUri(isi) == null) {
+                if (isi == null || !bentukGambar(isi)) {
                     // Gagal: umur berkas diperpanjang supaya tidak mencoba terus tiap masuk.
                     berkas.setLastModified(System.currentTimeMillis());
                     return;
@@ -179,6 +193,8 @@ public final class IkonCache {
     }
 
     private static byte[] baca(File berkas) {
+        if (!berkas.isFile() || berkas.length() > BATAS_BYTE)
+            return null;
         FileInputStream masuk = null;
         try {
             masuk = new FileInputStream(berkas);
@@ -252,32 +268,20 @@ public final class IkonCache {
         return null;
     }
 
-    /** Null bila isinya bukan gambar (misalnya halaman galat HTML), supaya tidak ikut disimpan. */
-    private static String keDataUri(byte[] b) {
-        String mime = mime(b);
-        if (mime == null)
-            return null;
-        return "data:" + mime + ";base64," + Base64.encodeToString(b, Base64.NO_WRAP);
-    }
-
-    private static String mime(byte[] b) {
+    /** Memeriksa tanda awal berkas supaya halaman galat HTML tidak ikut disimpan. */
+    private static boolean bentukGambar(byte[] b) {
         if (b == null || b.length < 12)
-            return null;
+            return false;
         if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8')
-            return "image/gif";
+            return true;
         if ((b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G')
-            return "image/png";
+            return true;
         if ((b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8)
-            return "image/jpeg";
+            return true;
         if (b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
                 && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P')
-            return "image/webp";
-        if (b[0] == 'B' && b[1] == 'M')
-            return "image/bmp";
-        String awal = new String(b, 0, Math.min(b.length, 256)).trim().toLowerCase(Locale.ROOT);
-        if (awal.startsWith("<svg") || (awal.startsWith("<?xml") && awal.contains("<svg")))
-            return "image/svg+xml";
-        return null;
+            return true;
+        return b[0] == 'B' && b[1] == 'M';
     }
 
     private static String sha1(String teks) {
@@ -293,16 +297,16 @@ public final class IkonCache {
         }
     }
 
-    private static String ambilMemori(String url) {
+    private static byte[] ambilMemori(String sumber) {
         synchronized (kunci) {
-            return url.equals(urlMemori) ? dataMemori : null;
+            return sumber.equals(sumberMemori) ? isiMemori : null;
         }
     }
 
-    private static void simpanMemori(String url, String data) {
+    private static void simpanMemori(String sumber, byte[] isi) {
         synchronized (kunci) {
-            urlMemori = url;
-            dataMemori = data;
+            sumberMemori = sumber;
+            isiMemori = isi;
         }
     }
 }
