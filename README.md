@@ -61,7 +61,6 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 **Chat**
 
 - Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
-- Tombol tendang muncul di panel tamu.
 
 **Senjata dan item**
 
@@ -77,12 +76,12 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
 **Gerak**
 
-- **No Clip** (tembus dinding dan benda) mematikan `Collider2D` pemain bila ada, atau membuat
-  `Rigidbody2D`-nya kinematik bila hanya komponen itu yang ada. Game ini memakai fisika tile
-  sendiri, jadi bila pemain tidak membawa komponen Unity tersebut, fitur tidak berefek dan
-  alasannya dicatat di log.
+- **No Clip** (tembus dinding dan benda) melebarkan kotak gerak pemain ke kiri dan ke kanan pada
+  tiap pemeriksaan fisika tile, jadi dinding tidak lagi menahan langkah. Sisi atas dan bawah
+  dibiarkan apa adanya supaya lantai tetap dipijak.
 - **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Tombol hanya menitipkan
-  permintaan; posisi baru dipasang di hook update pemain pada thread game.
+  permintaan; posisi baru dipasang di hook update pemain pada thread game, sekaligus menggeser
+  posisi fisika game supaya pemain tidak kembali ke tempat semula.
 
 ## Batasan
 
@@ -90,8 +89,8 @@ Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
 - Model tamu hanya bisa disalin bila tamu itu masuk room selagi mod berjalan. Cache menyimpan
   16 tamu terakhir, dan tamu yang sudah keluar tidak lagi ditawarkan di daftar.
-- Teleport memakai `Transform.set_position`, jadi bila fisika tile game menulis ulang posisi
-  pada frame yang sama, pemain bisa kembali ke tempat semula.
+- Teleport tidak memeriksa isi tile di titik tujuan, jadi memindahkan pemain ke dalam dinding bisa
+  membuat fisika game mendorongnya keluar lagi.
 
 ## Build
 
@@ -110,14 +109,14 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 
 ```
 Dobby siap
-Scan selesai: 102 dari 102 metode ditemukan
+Scan selesai: 86 dari 86 metode ditemukan
 Field pemain OK
 Field nama tamu siap
 Field daftar pemain siap
-Hook terpasang: 76
+Hook terpasang: 65
 ```
 
-Bila `Hook terpasang` jauh di bawah 76, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 65, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:
