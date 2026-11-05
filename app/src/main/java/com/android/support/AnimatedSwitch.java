@@ -1,11 +1,11 @@
 package com.android.support;
 
-import android.animation.ArgbEvaluator;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.animation.ArgbEvaluator;
+import android.os.SystemClock;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.CompoundButton;
@@ -17,14 +17,30 @@ import android.widget.CompoundButton;
  * MATI : track #B28950, knob #CEA972 di kiri.
  * HIDUP: track #F8B551, knob #FFF799 di kanan.
  *
- * Tetap turunan CompoundButton supaya listener, aksesibilitas, dan
- * Preferences.changeFeatureBool berjalan sama seperti Switch bawaan. View-nya
- * setinggi 48dp agar area sentuh memenuhi ukuran minimum, pilnya digambar di
- * tengah.
+ * Tetap turunan CompoundButton supaya aksesibilitas dan penanganan klik sama
+ * seperti Switch bawaan. View-nya setinggi 48dp agar area sentuh memenuhi
+ * ukuran minimum, pilnya digambar di tengah.
+ *
+ * Animasi digerakkan dari onDraw, bukan ValueAnimator, karena tiga hal yang
+ * membuat animasi sebelumnya kadang tidak terlihat:
+ *
+ * 1. ValueAnimator mengikuti "animator duration scale" sistem. Dengan penghemat
+ *    baterai atau opsi pengembang bernilai 0, animasi langsung selesai.
+ * 2. Listener perubahan dipanggil sebelum animasi mulai. Bila pekerjaan di
+ *    listener (JNI ke native) menahan thread utama, frame pertama datang
+ *    terlambat dan ValueAnimator melompat ke akhir. Sekarang animasi mulai
+ *    lebih dulu dan listener dipanggil sesudah beberapa frame.
+ * 3. Terlepas dari window di tengah animasi meninggalkan knob setengah jalan.
+ *    Sekarang posisi selalu dikembalikan ke status sebenarnya.
+ *
+ * Kemajuan per frame dibatasi {@link #BATAS_FRAME_MS}, jadi sekalipun satu
+ * frame tertahan, knob tetap bergerak bertahap dan tidak lompat.
  */
 public class AnimatedSwitch extends CompoundButton {
-    private static final long DURASI = 190L;
-    private static final long DURASI_TEKAN = 90L;
+    private static final float DURASI = 190f;
+    private static final float DURASI_TEKAN = 90f;
+    private static final float BATAS_FRAME_MS = 20f;
+    private static final long JEDA_KABAR_MS = 50L;
 
     private static final float PIL_LEBAR_DP = 52f;
     private static final float PIL_TINGGI_DP = 26f;
@@ -34,13 +50,39 @@ public class AnimatedSwitch extends CompoundButton {
     private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ArgbEvaluator warna = new ArgbEvaluator();
     private final RectF bidang = new RectF();
+    private final OvershootInterpolator memantul = new OvershootInterpolator(0.9f);
+    private final DecelerateInterpolator mengerem = new DecelerateInterpolator();
 
     // posisi 0 = mati, 1 = hidup (boleh sedikit melewati batas saat overshoot).
     private float posisi;
     // tekan 0..1 = knob melar saat jari menyentuh.
     private float tekan;
-    private ValueAnimator animasiPosisi;
-    private ValueAnimator animasiTekan;
+    private float tekanTujuan;
+
+    private boolean geser;
+    private float geserAwal;
+    private float geserTujuan;
+    private float geserProgres;
+    private float geserDurasi;
+    private boolean geserMemantul;
+
+    private boolean berjalan;
+    private long terakhirMs;
+
+    private OnCheckedChangeListener pendengar;
+    private boolean terakhirDikabarkan;
+
+    private final Runnable kabarkan = new Runnable() {
+        @Override
+        public void run() {
+            boolean sekarang = isChecked();
+            if (sekarang == terakhirDikabarkan)
+                return;
+            terakhirDikabarkan = sekarang;
+            if (pendengar != null)
+                pendengar.onCheckedChanged(AnimatedSwitch.this, sekarang);
+        }
+    };
 
     public AnimatedSwitch(Context context) {
         super(context);
@@ -52,6 +94,16 @@ public class AnimatedSwitch extends CompoundButton {
         posisi = isChecked() ? 1f : 0f;
     }
 
+    /**
+     * Listener tidak diteruskan ke CompoundButton supaya tidak dipanggil di
+     * tengah setChecked, sebelum animasi mulai.
+     */
+    @Override
+    public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
+        pendengar = listener;
+        terakhirDikabarkan = isChecked();
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int lebar = (int) Theme.dp(getContext(), PIL_LEBAR_DP);
@@ -61,91 +113,129 @@ public class AnimatedSwitch extends CompoundButton {
     }
 
     /**
-     * Nilai dari restore dipasang tanpa animasi karena view belum punya ukuran
-     * saat Preferences.loadPrefBool dipanggil. Ketukan sesudah layout selalu
-     * dianimasikan dari posisi sekarang, jadi ketukan cepat bisa dibalik tanpa
-     * lompat.
+     * Nilai dari restore dipasang tanpa animasi dan tanpa kabar, karena view
+     * belum punya ukuran saat Preferences.loadPrefBool dipanggil. Ketukan
+     * sesudah layout selalu dianimasikan dari posisi sekarang, jadi ketukan
+     * cepat bisa dibalik tanpa lompat.
      */
     @Override
     public void setChecked(boolean checked) {
-        boolean berubah = isChecked() != checked;
         super.setChecked(checked);
 
         float tujuan = checked ? 1f : 0f;
-        if (!berubah && posisi == tujuan)
-            return;
-        if (!isLaidOut()) {
+        boolean terlihat = isLaidOut() && isShown();
+        if (!terlihat) {
             hentikanAnimasi();
             posisi = tujuan;
             invalidate();
             return;
         }
-        animasiKe(tujuan);
+
+        if (geser ? geserTujuan != tujuan : posisi != tujuan)
+            mulaiGeser(tujuan);
+
+        // Kabar ditunda beberapa frame agar knob sudah mulai bergerak sebelum
+        // pekerjaan berat di listener. Ketukan beruntun digabung: yang dikabarkan
+        // hanya keadaan akhir, dan hanya bila berbeda dari kabar terakhir.
+        removeCallbacks(kabarkan);
+        postDelayed(kabarkan, JEDA_KABAR_MS);
     }
 
     @Override
     protected void drawableStateChanged() {
         super.drawableStateChanged();
-        if (isLaidOut())
-            tekanKe(isPressed() ? 1f : 0f);
+        tekanTujuan = isPressed() ? 1f : 0f;
+        if (isLaidOut() && tekan != tekanTujuan)
+            mulaiFrame();
         invalidate();
     }
 
-    private void animasiKe(final float tujuan) {
-        if (animasiPosisi != null)
-            animasiPosisi.cancel();
+    private void mulaiGeser(float tujuan) {
         float jarak = Math.abs(tujuan - posisi);
-        animasiPosisi = ValueAnimator.ofFloat(posisi, tujuan);
-        animasiPosisi.setDuration((long) (DURASI * Math.max(0.45f, jarak)));
-        // Geser mengerem halus, lalu sedikit memantul di ujung seperti saklar fisik.
-        animasiPosisi.setInterpolator(jarak > 0.6f
-                ? new OvershootInterpolator(0.9f) : new DecelerateInterpolator());
-        animasiPosisi.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animator) {
-                posisi = (Float) animator.getAnimatedValue();
-                invalidate();
-            }
-        });
-        animasiPosisi.start();
+        geserAwal = posisi;
+        geserTujuan = tujuan;
+        geserProgres = 0f;
+        geserDurasi = DURASI * Math.max(0.45f, jarak);
+        // Geser jauh sedikit memantul di ujung seperti saklar fisik; geser
+        // pendek (membalik di tengah jalan) hanya mengerem.
+        geserMemantul = jarak > 0.6f;
+        geser = true;
+        mulaiFrame();
     }
 
-    private void tekanKe(float tujuan) {
-        if (tekan == tujuan)
-            return;
-        if (animasiTekan != null)
-            animasiTekan.cancel();
-        animasiTekan = ValueAnimator.ofFloat(tekan, tujuan);
-        animasiTekan.setDuration(DURASI_TEKAN);
-        animasiTekan.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animator) {
-                tekan = (Float) animator.getAnimatedValue();
-                invalidate();
-            }
-        });
-        animasiTekan.start();
+    private void mulaiFrame() {
+        if (!berjalan) {
+            berjalan = true;
+            terakhirMs = SystemClock.uptimeMillis();
+        }
+        postInvalidateOnAnimation();
     }
 
+    /** Memajukan animasi satu frame. True bila masih perlu frame berikutnya. */
+    private boolean langkah() {
+        long sekarang = SystemClock.uptimeMillis();
+        float dt = Math.min((float) (sekarang - terakhirMs), BATAS_FRAME_MS);
+        terakhirMs = sekarang;
+        boolean lanjut = false;
+
+        if (geser) {
+            geserProgres += dt / geserDurasi;
+            if (geserProgres >= 1f) {
+                posisi = geserTujuan;
+                geser = false;
+            } else {
+                float t = geserMemantul
+                        ? memantul.getInterpolation(geserProgres)
+                        : mengerem.getInterpolation(geserProgres);
+                posisi = geserAwal + (geserTujuan - geserAwal) * t;
+                lanjut = true;
+            }
+        }
+
+        if (tekan != tekanTujuan) {
+            float maju = dt / DURASI_TEKAN;
+            tekan = tekan < tekanTujuan
+                    ? Math.min(tekanTujuan, tekan + maju)
+                    : Math.max(tekanTujuan, tekan - maju);
+            if (tekan != tekanTujuan)
+                lanjut = true;
+        }
+        return lanjut;
+    }
+
+    /** Menghentikan animasi dan mengembalikan tampilan ke status yang sebenarnya. */
     private void hentikanAnimasi() {
-        if (animasiPosisi != null) {
-            animasiPosisi.cancel();
-            animasiPosisi = null;
-        }
-        if (animasiTekan != null) {
-            animasiTekan.cancel();
-            animasiTekan = null;
-        }
+        geser = false;
+        berjalan = false;
+        tekan = 0f;
+        tekanTujuan = 0f;
+        posisi = isChecked() ? 1f : 0f;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        hentikanAnimasi();
     }
 
     @Override
     protected void onDetachedFromWindow() {
+        // Kabar yang tertunda dikirim sekarang supaya tidak hilang, dan knob
+        // tidak tertinggal setengah jalan.
+        removeCallbacks(kabarkan);
+        kabarkan.run();
         hentikanAnimasi();
         super.onDetachedFromWindow();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+        boolean lanjut = berjalan && langkah();
+        if (lanjut)
+            postInvalidateOnAnimation();
+        else
+            berjalan = false;
+
         Context ctx = getContext();
         float lebar = getWidth();
         float tinggi = getHeight();

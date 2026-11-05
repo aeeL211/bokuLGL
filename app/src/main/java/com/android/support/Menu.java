@@ -29,6 +29,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -1451,7 +1452,7 @@ public class Menu {
         judulBaris.setOrientation(LinearLayout.HORIZONTAL);
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
         judulBaris.setBackground(Theme.baris(getContext));
-        judulBaris.setPadding(0, 0, dp(10), 0);
+        judulBaris.setPadding(0, 0, dp(5), 0);
         LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
         paramsJudul.setMargins(0, dp(4), 0, dp(4));
         judulBaris.setLayoutParams(paramsJudul);
@@ -1466,6 +1467,15 @@ public class Menu {
 
         final TextView jumlah = Theme.teks(getContext, "", Theme.DESC_SP, Theme.MUTED);
         judulBaris.addView(jumlah);
+        // Daftar dipantau tiap detik, jadi muat ulang cukup berupa tombol ikon
+        // kecil di sudut header, sejajar dengan ikon pemain di sisi kiri.
+        final IkonFitur muatUlang = new IkonFitur(getContext, IkonFitur.ULANG, false);
+        muatUlang.setContentDescription("Muat ulang daftar");
+        muatUlang.setClickable(true);
+        muatUlang.setFocusable(true);
+        LinearLayout.LayoutParams paramsMuat = new LinearLayout.LayoutParams(dp(38), dp(38));
+        paramsMuat.setMargins(dp(8), 0, 0, 0);
+        muatUlang.setLayoutParams(paramsMuat);
         container.addView(judulBaris);
 
         TextView petunjuk = Theme.teks(getContext,
@@ -1478,21 +1488,21 @@ public class Menu {
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
-        Button muatUlang = tombolKecil("Muat ulang daftar",
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        IsiDaftar isi = (IsiDaftar) daftar.getTag();
-                        if (isi != null)
-                            isi.data = null;
-                        isiDaftarPemain(daftar, jumlah);
-                    }
-                });
-        LinearLayout.LayoutParams paramsMuat =
-                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        paramsMuat.setMargins(0, dp(6), 0, 0);
-        muatUlang.setLayoutParams(paramsMuat);
-        container.addView(muatUlang);
+        muatUlang.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                IsiDaftar isi = (IsiDaftar) daftar.getTag();
+                if (isi != null)
+                    isi.data = null;
+                isiDaftarPemain(daftar, jumlah);
+                // Putaran penuh sebagai tanda daftar baru dibaca.
+                v.animate().cancel();
+                v.setRotation(0f);
+                v.animate().rotationBy(360f).setDuration(420L)
+                        .setInterpolator(new DecelerateInterpolator()).start();
+            }
+        });
+        judulBaris.addView(muatUlang);
 
         linLayout.addView(container);
         isiDaftarPemain(daftar, jumlah);

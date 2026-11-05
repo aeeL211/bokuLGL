@@ -730,6 +730,12 @@ public class IkonFitur extends View {
     }
 
     @Override
+    protected void drawableStateChanged() {
+        super.drawableStateChanged();
+        invalidate();
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
         float lebar = getWidth();
         float tinggi = getHeight();
@@ -741,7 +747,8 @@ public class IkonFitur extends View {
 
         cat.setAntiAlias(true);
         cat.setStyle(Paint.Style.FILL);
-        cat.setColor(Theme.ICON_BOX);
+        // Hanya view yang bisa diketuk yang pernah berstatus ditekan.
+        cat.setColor(isPressed() ? Theme.TRACK : Theme.ICON_BOX);
         kotak.reset();
         area.set(0f, 0f, lebar, tinggi);
         kotak.addRoundRect(area, sudut, Path.Direction.CW);
