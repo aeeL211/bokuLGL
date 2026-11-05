@@ -12,7 +12,6 @@ namespace {
 
 using FnTerima = void (*)(void*, void*, void*, void*, void*);
 using FnChatRoom = void (*)(void*, void*, void*, void*);
-using FnKunci = void* (*)(void*, void*);
 
 // Setiap baris chat digambar ulang pada tiap pesan, jadi isi yang panjang
 // dipotong pada sekian unit UTF-16 ini daripada disalin utuh.
@@ -116,14 +115,11 @@ void* barisPribadi(void* nama, void* teks) {
 
 // Pengecekan penerima di dalam game membandingkan nilai persis ini, jadi
 // panggilan yang sama memutuskan apakah sebuah pesan sudah punya jendela
-// sendiri.
+// sendiri. Getter game melempar NullReferenceException saat photon room belum
+// ada, jadi kunci hanya dibaca lewat jalur aman.
 void* namaLokal(void* sendiri) {
     void* manajer = bacaPtr(sendiri, fieldManajer);
-    void* pemain = bacaPtr(manajer, fieldPemain);
-    auto kunci = reinterpret_cast<FnKunci>(target(T_PLAYER_KEY).addr);
-    if (!pemain || !kunci)
-        return nullptr;
-    return kunci(pemain, target(T_PLAYER_KEY).method);
+    return kunciPemainAman(bacaPtr(manajer, fieldPemain));
 }
 
 // Pesan pribadi disiarkan ke setiap klien dan hanya pengecekan penerima yang

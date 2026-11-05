@@ -16,7 +16,6 @@
 
 namespace {
 
-using FnKunci = void* (*)(void*, void*);
 using FnTendang = void (*)(void*, void*, void*);
 using FnBersihkan = void (*)(void*, void*, void*);
 
@@ -80,13 +79,6 @@ void teksDari(void* teks, char* keluaran, size_t ukuran, const char* cadangan) {
     if (teks && keUtf8(teks, keluaran, ukuran) && keluaran[0])
         return;
     snprintf(keluaran, ukuran, "%s", cadangan);
-}
-
-void* kunciSendiri(void* pemain) {
-    auto kunci = reinterpret_cast<FnKunci>(target(T_PLAYER_KEY).orig);
-    if (!pemain || !kunci)
-        return nullptr;
-    return kunci(pemain, target(T_PLAYER_KEY).method);
 }
 
 void* pipeDari(void* multi) {
@@ -154,7 +146,7 @@ void segarkanDaftar(void* manajerTamu) {
     // Di luar room daftar kosong, dan kedua kunci tidak ditanyakan sama sekali.
     void* multi = jumlah > 0 ? bacaPtr(manajer, fieldMultiManajer) : nullptr;
     void* host = multi ? kunciHostDari(multi) : nullptr;
-    void* sendiri = jumlah > 0 ? kunciSendiri(bacaPtr(manajer, fieldPemainManajer)) : nullptr;
+    void* sendiri = jumlah > 0 ? kunciPemainAman(bacaPtr(manajer, fieldPemainManajer)) : nullptr;
 
     TamuRingkas baru[kMaksPemain] = {};
     void* item = bacaPtr(daftar, fieldItemTamu);

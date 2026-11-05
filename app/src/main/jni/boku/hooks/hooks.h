@@ -36,6 +36,10 @@ void mulaiSpoof(void* multi);
 void hentiSpoof();
 void* kunciHostDari(void* multi);
 
+// Kunci pemain sendiri, dibaca hanya setelah room punya objek photon. Di luar
+// room hasilnya nullptr, karena getter game melempar NullReferenceException.
+void* kunciPemainAman(void* pemain);
+
 // Bernilai benar selama tombol interaksi ditahan untuk pemain ini.
 bool tombolAksiDitekan(void* manajer);
 void cariFieldAksi();
