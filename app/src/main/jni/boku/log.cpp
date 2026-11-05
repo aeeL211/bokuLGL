@@ -293,7 +293,7 @@ struct Modul {
     uintptr_t akhir;
 };
 
-constexpr int kBatasModul = 64;
+constexpr int kBatasModul = 256;
 Modul modul[kBatasModul] = {};
 int jumlahModul = 0;
 bool penanganTerpasang = false;
