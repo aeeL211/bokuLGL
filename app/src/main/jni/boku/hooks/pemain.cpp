@@ -35,6 +35,9 @@ enum class Komponen { TidakAda, Collider, Rigidbody };
 
 Komponen jenisKomponen = Komponen::TidakAda;
 void* komponenNoClip = nullptr;
+// Objek akar tempat komponen itu ditemukan. Pindah dunia membangun ulang objek
+// pemain, jadi komponen lama tidak boleh dipakai lagi.
+void* rootKomponen = nullptr;
 bool komponenDicari = false;
 bool nilaiAwal = true;
 bool sedangNonaktif = false;
@@ -114,12 +117,22 @@ void cariKomponenNoClip(void* root) {
 }
 
 void terapkanNoClip(void* manajer) {
-    if (!komponenDicari) {
-        void* root = bacaPtr(manajer, fieldRoot);
-        if (!root)
-            return;
-        cariKomponenNoClip(root);
+    void* root = bacaPtr(manajer, fieldRoot);
+    if (!root)
+        return;
+
+    // Komponen milik objek pemain sebelumnya sudah dibebaskan bersama objeknya,
+    // jadi pencarian diulang dan sakelar diterapkan lagi ke objek yang baru.
+    if (root != rootKomponen) {
+        rootKomponen = root;
+        komponenDicari = false;
+        komponenNoClip = nullptr;
+        jenisKomponen = Komponen::TidakAda;
+        sedangNonaktif = false;
+        nilaiAwal = true;
     }
+    if (!komponenDicari)
+        cariKomponenNoClip(root);
     if (!komponenNoClip)
         return;
 
