@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -42,6 +43,8 @@ bool adaTeks(void* str, const char* jarum) {
 // sendiri bila sudah membawa akhiran, kosong, atau terlalu panjang untuk sebuah
 // label versi.
 void* tandaiVersi(void* bawaan, const char* label) {
+    if (!fitur().labelVersi)
+        return bawaan;
     if (!bawaan || !karakterString(bawaan))
         return bawaan;
     if (adaTeks(bawaan, kAkhiranMod))

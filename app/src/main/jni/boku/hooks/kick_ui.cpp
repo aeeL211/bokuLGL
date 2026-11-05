@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -141,8 +142,13 @@ bool tombolTendang(void* multi, int32_t id) {
 // Pengiriman tendang hanya diterima penerima bila kuncinya kunci host, jadi
 // status host dan kunci itu dipakai selama satu panggilan tombol konfirmasi.
 void kirimTendang(TargetId id, void* panel, const Panel& p, void* metode) {
-    mulaiSpoof(bacaPtr(panel, p.multi));
     auto asli = reinterpret_cast<FnPanel>(target(id).orig);
+    if (!fitur().tombolTendang) {
+        if (asli)
+            asli(panel, metode);
+        return;
+    }
+    mulaiSpoof(bacaPtr(panel, p.multi));
     if (asli)
         asli(panel, metode);
     hentiSpoof();
@@ -152,17 +158,23 @@ void hookInitConsole(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<FnPanel>(target(T_KICK_CONSOLE_INIT).orig);
     if (asli)
         asli(sendiri, metode);
-    tambahTombol(sendiri, panelConsole);
+    if (fitur().tombolTendang)
+        tambahTombol(sendiri, panelConsole);
 }
 
 void hookInitMenu(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<FnPanel>(target(T_KICK_MENU_INIT).orig);
     if (asli)
         asli(sendiri, metode);
-    tambahTombol(sendiri, panelMenu);
+    if (fitur().tombolTendang)
+        tambahTombol(sendiri, panelMenu);
 }
 
 bool hookTermMulti(void* sendiri, void* objek, int32_t t, bool* e, void* metode) {
+    auto panggil = reinterpret_cast<FnTermMulti>(target(T_INPUT_TERM_MULTI).orig);
+    if (!fitur().tombolTendang)
+        return panggil ? panggil(sendiri, objek, t, e, metode) : false;
+
     void* multi = multiDari(sendiri);
     void* net = multi ? bacaPtr(multi, fieldNet) : nullptr;
     void* status = net ? bacaPtr(net, fieldStatus) : nullptr;
@@ -174,7 +186,6 @@ bool hookTermMulti(void* sendiri, void* objek, int32_t t, bool* e, void* metode)
         stateAsli = bacaInt(net, fieldState);
         tulisInt(net, fieldState, bacaInt(status, fieldHost));
     }
-    auto panggil = reinterpret_cast<FnTermMulti>(target(T_INPUT_TERM_MULTI).orig);
     bool hasil = panggil ? panggil(sendiri, objek, t, e, metode) : false;
     if (tendang)
         tulisInt(net, fieldState, stateAsli);

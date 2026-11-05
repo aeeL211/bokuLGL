@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -21,7 +22,8 @@ void* hookValidasi(void* self, void* value, void* method) {
     auto asli = reinterpret_cast<void* (*)(void*, void*, void*)>(target(T_INPUT_VALIDATE).orig);
     if (!asli)
         return value;
-    tulisInt(self, batasInput, INT32_MAX);
+    if (fitur().inputTeks)
+        tulisInt(self, batasInput, INT32_MAX);
     return asli(self, value, method);
 }
 
@@ -29,7 +31,8 @@ void hookSisip(void* self, void* text, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void*, void*)>(target(T_INPUT_INSERT).orig);
     if (!asli)
         return;
-    tulisInt(self, batasInput, INT32_MAX);
+    if (fitur().inputTeks)
+        tulisInt(self, batasInput, INT32_MAX);
     asli(self, text, method);
 }
 
@@ -44,11 +47,16 @@ void* stringKosong() { return stringUtf16Baru(reinterpret_cast<const uint16_t*>(
 // Parameter Length tidak terpakai di jalur mobile, tetapi jalur Steam/gamepad
 // meneruskannya ke input teks miliknya sendiri. Nol berarti tanpa batas karakter
 // di sana.
-void hookBukaKeyboard(void* self, int32_t s, int32_t type, void* text, int32_t, void* method) {
+void hookBukaKeyboard(void* self, int32_t s, int32_t type, void* text, int32_t panjangDiminta,
+                      void* method) {
     auto asli = reinterpret_cast<void (*)(void*, int32_t, int32_t, void*, int32_t, void*)>(
         target(T_KEYBOARD_OPEN).orig);
     if (!asli)
         return;
+    if (!fitur().inputTeks) {
+        asli(self, s, type, text, panjangDiminta, method);
+        return;
+    }
     int32_t panjang = panjangString(text);
     // Menyebut string yang akan diubah engine, supaya pointer buruk muncul di log
     // tepat sebelum crash, bukan hanya di alamat kesalahan.
@@ -68,6 +76,10 @@ void hookCekNama(void* self, void** name, bool fix, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void**, bool, void*)>(target(T_NAME_CHECK).orig);
     if (!asli)
         return;
+    if (!fitur().inputTeks) {
+        asli(self, name, fix, method);
+        return;
+    }
     void* data = bacaPtr(self, dataNama);
     int32_t tersimpan = 0;
     if (data) {

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -26,6 +27,12 @@ void* uiIap() {
 // game, yang sama dengan yang akan dipanggil callback toko. UI__Iap._Update lalu
 // memberikan candy-nya pada frame berikutnya.
 void hookBeli(int32_t productId, void* method) {
+    if (!fitur().iap) {
+        auto asli = reinterpret_cast<void (*)(int32_t, void*)>(target(T_BUY).orig);
+        if (asli)
+            asli(productId, method);
+        return;
+    }
     void* ui = uiIap();
     void* selesai = target(T_PURCHASE_COMPLETE).addr;
     if (ui && selesai && target(T_PURCHASE_COMPLETE).method) {
@@ -43,7 +50,12 @@ void hookBeli(int32_t productId, void* method) {
 }
 
 // Gerbang bersama untuk tile, model, dan melodi.
-bool hookBukaKunci(void*, int32_t, bool* checked, bool* unlock, void*) {
+bool hookBukaKunci(void* self, int32_t id, bool* checked, bool* unlock, void* method) {
+    if (!fitur().iap) {
+        auto asli = reinterpret_cast<bool (*)(void*, int32_t, bool*, bool*, void*)>(
+            target(T_UNLOCK_CHECK).orig);
+        return asli ? asli(self, id, checked, unlock, method) : false;
+    }
     if (checked)
         *checked = true;
     if (unlock)

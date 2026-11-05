@@ -1,5 +1,6 @@
 #include "hooks.h"
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -24,27 +25,33 @@ bool batasSiap = false;
 // luar itu, jadi kedua flag sekarang diteruskan apa adanya. Hanya flag simpan
 // dunia yang masih dipaksa, karena host mengirimnya sekali di awal dan guest
 // tidak mendapat kesempatan lain untuk mengaktifkannya.
-void hookIzinMulai(void* self, bool build, bool destroy, bool, void* method) {
+void hookIzinMulai(void* self, bool build, bool destroy, bool simpan, void* method) {
     LOGI("Izin: mulai game build=%d destroy=%d", build, destroy);
     auto asli =
         reinterpret_cast<void (*)(void*, bool, bool, bool, void*)>(target(T_PERMISSION_START).orig);
     if (!asli)
         return;
-    asli(self, build, destroy, true, method);
+    asli(self, build, destroy, fitur().simpanDunia ? true : simpan, method);
 }
 
-void hookIzinSimpan(void* self, bool, void* method) {
+void hookIzinSimpan(void* self, bool izin, void* method) {
     LOGI("Izin: simpan dunia diterima");
     auto asli = reinterpret_cast<void (*)(void*, bool, void*)>(target(T_PERMISSION_SAVE).orig);
     if (!asli)
         return;
-    asli(self, true, method);
+    asli(self, fitur().simpanDunia ? true : izin, method);
 }
 
 // Daftar room membuang setiap room yang luas dunianya di atas batas perangkat
 // ini, dan panel join serta info memakai tes yang sama. Menjawab true membuat
 // room itu tetap terdaftar berapa pun ukurannya.
-bool hookUkuranRoom(void*, int, int, void*) { return true; }
+bool hookUkuranRoom(void* self, int lebar, int tinggi, void* method) {
+    if (!fitur().ukuranRoom) {
+        auto asli = reinterpret_cast<bool (*)(void*, int, int, void*)>(target(T_ROOM_SIZE).orig);
+        return asli ? asli(self, lebar, tinggi, method) : false;
+    }
+    return true;
+}
 
 // Halaman ukuran membaca max.w dan max.h sebagai batas slider, tetapi manajer
 // tile menurunkan batas itu ke tier perangkat ini saat boot, jauh sebelum hook
@@ -77,7 +84,8 @@ void naikkanBatasDunia(void* self) {
 // batas dinaikkan sebelum fungsi asli berjalan dan bukaan pertama sudah
 // melihatnya.
 void hookBatas(void* self, void* method) {
-    naikkanBatasDunia(self);
+    if (fitur().ukuranRoom)
+        naikkanBatasDunia(self);
     auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_WORLD_CAP).orig);
     if (asli)
         asli(self, method);

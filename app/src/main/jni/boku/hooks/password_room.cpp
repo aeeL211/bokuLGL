@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -43,7 +44,14 @@ void* sandiRoom(void* self) {
 // tidak pernah bisa dikirim dan perbandingannya tidak pernah tercapai. Dengan
 // hook ini tombolnya selalu bisa dipakai; sandi room tetap diperiksa kode asli,
 // yang dipenuhi okHook tepat sebelum perbandingan.
-bool hookTombol(void*, void*) { return true; }
+bool hookTombol(void* self, void* method) {
+    if (!fitur().sandiRoom) {
+        auto asli =
+            reinterpret_cast<bool (*)(void*, void*)>(target(T_PASSWORD_BUTTON).orig);
+        return asli ? asli(self, method) : false;
+    }
+    return true;
+}
 
 // Input__Ok membandingkan _password.str dengan detail._room_Data.password dan
 // baru setelah itu menutup keyboard serta memanggil Join__Start. Kotak tetap
@@ -54,6 +62,10 @@ void hookOk(void* self, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_PASSWORD_OK).orig);
     if (!asli)
         return;
+    if (!fitur().sandiRoom) {
+        asli(self, method);
+        return;
+    }
     void* nilai = bacaPtr(self, fieldSandi);
     void* sandi = sandiRoom(self);
     if (nilai && stringLayak(sandi)) {
@@ -85,6 +97,10 @@ void hookField(void* self, bool touch, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, bool, void*)>(target(T_PASSWORD_FIELD).orig);
     if (!asli)
         return;
+    if (!fitur().sandiRoom) {
+        asli(self, touch, method);
+        return;
+    }
     void* nilai = bacaPtr(self, fieldSandi);
     void* str = nilai ? bacaPtr(nilai, fieldStr) : nullptr;
     // Panel menyerahkan string ini ke keyboard, jadi catat sebelum fungsi asli

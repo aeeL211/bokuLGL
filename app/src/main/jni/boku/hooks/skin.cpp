@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -245,9 +246,11 @@ void hookTambah(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t
                 int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
                 bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
                 bool dollSetting, void* method) {
-    int slot = simpanModel(self, model);
-    if (slot)
-        catatPengguna(user, slot);
+    if (fitur().salinSkin) {
+        int slot = simpanModel(self, model);
+        if (slot)
+            catatPengguna(user, slot);
+    }
 
     auto asli = reinterpret_cast<FnTambah>(target(T_GUEST_ADD).orig);
     if (asli)
@@ -263,7 +266,8 @@ void hookNama(void* self, void* user, void* name, void* method) {
     auto asli = reinterpret_cast<FnNama>(target(T_GUEST_NAME).orig);
     if (asli)
         asli(self, user, name, method);
-    tulisNamaPengguna(self, user, name);
+    if (fitur().salinSkin)
+        tulisNamaPengguna(self, user, name);
 }
 
 } // namespace

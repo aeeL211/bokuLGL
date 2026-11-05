@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <ctime>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -123,7 +124,8 @@ void hookChargeStd(void* sendiri, void* metode) {
     if (!asli)
         return;
     asli(sendiri, metode);
-    setelArahCharge(sendiri, false);
+    if (fitur().kotoran)
+        setelArahCharge(sendiri, false);
 }
 
 // Charge melihat ke atas hanya punya satu pemanggil, yaitu sakelar input yang
@@ -133,16 +135,21 @@ void hookChargeUp(void* sendiri, void* metode) {
     if (!asli)
         return;
     asli(sendiri, metode);
-    setelArahCharge(sendiri, true);
+    if (fitur().kotoran)
+        setelArahCharge(sendiri, true);
 }
 
 // Id tangan kosong di akhir lemparan mengeluarkan kotoran dari tangan. Menahan
 // perubahan itu membuat kotorannya tetap di tempat, jadi kotoran yang sama bisa
 // terbang lagi, dan kekuatannya dipaksa supaya setiap lemparan terkuat.
-void hookAksiStd(void* sendiri, float, void* metode) {
+void hookAksiStd(void* sendiri, float kekuatan, void* metode) {
     auto asli = reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_STD).orig);
     if (!asli)
         return;
+    if (!fitur().kotoran) {
+        asli(sendiri, kekuatan, metode);
+        return;
+    }
     tandaiLemparan(sendiri, false);
     setelTahanTangan(true);
     asli(sendiri, kKekuatanPenuh, metode);
@@ -150,10 +157,14 @@ void hookAksiStd(void* sendiri, float, void* metode) {
 }
 
 // Lemparan melihat ke atas butuh perlakuan yang sama.
-void hookAksiUp(void* sendiri, float, void* metode) {
+void hookAksiUp(void* sendiri, float kekuatan, void* metode) {
     auto asli = reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_UP).orig);
     if (!asli)
         return;
+    if (!fitur().kotoran) {
+        asli(sendiri, kekuatan, metode);
+        return;
+    }
     tandaiLemparan(sendiri, true);
     setelTahanTangan(true);
     asli(sendiri, kKekuatanPenuh, metode);
@@ -168,6 +179,8 @@ void hookUpdateLempar(void* sendiri, void* metode) {
     if (!asli)
         return;
     asli(sendiri, metode);
+    if (!fitur().kotoran)
+        return;
 
     void* manajer = bacaPtr(sendiri, fieldManajer);
     if (!manajer || !tombolAksiDitekan(manajer))
@@ -187,6 +200,8 @@ void hookUpdateCharge(void* sendiri, void* metode) {
     if (!asli)
         return;
     asli(sendiri, metode);
+    if (!fitur().kotoran)
+        return;
 
     void* manajer = bacaPtr(sendiri, fieldManajer);
     if (!manajer || !tombolAksiDitekan(manajer))

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -131,9 +132,14 @@ void* namaLokal(void* sendiri) {
 // paket sendiri. Room chat menyelesaikan nama itu dari daftar tamu, jadi
 // pengirim yang tidak ada di room ini dilewati daripada diserahkan ke game.
 void hookTerima(void* sendiri, void* penerima, void* pengguna, void* teks, void* metode) {
+    auto asli = reinterpret_cast<FnTerima>(target(T_GUEST_MSG_RECEIVE).orig);
+    if (!fitur().chatPribadi) {
+        if (asli)
+            asli(sendiri, penerima, pengguna, teks, metode);
+        return;
+    }
     catatPesanPribadi(pengguna, penerima, teks);
 
-    auto asli = reinterpret_cast<FnTerima>(target(T_GUEST_MSG_RECEIVE).orig);
     if (asli)
         asli(sendiri, penerima, pengguna, teks, metode);
 

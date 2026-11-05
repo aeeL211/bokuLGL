@@ -5,6 +5,7 @@
 #include <cstring>
 #include <ctime>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -266,7 +267,8 @@ void hookUpdate(void* sendiri, void* metode) {
     // berpasangan, dan penggantian yang bocor membuat setiap pencarian kunci
     // berikutnya dijawab dengan kunci host.
     hentiSpoof();
-    detakTendangSemua(sendiri);
+    if (fitur().roomKit)
+        detakTendangSemua(sendiri);
 }
 
 // Host terdaftar sebagai tamu biasa, dan satu frame tidak bisa membawa semua
@@ -364,21 +366,28 @@ bool tanganiPerintah(void* chat, void* teks) {
 // perintah dijawab di sini dan pengirimannya dilewati dengan mengembalikan
 // false.
 bool hookKirim(void* sendiri, void* teks, bool suara, void* metode) {
+    auto asli = reinterpret_cast<FnKirimChat>(target(T_CHAT_SEND).orig);
+    if (!fitur().roomKit)
+        return asli ? asli(sendiri, teks, suara, metode) : false;
     LOGI("Kirim chat: panjang=%d suara=%d", panjangString(teks), suara ? 1 : 0);
     if (tanganiPerintah(sendiri, teks))
         return false;
-    auto asli = reinterpret_cast<FnKirimChat>(target(T_CHAT_SEND).orig);
     return asli ? asli(sendiri, teks, suara, metode) : false;
 }
 
 // Tombol kirim dan aksi keyboard sama-sama mendarat di sini dengan field yang
 // sudah terisi, jadi perintahnya diambil sebelum validator berjalan sama sekali.
 void hookTombolKirim(void* sendiri, void* metode) {
+    auto asli = reinterpret_cast<FnKirimInput>(target(T_INPUT_SEND).orig);
+    if (!fitur().roomKit) {
+        if (asli)
+            asli(sendiri, metode);
+        return;
+    }
     void* teks = teksInput(sendiri);
     LOGI("Tombol kirim: panjang=%d", panjangString(teks));
     if (tanganiPerintah(sendiri, teks))
         return;
-    auto asli = reinterpret_cast<FnKirimInput>(target(T_INPUT_SEND).orig);
     if (asli)
         asli(sendiri, metode);
 }

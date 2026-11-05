@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -16,7 +17,7 @@ Field fieldPanjang = {};
 // Introduce__Set memotong teks sesuai _introduce.length sebelum menyimpannya.
 // Menaikkan batas itu membuat seluruh teks ikut tersimpan.
 void hookPerkenalan(void* self, void* text, void* method) {
-    if (fieldAkun.field && fieldPerkenalan.field && fieldPanjang.field) {
+    if (fitur().inputTeks && fieldAkun.field && fieldPerkenalan.field && fieldPanjang.field) {
         void* akun = bacaPtr(self, fieldAkun);
         void* perkenalan = bacaPtr(akun, fieldPerkenalan);
         if (perkenalan)

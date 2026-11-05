@@ -1,5 +1,6 @@
 #include "hooks.h"
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -10,11 +11,24 @@ namespace {
 // Setiap baris detail akun menanyakan ini sebelum memutuskan apa yang ditampilkan.
 // Menjawab ya membuat pilihan "sembunyikan" milik pemilik tidak menggantikan
 // nilainya.
-bool hookManajer(void*, int, void*, bool, void*) { return true; }
+bool hookManajer(void* self, int a, void* b, bool c, void* method) {
+    if (!fitur().privasi) {
+        auto asli = reinterpret_cast<bool (*)(void*, int, void*, bool, void*)>(
+            target(T_PRIVACY_MANAGER).orig);
+        return asli ? asli(self, a, b, c, method) : false;
+    }
+    return true;
+}
 
 // Layar teman, blacklist, tambah teman, dan verifikasi membawa salinan
 // pengecekan yang sama, jadi semuanya dijawab dengan cara yang sama.
-bool hookBaris(void*, int, void*) { return true; }
+template <TargetId id> bool hookBaris(void* self, int a, void* method) {
+    if (!fitur().privasi) {
+        auto asli = reinterpret_cast<bool (*)(void*, int, void*)>(target(id).orig);
+        return asli ? asli(self, a, method) : false;
+    }
+    return true;
+}
 
 // Objek pengguna dan akun tamu menyimpan email serta nilai privasi yang
 // menentukan boleh-tidaknya email itu dikirim dalam bentuk yang sama, jadi satu
@@ -53,7 +67,7 @@ void* labelPrivasi(int terlihat) {
 // email yang disembunyikan membuat barisnya kosong. Label privasi milik pemilik
 // ditampilkan sebagai gantinya.
 void isiEmail(void* pemilik, const FieldEmail& bidang) {
-    if (!pemilik)
+    if (!fitur().privasi || !pemilik)
         return;
     void* email = bacaPtr(pemilik, bidang.email);
     if (email && panjangString(email) > 0)
@@ -193,11 +207,13 @@ void pasangHookPrivasi() {
     LOGI("Penyetel email: %d dari 4", ditemukan);
 
     pasangHook(target(T_PRIVACY_MANAGER), reinterpret_cast<void*>(hookManajer));
-    pasangHook(target(T_PRIVACY_BLACKLIST), reinterpret_cast<void*>(hookBaris));
-    pasangHook(target(T_PRIVACY_ADD_FRIEND), reinterpret_cast<void*>(hookBaris));
-    pasangHook(target(T_PRIVACY_FRIEND_PROFILE), reinterpret_cast<void*>(hookBaris));
-    pasangHook(target(T_PRIVACY_VERIFY), reinterpret_cast<void*>(hookBaris));
-    pasangHook(target(T_PRIVACY_VERIFY_EMAIL), reinterpret_cast<void*>(hookBaris));
+    pasangHook(target(T_PRIVACY_BLACKLIST), reinterpret_cast<void*>(hookBaris<T_PRIVACY_BLACKLIST>));
+    pasangHook(target(T_PRIVACY_ADD_FRIEND), reinterpret_cast<void*>(hookBaris<T_PRIVACY_ADD_FRIEND>));
+    pasangHook(target(T_PRIVACY_FRIEND_PROFILE),
+               reinterpret_cast<void*>(hookBaris<T_PRIVACY_FRIEND_PROFILE>));
+    pasangHook(target(T_PRIVACY_VERIFY), reinterpret_cast<void*>(hookBaris<T_PRIVACY_VERIFY>));
+    pasangHook(target(T_PRIVACY_VERIFY_EMAIL),
+               reinterpret_cast<void*>(hookBaris<T_PRIVACY_VERIFY_EMAIL>));
     pasangHook(target(T_USER_SET), reinterpret_cast<void*>(hookSetel));
     pasangHook(target(T_USER_SET_LOCAL), reinterpret_cast<void*>(hookSetelString));
     pasangHook(target(T_USER_SET_LOCAL_ARRAY), reinterpret_cast<void*>(hookSetelArray));

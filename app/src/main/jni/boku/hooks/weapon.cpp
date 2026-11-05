@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <ctime>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -99,6 +100,11 @@ void hookUpdateState(void* sendiri, void* metode) {
     if (!asli)
         return;
 
+    if (!fitur().tembakOtomatis) {
+        asli(sendiri, metode);
+        return;
+    }
+
     void* manajer = bacaPtr(sendiri, fieldManajerState);
     Irama& irama = iramaUntuk(manajer);
     bool ditahan = tombolAksiDitekan(manajer);
@@ -112,7 +118,13 @@ void hookUpdateState(void* sendiri, void* metode) {
 
 // State akhir pistol adalah timer tetap. Mengakhirinya pada update pertama
 // menghilangkan jeda antar tembakan; fase aksi tetap memutar muzzle dan peluru.
-bool hookAkhirPistol(void*, void*) { return true; }
+bool hookAkhirPistol(void* sendiri, void* metode) {
+    if (!fitur().tembakOtomatis) {
+        auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
+        return asli ? asli(sendiri, metode) : false;
+    }
+    return true;
+}
 
 // Aksi pistol bawaan hanya berakhir setelah frame kedua plus timer aksi.
 // Menjawab ya pada irama pendek selama tombol ditahan menembak lagi sebelum
@@ -121,6 +133,8 @@ bool hookAkhirAksiPistol(void* sendiri, int gambar, void* metode) {
     auto asli = reinterpret_cast<bool (*)(void*, int, void*)>(target(T_GUN_ACTION_END).orig);
     if (!asli)
         return false;
+    if (!fitur().tembakOtomatis)
+        return asli(sendiri, gambar, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
     Irama& irama = iramaUntuk(manajer);
@@ -140,7 +154,8 @@ void hookUpdatePistol(void* sendiri, void* metode) {
     if (!asli)
         return;
 
-    selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
+    if (fitur().tembakOtomatis)
+        selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
     asli(sendiri, metode);
 }
 
@@ -150,7 +165,8 @@ void hookUpdateBuster(void* sendiri, void* metode) {
     if (!asli)
         return;
 
-    selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
+    if (fitur().tembakOtomatis)
+        selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
     asli(sendiri, metode);
 }
 
@@ -161,6 +177,8 @@ bool hookAkhirAksiBuster(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_ACTION_END).orig);
     if (!asli)
         return false;
+    if (!fitur().tembakOtomatis)
+        return asli(sendiri, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
     Irama& irama = iramaUntuk(manajer);
@@ -178,6 +196,8 @@ bool hookAkhirKeAksiBuster(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_END_TO_ACTION).orig);
     if (!asli)
         return false;
+    if (!fitur().tembakOtomatis)
+        return asli(sendiri, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
     Irama& irama = iramaUntuk(manajer);
@@ -198,6 +218,10 @@ void hookUpdateAkhirBuster(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_END_UPDATE).orig);
     if (!asli)
         return;
+    if (!fitur().tembakOtomatis) {
+        asli(sendiri, metode);
+        return;
+    }
 
     auto arahAkhir = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_END_DIR).addr);
     auto aksi = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
@@ -222,6 +246,8 @@ int32_t hookIdBuster(void* sendiri, void* metode) {
     auto asli = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_ID).orig);
     if (!asli)
         return 0;
+    if (!fitur().busterPenuh)
+        return asli(sendiri, metode);
 
     void* state = statePemain(sendiri, fieldManajerCmn);
     void* rock = bacaPtr(state, fieldRock);

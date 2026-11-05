@@ -1,5 +1,6 @@
 #include "hooks.h"
 
+#include "fitur.h"
 #include "hook.h"
 #include "targets.h"
 
@@ -23,6 +24,10 @@ template <TargetId id> void hookAkhirMakan(void* self, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void*)>(target(id).orig);
     if (!asli)
         return;
+    if (!fitur().makanan) {
+        asli(self, method);
+        return;
+    }
     setelTahanTangan(true);
     asli(self, method);
     setelTahanTangan(false);

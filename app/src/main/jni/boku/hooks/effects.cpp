@@ -2,19 +2,40 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "targets.h"
 
 namespace {
 
 // Getar kamera murni visual, jadi kedua titik masuknya dibuang.
-void hookGetar(void*, void*) {}
-void hookGetarAngka(void*, int32_t, float, void*) {}
+void hookGetar(void* self, void* metode) {
+    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_SHAKE).orig);
+    if (!fitur().efek && asli)
+        asli(self, metode);
+}
+
+void hookGetarAngka(void* self, int32_t durasi, float kekuatan, void* metode) {
+    auto asli =
+        reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
+    if (!fitur().efek && asli)
+        asli(self, durasi, kekuatan, metode);
+}
 
 // Puing tile dimunculkan saat tile pecah. Membuang pemunculannya membiarkan tile
 // dan rekamannya utuh sementara serpihannya tidak ada.
-void hookPuing(void*, int32_t, void*) {}
-void hookPuingTile(void*, float, float, int32_t, void*, void*) {}
+void hookPuing(void* self, int32_t jenis, void* metode) {
+    auto asli = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_DEBRIS).orig);
+    if (!fitur().efek && asli)
+        asli(self, jenis, metode);
+}
+
+void hookPuingTile(void* self, float x, float y, int32_t jenis, void* data, void* metode) {
+    auto asli = reinterpret_cast<void (*)(void*, float, float, int32_t, void*, void*)>(
+        target(T_DEBRIS_TILE).orig);
+    if (!fitur().efek && asli)
+        asli(self, x, y, jenis, data, metode);
+}
 
 } // namespace
 

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "log.h"
 #include "targets.h"
@@ -9,14 +10,21 @@
 namespace {
 
 // Field hari dan bulan terbuka dengan 2 karakter, tahun dengan 4.
-int32_t hookPanjangLahir(void*, int32_t, void*) { return INT32_MAX; }
+int32_t hookPanjangLahir(void* self, int32_t bawaan, void* method) {
+    if (!fitur().inputTeks) {
+        auto asli =
+            reinterpret_cast<int32_t (*)(void*, int32_t, void*)>(target(T_BIRTHDAY_LENGTH).orig);
+        return asli ? asli(self, bawaan, method) : bawaan;
+    }
+    return INT32_MAX;
+}
 
 // Birthday__Refresh_ hanya menampilkan nilai bila V <= Limit. Batas bulan, hari,
 // dan tahun bawaan semuanya dilonggarkan, jadi angka apa pun yang diketik tetap
 // tampil di layar.
 void hookLahir(void* self, int32_t v, int32_t i, int32_t batas, void* bawaan, void* method) {
     LOGI("Tanggal lahir: v=%d i=%d batas=%d", v, i, batas);
-    if (batas == 12 || batas == 31 || batas == 9999)
+    if (fitur().inputTeks && (batas == 12 || batas == 31 || batas == 9999))
         batas = INT32_MAX;
     auto asli = reinterpret_cast<void (*)(void*, int32_t, int32_t, int32_t, void*, void*)>(
         target(T_BIRTHDAY_REFRESH).orig);
@@ -35,7 +43,7 @@ void hookAkhirLahir(void* self, void* text, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void*, void*)>(target(T_BIRTHDAY_END).orig);
     if (!asli)
         return;
-    sedangUbahLahir = true;
+    sedangUbahLahir = fitur().inputTeks;
     asli(self, text, method);
     sedangUbahLahir = false;
 }

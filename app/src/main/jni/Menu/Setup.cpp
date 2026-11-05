@@ -1,6 +1,7 @@
 #include "Includes/obfuscate.h"
 #include "Menu/Menu.hpp"
 #include "Utils.hpp"
+#include "boku/log.h"
 #include "boku/mod.h"
 
 int RegisterMenu(JNIEnv *env) {
@@ -63,11 +64,19 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     // Satu-satunya JNI_OnLoad di library ini: milik menu, yang juga menyerahkan
     // JavaVM dan kelas activity ke sisi mod.
     siapkanMod(vm, env);
+
+    // Kelas menu hanya ada saat pustaka ini dimuat dari APK yang sudah digabung
+    // dengan template. Bila pustaka disuntikkan ke game asli, kelas itu tidak
+    // terdaftar; hook tetap harus berjalan dengan sakelar bawaannya, jadi
+    // kegagalan pendaftaran dicatat dan tidak membatalkan pemuatan.
+    bool menuTerdaftar = true;
     if (RegisterMenu(env) != 0)
-        return JNI_ERR;
+        menuTerdaftar = false;
     if (RegisterPreferences(env) != 0)
-        return JNI_ERR;
+        menuTerdaftar = false;
     if (RegisterMain(env) != 0)
-        return JNI_ERR;
+        menuTerdaftar = false;
+    if (!menuTerdaftar)
+        LOGI("Kelas menu tidak terdaftar, fitur berjalan tanpa menu");
     return JNI_VERSION_1_6;
 }

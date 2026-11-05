@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -33,6 +34,8 @@ int32_t skinDiperlebar[kSlotRentang][kMaksSumbu] = {};
 // Value__To__Step melihat rentang -25..+25 yang baru pada lintasan Refresh() yang
 // sama.
 void perlebarRentang(void* self, const Field& fieldPemilik, const Field& fieldPos, int slot) {
+    if (!fitur().rentangSkin)
+        return;
     if (!fieldPemilik.field || !fieldPos.field || !fieldLangkahMaks.field ||
         !fieldLangkahSetengah.field || !fieldLebarLangkah.field || !fieldLebarPos.field ||
         !fieldNilaiPos.field || !fieldNilaiMin.field || !fieldNilaiMaks.field ||

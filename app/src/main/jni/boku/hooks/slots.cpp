@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -73,7 +74,7 @@ void hookMuat(int32_t* count, void* key, int32_t standalone, void* method) {
         return;
 
     asli(count, key, standalone, method);
-    if (count && *count < kBatasSlot)
+    if (fitur().slot && count && *count < kBatasSlot)
         *count = kBatasSlot;
 }
 
