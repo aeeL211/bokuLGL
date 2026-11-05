@@ -126,6 +126,19 @@ void salinNama(void* tamu, char* keluaran, size_t ukuran, const char* cadangan) 
     }
 }
 
+// Jumlah tamu di daftar hidup. Nol berarti belum ada room, dan pada keadaan itu
+// kunci host serta kunci pemain tidak boleh ditanyakan ke game: kedua getter
+// melempar NullReferenceException saat room belum terbentuk, dan eksepsi yang
+// lolos dari hook mematikan proses.
+int32_t tamuDiRoom(void* manajerTamu) {
+    void* manajer = bacaPtr(manajerTamu, fieldManajerTamu);
+    void* daftar = bacaPtr(manajer, fieldTamuManajer);
+    void* item = bacaPtr(daftar, fieldItemTamu);
+    int32_t jumlah = item ? bacaInt(daftar, fieldUkuranTamu) : 0;
+    int32_t kapasitas = item ? panjangArray(item) : 0;
+    return jumlah > 0 && jumlah <= kapasitas ? jumlah : 0;
+}
+
 // Salinan daftar tamu untuk menu, diperbarui di thread game. Host dan pemain
 // sendiri dilewati karena menendang keduanya mengakhiri room.
 void segarkanDaftar(void* manajerTamu) {
@@ -136,17 +149,15 @@ void segarkanDaftar(void* manajerTamu) {
 
     void* manajer = bacaPtr(manajerTamu, fieldManajerTamu);
     void* daftar = bacaPtr(manajer, fieldTamuManajer);
-    void* item = bacaPtr(daftar, fieldItemTamu);
-    int32_t jumlah = item ? bacaInt(daftar, fieldUkuranTamu) : 0;
-    int32_t kapasitas = item ? panjangArray(item) : 0;
-    if (jumlah > kapasitas)
-        jumlah = kapasitas;
+    int32_t jumlah = tamuDiRoom(manajerTamu);
 
-    void* multi = bacaPtr(manajer, fieldMultiManajer);
-    void* host = kunciHostDari(multi);
-    void* sendiri = kunciSendiri(bacaPtr(manajer, fieldPemainManajer));
+    // Di luar room daftar kosong, dan kedua kunci tidak ditanyakan sama sekali.
+    void* multi = jumlah > 0 ? bacaPtr(manajer, fieldMultiManajer) : nullptr;
+    void* host = multi ? kunciHostDari(multi) : nullptr;
+    void* sendiri = jumlah > 0 ? kunciSendiri(bacaPtr(manajer, fieldPemainManajer)) : nullptr;
 
     TamuRingkas baru[kMaksPemain] = {};
+    void* item = bacaPtr(daftar, fieldItemTamu);
     char* data = item ? dataArray(item) : nullptr;
     int terisi = 0;
     for (int32_t i = 0; data && i < jumlah && terisi < kMaksPemain; i++) {
@@ -172,6 +183,12 @@ void segarkanDaftar(void* manajerTamu) {
 void jalankanAksi(void* manajerTamu, const Aksi& aksi) {
     char pesan[kKarakterNama + 64];
     if (aksi.jenis == JenisAksi::Tendang) {
+        // Aksi sisa dari room sebelumnya tidak boleh mengirim paket: kunci host
+        // hanya ada selama room berjalan.
+        if (tamuDiRoom(manajerTamu) <= 0) {
+            LOGE("Tendang menu dilewati: room sudah tidak ada");
+            return;
+        }
         void* multi = bacaPtr(bacaPtr(manajerTamu, fieldManajerTamu), fieldMultiManajer);
         bool terkirim = multi && tendangKunci(multi, stringDariUtf8(aksi.kunci));
         if (terkirim) {
