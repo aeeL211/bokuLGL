@@ -47,17 +47,25 @@ public final class Theme {
     public static final int TRACK = 0xFF936832;
     public static final int ACTIVE_BORDER = 0xFFF6F6F6;
 
+    // Tiga nada ikon pixel-art game (diambil dari ikon CRT filter / Vignette / Light Effect).
+    public static final int ICON_LIGHT = 0xFFCCAA77;
+    public static final int ICON_MID = 0xFFBB8855;
+    public static final int ICON_DARK = 0xFF996633;
+
+    // Garis tombol kayu: krem terang di atas isi cokelat tua.
+    public static final int BUTTON_BORDER = 0xFFDCB983;
+
     // Turunan palet yang dipakai berulang.
     public static final int FOOTER = HEADER;
     public static final int MUTED = ICON_BOX;
     public static final int ACCENT = TITLE_TEXT;
 
     // Sudut, dalam dp. Semua drawable mengambil nilai dari sini.
-    public static final float RADIUS_PANEL = 2f;
-    public static final float RADIUS_ROW = 3f;
-    public static final float RADIUS_IKON = 3f;
-    public static final float RADIUS_THUMB = 2f;
-    public static final float RADIUS_KNOB = 3f;
+    public static final float RADIUS_PANEL = 3f;
+    public static final float RADIUS_ROW = 5f;
+    public static final float RADIUS_IKON = 5f;
+    public static final float RADIUS_THUMB = 3f;
+    public static final float RADIUS_KNOB = 10f;
 
     // Tebal garis, dalam dp.
     public static final float TEBAL_PANEL = 3f;
@@ -172,29 +180,35 @@ public final class Theme {
         return drawable;
     }
 
+    /** Kepala section: pita cokelat polos, tanpa garis tebal. */
     public static Drawable sectionHeader(Context context) {
-        return kotak(HEADER, RADIUS_PANEL, TEBAL_PANEL, OUTLINE, context);
+        return kotak(HEADER, RADIUS_ROW, 0f, HEADER, context);
     }
 
+    /** Isi section transparan: baris di dalamnya langsung duduk di atas BODY. */
     public static Drawable sectionBody(Context context) {
-        return kotak(BODY, RADIUS_PANEL, TEBAL_PANEL, OUTLINE, context);
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0x00000000);
+        return drawable;
     }
 
+    /** Baris kontrol game: datar #DCB983 tanpa garis, sudut melengkung ±5dp. */
     public static Drawable baris(Context context) {
-        return kotak(ROW, RADIUS_ROW, TEBAL_KONTROL, STROKE_KONTROL, context);
+        return kotak(ROW, RADIUS_ROW, 0f, ROW, context);
     }
 
     public static Drawable kartu(Context context) {
-        return kotak(BODY, RADIUS_ROW, TEBAL_KONTROL, STROKE_KONTROL, context);
+        return kotak(ROW, RADIUS_ROW, 0f, ROW, context);
     }
 
     /** Kartu pemain yang sedang dipilih memakai garis fokus putih. */
     public static Drawable kartuTerpilih(Context context) {
-        return kotak(BODY, RADIUS_ROW, TEBAL_FOKUS, ACTIVE_BORDER, context);
+        return kotak(ROW, RADIUS_ROW, TEBAL_FOKUS, ACTIVE_BORDER, context);
     }
 
+    /** Tombol kayu: isi cokelat tua dengan garis krem 3dp, sudut kecil. */
     public static Drawable tombol(Context context) {
-        return kotak(ICON_BOX, RADIUS_PANEL, TEBAL_KONTROL, STROKE_KONTROL, context);
+        return kotak(ICON_BOX, RADIUS_PANEL, TEBAL_KONTROL, BUTTON_BORDER, context);
     }
 
     public static Drawable tombolAktif(Context context) {
@@ -206,15 +220,15 @@ public final class Theme {
     }
 
     public static Drawable tombolKecil(Context context, int warnaGaris) {
-        return kotak(ICON_BOX, RADIUS_PANEL, TEBAL_KONTROL, warnaGaris, context);
+        return kotak(ICON_BOX, RADIUS_PANEL, 2f, BUTTON_BORDER, context);
     }
 
     public static Drawable lencana(Context context, int warna) {
-        return kotak(warna, RADIUS_PANEL, 1f, OUTLINE, context);
+        return kotak(warna, RADIUS_PANEL, 0f, warna, context);
     }
 
     public static Drawable kotakIkon(Context context) {
-        return kotak(ICON_BOX, RADIUS_IKON, 1f, OUTLINE, context);
+        return kotak(ICON_BOX, RADIUS_IKON, 0f, ICON_BOX, context);
     }
 
     public static Drawable kotakTutup(Context context) {
@@ -222,12 +236,13 @@ public final class Theme {
     }
 
     /**
-     * Track tipis #936832 dengan isi gelap #81521D. Isi memakai warna kotak ikon
-     * supaya posisi slider tetap terbaca di atas baris #DCB983.
+     * Track tipis 4dp seperti slider game: garis #936832, bagian yang sudah
+     * terisi memakai cokelat tua #81521D supaya posisi tetap terbaca di atas
+     * baris #DCB983. Tinggi SeekBar 28dp dengan inset 12dp atas-bawah.
      */
     public static Drawable seekbarProgress(Context context) {
-        GradientDrawable track = kotak(TRACK, RADIUS_THUMB, 0f, TRACK, context);
-        GradientDrawable isi = kotak(ICON_BOX, RADIUS_THUMB, 0f, ICON_BOX, context);
+        GradientDrawable track = kotak(TRACK, 2f, 0f, TRACK, context);
+        GradientDrawable isi = kotak(ICON_BOX, 2f, 0f, ICON_BOX, context);
         ClipDrawable clip = new ClipDrawable(isi, Gravity.LEFT, ClipDrawable.HORIZONTAL);
 
         LayerDrawable layers = new LayerDrawable(new Drawable[]{track, clip});
@@ -237,38 +252,48 @@ public final class Theme {
         return layers;
     }
 
-    /** Thumb persegi panjang tegak, bukan bulatan bawaan Android. */
+    /** Thumb persegi panjang tegak #936832 seperti game, tanpa garis hitam. */
     public static Drawable seekbarThumb(Context context) {
-        GradientDrawable drawable = kotak(TITLE_TEXT, RADIUS_THUMB, 1f, OUTLINE, context);
-        drawable.setSize((int) dp(context, 12f), (int) dp(context, 26f));
+        GradientDrawable drawable = kotak(TRACK, RADIUS_THUMB, 0f, TRACK, context);
+        drawable.setSize((int) dp(context, 10f), (int) dp(context, 24f));
         return drawable;
     }
 
-    /** Garis bergerigi tipis pemisah header dan body. */
+    /**
+     * Tepi bergelombang pemisah header/body, mirip tepi bergerigi di game.
+     * Setengah lingkaran berwarna {@code warnaBump} digambar berderet di atas
+     * latar view. Bila {@code menggantung} benar, gelombang menggantung dari
+     * tepi atas (di bawah header); bila salah, naik dari tepi bawah (di atas
+     * footer).
+     */
     public static class Zigzag extends View {
         private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
         private final Context ctx;
+        private final int warnaBump;
+        private final boolean menggantung;
 
         public Zigzag(Context context) {
+            this(context, HEADER, true);
+        }
+
+        public Zigzag(Context context, int warnaBump, boolean menggantung) {
             super(context);
             ctx = context;
-            cat.setColor(OUTLINE);
+            this.warnaBump = warnaBump;
+            this.menggantung = menggantung;
             cat.setStyle(Paint.Style.FILL);
+            cat.setColor(warnaBump);
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             float lebar = getWidth();
             float tinggi = getHeight();
-            float langkah = dp(ctx, 6f);
-            path.reset();
-            for (float x = 0; x < lebar + langkah; x += langkah) {
-                path.moveTo(x, tinggi);
-                path.lineTo(x + langkah / 2f, 0);
-                path.lineTo(x + langkah, tinggi);
-            }
-            canvas.drawPath(path, cat);
+            float jari = Math.min(tinggi, dp(ctx, 3f));
+            float langkah = dp(ctx, 8f);
+            float cy = menggantung ? 0f : tinggi;
+            for (float x = langkah / 2f; x < lebar + langkah; x += langkah)
+                canvas.drawCircle(x, cy, jari, cat);
         }
     }
 

@@ -6,28 +6,41 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.CompoundButton;
 
 /**
- * Sakelar pil 52x26dp dengan animasi 170 ms.
+ * Sakelar pil gaya game: pil 52x26dp, garis 3dp #B28950, knob bulat 20dp yang
+ * mengisi penuh bagian dalam pil.
+ *
+ * MATI : track #B28950, knob #CEA972 di kiri.
+ * HIDUP: track #F8B551, knob #FFF799 di kanan.
  *
  * Tetap turunan CompoundButton supaya listener, aksesibilitas, dan
  * Preferences.changeFeatureBool berjalan sama seperti Switch bawaan. View-nya
- * setinggi 48dp agar area sentuh memenuhi ukuran minimum, sedangkan pilnya
- * digambar di tengah.
+ * setinggi 48dp agar area sentuh memenuhi ukuran minimum, pilnya digambar di
+ * tengah.
  */
 public class AnimatedSwitch extends CompoundButton {
-    private static final long DURASI = 170L;
-    private static final long DURASI_REMAS = 90L;
+    private static final long DURASI = 190L;
+    private static final long DURASI_TEKAN = 90L;
+
+    private static final float PIL_LEBAR_DP = 52f;
+    private static final float PIL_TINGGI_DP = 26f;
+    private static final float GARIS_DP = 3f;
+    private static final float TEKAN_MELAR_DP = 4f;
 
     private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ArgbEvaluator warna = new ArgbEvaluator();
+    private final RectF bidang = new RectF();
 
-    // posisi 0 = mati, 1 = hidup. remas 0..1 adalah squash saat ditekan.
+    // posisi 0 = mati, 1 = hidup (boleh sedikit melewati batas saat overshoot).
     private float posisi;
-    private float remas;
+    // tekan 0..1 = knob melar saat jari menyentuh.
+    private float tekan;
     private ValueAnimator animasiPosisi;
-    private ValueAnimator animasiRemas;
+    private ValueAnimator animasiTekan;
 
     public AnimatedSwitch(Context context) {
         super(context);
@@ -41,7 +54,7 @@ public class AnimatedSwitch extends CompoundButton {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int lebar = (int) Theme.dp(getContext(), 52f);
+        int lebar = (int) Theme.dp(getContext(), PIL_LEBAR_DP);
         int tinggi = (int) Theme.dp(getContext(), 48f);
         setMeasuredDimension(resolveSize(lebar, widthMeasureSpec),
                 resolveSize(tinggi, heightMeasureSpec));
@@ -49,8 +62,9 @@ public class AnimatedSwitch extends CompoundButton {
 
     /**
      * Nilai dari restore dipasang tanpa animasi karena view belum punya ukuran
-     * saat Preferences.loadPrefBool dipanggil. Ketukan pengguna sesudah layout
-     * selalu dianimasikan dari posisi sekarang, jadi ketukan cepat bisa dibalik.
+     * saat Preferences.loadPrefBool dipanggil. Ketukan sesudah layout selalu
+     * dianimasikan dari posisi sekarang, jadi ketukan cepat bisa dibalik tanpa
+     * lompat.
      */
     @Override
     public void setChecked(boolean checked) {
@@ -73,14 +87,19 @@ public class AnimatedSwitch extends CompoundButton {
     protected void drawableStateChanged() {
         super.drawableStateChanged();
         if (isLaidOut())
-            remasKe(isPressed() ? 1f : 0f);
+            tekanKe(isPressed() ? 1f : 0f);
         invalidate();
     }
 
     private void animasiKe(final float tujuan) {
-        hentikanAnimasi();
+        if (animasiPosisi != null)
+            animasiPosisi.cancel();
+        float jarak = Math.abs(tujuan - posisi);
         animasiPosisi = ValueAnimator.ofFloat(posisi, tujuan);
-        animasiPosisi.setDuration(DURASI);
+        animasiPosisi.setDuration((long) (DURASI * Math.max(0.45f, jarak)));
+        // Geser mengerem halus, lalu sedikit memantul di ujung seperti saklar fisik.
+        animasiPosisi.setInterpolator(jarak > 0.6f
+                ? new OvershootInterpolator(0.9f) : new DecelerateInterpolator());
         animasiPosisi.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animator) {
@@ -91,21 +110,21 @@ public class AnimatedSwitch extends CompoundButton {
         animasiPosisi.start();
     }
 
-    private void remasKe(float tujuan) {
-        if (remas == tujuan)
+    private void tekanKe(float tujuan) {
+        if (tekan == tujuan)
             return;
-        if (animasiRemas != null)
-            animasiRemas.cancel();
-        animasiRemas = ValueAnimator.ofFloat(remas, tujuan);
-        animasiRemas.setDuration(DURASI_REMAS);
-        animasiRemas.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        if (animasiTekan != null)
+            animasiTekan.cancel();
+        animasiTekan = ValueAnimator.ofFloat(tekan, tujuan);
+        animasiTekan.setDuration(DURASI_TEKAN);
+        animasiTekan.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animator) {
-                remas = (Float) animator.getAnimatedValue();
+                tekan = (Float) animator.getAnimatedValue();
                 invalidate();
             }
         });
-        animasiRemas.start();
+        animasiTekan.start();
     }
 
     private void hentikanAnimasi() {
@@ -113,9 +132,9 @@ public class AnimatedSwitch extends CompoundButton {
             animasiPosisi.cancel();
             animasiPosisi = null;
         }
-        if (animasiRemas != null) {
-            animasiRemas.cancel();
-            animasiRemas = null;
+        if (animasiTekan != null) {
+            animasiTekan.cancel();
+            animasiTekan = null;
         }
     }
 
@@ -127,59 +146,44 @@ public class AnimatedSwitch extends CompoundButton {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        Context ctx = getContext();
         float lebar = getWidth();
         float tinggi = getHeight();
-        float trackTinggi = Theme.dp(getContext(), 26f);
-        float atas = (tinggi - trackTinggi) / 2f;
+        float pilLebar = Math.min(lebar, Theme.dp(ctx, PIL_LEBAR_DP));
+        float pilTinggi = Theme.dp(ctx, PIL_TINGGI_DP);
+        float garis = Theme.dp(ctx, GARIS_DP);
 
-        // Squash: pil memendek sedikit ke tengah saat ditekan.
-        float skala = 1f - 0.05f * remas;
-        float tengah = lebar / 2f;
-        float kiri = tengah - (lebar / 2f) * skala;
-        float kanan = tengah + (lebar / 2f) * skala;
-        float radius = trackTinggi / 2f;
-        RectF track = new RectF(kiri, atas, kanan, atas + trackTinggi);
+        float kiri = (lebar - pilLebar) / 2f;
+        float atas = (tinggi - pilTinggi) / 2f;
+        float radius = pilTinggi / 2f;
 
-        int warnaTrack = (Integer) warna.evaluate(posisi, Theme.SWITCH_OFF_TRACK,
-                Theme.SWITCH_ON_TRACK);
-        int warnaKnob = (Integer) warna.evaluate(posisi, Theme.SWITCH_OFF_KNOB,
-                Theme.SWITCH_ON_KNOB);
+        // Warna mengikuti posisi tetapi dijepit supaya overshoot tidak membuat
+        // warna keluar dari rentang.
+        float f = Math.max(0f, Math.min(1f, posisi));
+        int warnaTrack = (Integer) warna.evaluate(f, Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK);
+        int warnaKnob = (Integer) warna.evaluate(f, Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB);
 
+        // Garis luar #B28950 sebagai pil penuh, lalu track di dalamnya. Saat mati
+        // track memang berwarna sama dengan garis, persis seperti di game.
         cat.setStyle(Paint.Style.FILL);
+        cat.setColor(Theme.STROKE_KONTROL);
+        bidang.set(kiri, atas, kiri + pilLebar, atas + pilTinggi);
+        canvas.drawRoundRect(bidang, radius, radius, cat);
+
         cat.setColor(warnaTrack);
-        canvas.drawRoundRect(track, radius, radius, cat);
+        bidang.set(kiri + garis, atas + garis, kiri + pilLebar - garis, atas + pilTinggi - garis);
+        float radiusDalam = radius - garis;
+        canvas.drawRoundRect(bidang, radiusDalam, radiusDalam, cat);
 
-        // Garis pil memakai outline panel, bukan warna kontrol: track mati
-        // memang berwarna sama dengan garis kontrol sehingga tidak akan terbaca.
-        float tebal = Theme.dp(getContext(), Theme.TEBAL_KONTROL);
-        float masuk = tebal / 2f;
-        RectF garis = new RectF(kiri + masuk, atas + masuk, kanan - masuk,
-                atas + trackTinggi - masuk);
-        cat.setStyle(Paint.Style.STROKE);
-        cat.setStrokeWidth(tebal);
-        cat.setColor(Theme.OUTLINE);
-        canvas.drawRoundRect(garis, radius, radius, cat);
+        // Knob bulat mengisi penuh tinggi bagian dalam. Saat ditekan knob melar
+        // ke arah tengah supaya tepi luarnya tidak lompat.
+        float diameter = pilTinggi - 2f * garis;
+        float melar = Theme.dp(ctx, TEKAN_MELAR_DP) * tekan;
+        float jalur = pilLebar - 2f * garis - diameter;
+        float knobKiri = kiri + garis + jalur * posisi - melar * posisi;
+        bidang.set(knobKiri, atas + garis, knobKiri + diameter + melar, atas + garis + diameter);
 
-        float jarak = Theme.dp(getContext(), 4f);
-        float sisiKnob = Theme.dp(getContext(), 18f);
-        float lebarKnob = sisiKnob + Theme.dp(getContext(), 4f) * remas;
-        float tinggiKnob = sisiKnob - Theme.dp(getContext(), 2f) * remas;
-        float jalur = (kanan - kiri) - 2f * jarak - sisiKnob;
-        float knobKiri = kiri + jarak + jalur * posisi;
-        if (posisi > 0.5f)
-            knobKiri -= lebarKnob - sisiKnob;
-        float knobAtas = atas + (trackTinggi - tinggiKnob) / 2f;
-        RectF knob = new RectF(knobKiri, knobAtas, knobKiri + lebarKnob,
-                knobAtas + tinggiKnob);
-
-        cat.setStyle(Paint.Style.FILL);
         cat.setColor(warnaKnob);
-        float radiusKnob = Theme.dp(getContext(), Theme.RADIUS_KNOB);
-        canvas.drawRoundRect(knob, radiusKnob, radiusKnob, cat);
-
-        cat.setStyle(Paint.Style.STROKE);
-        cat.setStrokeWidth(Theme.dp(getContext(), 1f));
-        cat.setColor(Theme.OUTLINE);
-        canvas.drawRoundRect(knob, radiusKnob, radiusKnob, cat);
+        canvas.drawRoundRect(bidang, diameter / 2f, diameter / 2f, cat);
     }
 }

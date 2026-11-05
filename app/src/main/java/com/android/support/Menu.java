@@ -67,7 +67,7 @@ public class Menu {
     public static final String TAG = "Mod_Menu"; //Tag for logcat
 
     // Tampilan panel kayu. Semua warna ada di Theme.
-    int MENU_WIDTH = 300;
+    int MENU_WIDTH = 340;
     int MENU_HEIGHT = 210;
     int POS_X = 0;
     int POS_Y = 100;
@@ -119,6 +119,53 @@ public class Menu {
     // berubah urutan dan otomatis dilepas saat pemain itu keluar.
     String kunciTerpilih;
 
+    // Satu detak milik Menu untuk semua isi yang harus tetap segar (daftar
+    // pemain, posisi). Detak berjalan selama menu terbuka, tidak bergantung
+    // pada urusan attach/detach tiap view, dan langsung jalan sekali saat menu
+    // dibuka supaya isi tidak basi.
+    private static final long DETAK_MS = 1000L;
+    private final Handler handlerDetak = new Handler(android.os.Looper.getMainLooper());
+    private final List<Runnable> pemantau = new LinkedList<Runnable>();
+    private boolean detakJalan;
+    private final Runnable detak = new Runnable() {
+        @Override
+        public void run() {
+            if (!detakJalan)
+                return;
+            if (mExpanded != null && mExpanded.getVisibility() == View.VISIBLE)
+                jalankanPemantau();
+            handlerDetak.postDelayed(this, DETAK_MS);
+        }
+    };
+
+    private void jalankanPemantau() {
+        // Salinan supaya pemantau boleh mendaftar atau berhenti saat berjalan.
+        for (Runnable r : new LinkedList<Runnable>(pemantau)) {
+            try {
+                r.run();
+            } catch (Throwable t) {
+                Log.d(TAG, "Pemantau gagal: " + t);
+            }
+        }
+    }
+
+    private void daftarkanPemantau(Runnable r) {
+        pemantau.add(r);
+    }
+
+    private void mulaiDetak() {
+        if (detakJalan)
+            return;
+        detakJalan = true;
+        handlerDetak.postDelayed(detak, DETAK_MS);
+    }
+
+    private void bukaMenu() {
+        mCollapsed.setVisibility(View.GONE);
+        mExpanded.setVisibility(View.VISIBLE);
+        jalankanPemantau();
+    }
+
     //Here we write the code for our Menu
     // Reference: https://www.androidhive.info/2016/11/android-floating-widget-like-facebook-chat-head/
     public Menu(Context context) {
@@ -154,8 +201,7 @@ public class Menu {
         startimage.setOnTouchListener(onTouchListener());
         startimage.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                mCollapsed.setVisibility(View.GONE);
-                mExpanded.setVisibility(View.VISIBLE);
+                bukaMenu();
             }
         });
 
@@ -281,6 +327,8 @@ public class Menu {
         hideBtn.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View view) {
                 Toast.makeText(view.getContext(), "Menu ditutup", Toast.LENGTH_LONG).show();
+                detakJalan = false;
+                handlerDetak.removeCallbacksAndMessages(null);
                 rootFrame.removeView(mRootContainer);
                 mWindowManager.removeView(rootFrame);
                 return false;
@@ -297,20 +345,21 @@ public class Menu {
             mCollapsed.addView(startimage);
         }
         mExpanded.addView(header);
-        Theme.Zigzag zigAtas = new Theme.Zigzag(context);
+        Theme.Zigzag zigAtas = new Theme.Zigzag(context, Theme.HEADER, true);
         zigAtas.setBackgroundColor(Theme.BODY);
         mExpanded.addView(zigAtas, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
         mExpanded.addView(subTitle, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         scrollView.addView(mods);
         mExpanded.addView(scrollView);
-        Theme.Zigzag zigBawah = new Theme.Zigzag(context);
-        zigBawah.setBackgroundColor(Theme.FOOTER);
+        Theme.Zigzag zigBawah = new Theme.Zigzag(context, Theme.FOOTER, false);
+        zigBawah.setBackgroundColor(Theme.BODY);
         mExpanded.addView(zigBawah, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
         mExpanded.addView(footer);
 
         Init(context, title, subTitle);
         Theme.applyFont(mExpanded);
         Theme.applyFont(mSettings);
+        mulaiDetak();
     }
 
     public void ShowMenu() {
@@ -412,8 +461,7 @@ public class Menu {
                             //visibility of the collapsed layout will be changed to "View.GONE"
                             //and expanded view will become visible.
                             try {
-                                collapsedView.setVisibility(View.GONE);
-                                expandedView.setVisibility(View.VISIBLE);
+                                bukaMenu();
                             } catch (NullPointerException ignored) {
                             }
                         }
@@ -477,6 +525,10 @@ public class Menu {
                             strSplit.length > 5 ? Integer.parseInt(strSplit[5]) : 0);
                     break;
                 case "Button":
+                    // Tombol reset kecepatan/gravitasi (25, 26) sudah menyatu di
+                    // baris slider: ketuk angkanya untuk kembali ke bawaan.
+                    if (featNum == 25 || featNum == 26)
+                        break;
                     Button(linearLayout, featNum, strSplit[1]);
                     break;
                 case "ButtonOnOff":
@@ -582,19 +634,40 @@ public class Menu {
         if (!tersimpan)
             Preferences.changeFeatureInt(featName, featNum, nilaiAwal);
 
+        // Kecepatan dan gravitasi memakai pengali, jadi angkanya diberi "x".
+        final String satuan = (featNum == 23 || featNum == 24) ? "x" : "";
+
         LinearLayout kolom = new LinearLayout(getContext);
         kolom.setOrientation(LinearLayout.VERTICAL);
         kolom.setGravity(Gravity.CENTER_VERTICAL);
 
-        final TextView textView = Theme.teks(getContext, "", Theme.ROW_SP, Theme.TEXT);
-        textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
-                + nilaiTeks(nilaiAwal, desimal) + "</font>"));
+        // Baris judul: nama fitur di kiri, angka di kanan. Ketuk angka untuk
+        // mengembalikan slider ke nilai bawaan.
+        LinearLayout judulBaris = new LinearLayout(getContext);
+        judulBaris.setOrientation(LinearLayout.HORIZONTAL);
+        judulBaris.setGravity(Gravity.CENTER_VERTICAL);
 
-        SeekBar seekBar = new SeekBar(getContext);
+        final TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
+        judul.setSingleLine(true);
+        judul.setEllipsize(TextUtils.TruncateAt.END);
+        judulBaris.addView(judul, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+
+        final TextView angka = Theme.teks(getContext, nilaiTeks(nilaiAwal, desimal) + satuan,
+                Theme.DESC_SP, Theme.TITLE_TEXT);
+        angka.setGravity(Gravity.CENTER);
+        angka.setSingleLine(true);
+        angka.setMinWidth(dp(44));
+        angka.setPadding(dp(8), dp(2), dp(8), dp(2));
+        angka.setBackground(Theme.tombolKecil(getContext, Theme.BUTTON_BORDER));
+        angka.setContentDescription(featName + ", ketuk untuk reset");
+        judulBaris.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+
+        final SeekBar seekBar = new SeekBar(getContext);
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
         seekBar.setThumb(Theme.seekbarThumb(getContext));
         seekBar.setThumbOffset(0);
-        seekBar.setPadding(dp(2), dp(4), dp(2), dp(4));
+        // Padding mendatar setengah lebar thumb supaya thumb tidak terpotong di ujung.
+        seekBar.setPadding(dp(5), 0, dp(5), 0);
         // Rentang digeser ke nol supaya setMin yang hanya ada di Oreo ke atas
         // tidak dibutuhkan.
         seekBar.setMax(max - min);
@@ -613,8 +686,15 @@ public class Menu {
                 if (nilai > max)
                     nilai = max;
                 Preferences.changeFeatureInt(featName, featNum, nilai);
-                textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX) + "'>"
-                        + nilaiTeks(nilai, desimal) + "</font>"));
+                angka.setText(nilaiTeks(nilai, desimal) + satuan);
+            }
+        });
+
+        angka.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Lewat jalur geseran yang sama, jadi native ikut menerima nilai bawaan.
+                seekBar.setProgress(Math.max(0, Math.min(max, def) - min));
             }
         });
 
@@ -622,8 +702,8 @@ public class Menu {
         minFitur.put(featNum, min);
         desimalFitur.put(featNum, desimal);
 
-        kolom.addView(textView, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
-        kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(34)));
+        kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
         linLayout.addView(baris(IkonFitur.pola(featNum), kolom, null));
     }
 
@@ -1035,21 +1115,15 @@ public class Menu {
         LinearLayout section = new LinearLayout(getContext);
         section.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        sectionParams.setMargins(0, dp(8), 0, 0);
+        sectionParams.setMargins(0, dp(10), 0, 0);
         section.setLayoutParams(sectionParams);
 
         LinearLayout kepala = new LinearLayout(getContext);
         kepala.setOrientation(LinearLayout.HORIZONTAL);
         kepala.setGravity(Gravity.CENTER_VERTICAL);
         kepala.setBackground(Theme.sectionHeader(getContext));
-        kepala.setPadding(dp(8), 0, dp(8), 0);
-        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
-
-        View strip = new View(getContext);
-        strip.setBackgroundColor(Theme.ACCENT);
-        LinearLayout.LayoutParams stripParams = new LinearLayout.LayoutParams(dp(5), MATCH_PARENT);
-        stripParams.setMargins(0, dp(6), dp(8), dp(6));
-        kepala.addView(strip, stripParams);
+        kepala.setPadding(dp(14), 0, dp(10), 0);
+        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(44)));
 
         final TextView judul = Theme.teks(getContext, text, Theme.SECTION_SP, Theme.TITLE_TEXT);
         judul.setSingleLine(true);
@@ -1064,14 +1138,12 @@ public class Menu {
 
         final LinearLayout isi = new LinearLayout(getContext);
         isi.setOrientation(LinearLayout.VERTICAL);
-        isi.setPadding(dp(6), dp(6), dp(6), dp(6));
+        isi.setPadding(0, dp(4), 0, dp(2));
         isi.setBackground(Theme.sectionBody(getContext));
         mCollapse = isi;
 
         final LinearLayout pembungkus = new LinearLayout(getContext);
         pembungkus.setOrientation(LinearLayout.VERTICAL);
-        pembungkus.addView(new Theme.Zigzag(getContext),
-                new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
         pembungkus.addView(isi);
 
         if (expanded) {
@@ -1090,6 +1162,9 @@ public class Menu {
                 terbuka = !terbuka;
                 pembungkus.setVisibility(terbuka ? View.VISIBLE : View.GONE);
                 panah.setJenis(terbuka ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN);
+                // Isi yang baru terlihat langsung disegarkan, tanpa menunggu detak.
+                if (terbuka)
+                    jalankanPemantau();
             }
         });
 
@@ -1127,18 +1202,17 @@ public class Menu {
         judulBaris.setOrientation(LinearLayout.HORIZONTAL);
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
         judulBaris.setBackground(Theme.baris(getContext));
-        judulBaris.setPadding(0, 0, dp(8), 0);
+        judulBaris.setPadding(0, 0, dp(10), 0);
         LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
-        paramsJudul.setMargins(0, dp(3), 0, dp(3));
+        paramsJudul.setMargins(0, dp(4), 0, dp(4));
         judulBaris.setLayoutParams(paramsJudul);
 
-        LinearLayout.LayoutParams paramsIkon = new LinearLayout.LayoutParams(dp(40), dp(40));
-        paramsIkon.setMargins(0, dp(4), dp(8), dp(4));
-        judulBaris.addView(new IkonFitur(getContext, IkonFitur.PEMAIN, true), paramsIkon);
+        judulBaris.addView(new IkonFitur(getContext, IkonFitur.PEMAIN, true),
+                new LinearLayout.LayoutParams(dp(IkonFitur.LEBAR_DP), MATCH_PARENT));
 
         TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
         LinearLayout.LayoutParams paramsJudulTeks = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        paramsJudulTeks.setMargins(dp(4), 0, dp(6), 0);
+        paramsJudulTeks.setMargins(dp(12), 0, dp(6), 0);
         judulBaris.addView(judul, paramsJudulTeks);
 
         final TextView jumlah = Theme.teks(getContext, "", Theme.DESC_SP, Theme.MUTED);
@@ -1174,15 +1248,14 @@ public class Menu {
         linLayout.addView(container);
         isiDaftarPemain(daftar, jumlah);
 
-        // Detak satu detik hanya membaca data native saat section ini benar-benar
-        // terlihat. Saat menu ditutup atau section dilipat, tidak ada salinan
-        // daftar yang dibuat dan tidak ada view yang disentuh.
-        pantauSaatTerpasang(daftar, new Runnable() {
+        // Daftar ikut detak Menu: dibaca ulang tiap detik hanya saat section ini
+        // benar-benar terlihat, dan langsung saat menu atau section dibuka.
+        // Perubahan (masuk, keluar, ganti nama/peran) tampil tanpa tombol muat ulang.
+        daftarkanPemantau(new Runnable() {
             @Override
             public void run() {
                 if (daftar.isShown())
                     isiDaftarPemain(daftar, jumlah);
-                daftar.postDelayed(this, 1000);
             }
         });
     }
@@ -1408,20 +1481,14 @@ public class Menu {
         baris.setOrientation(LinearLayout.HORIZONTAL);
         baris.setGravity(Gravity.CENTER_VERTICAL);
         baris.setBackground(Theme.sectionHeader(getContext));
-        baris.setPadding(dp(8), dp(8), dp(8), dp(8));
+        baris.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        params.setMargins(0, dp(8), 0, 0);
+        params.setMargins(0, dp(10), 0, dp(2));
         baris.setLayoutParams(params);
-
-        View strip = new View(getContext);
-        strip.setBackgroundColor(Theme.ACCENT);
-        LinearLayout.LayoutParams stripParams = new LinearLayout.LayoutParams(dp(5), dp(24));
-        stripParams.setMargins(0, dp(2), dp(8), dp(2));
-        baris.addView(strip, stripParams);
 
         TextView textView = Theme.teks(getContext, Html.fromHtml(text), Theme.SECTION_SP, Theme.TITLE_TEXT);
         textView.setGravity(Gravity.CENTER);
-        textView.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+        textView.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         baris.addView(textView);
         linLayout.addView(baris);
     }
@@ -1454,15 +1521,15 @@ public class Menu {
         baris.setMinimumHeight(dp(48));
         baris.setPadding(0, 0, dp(8), 0);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        params.setMargins(0, dp(3), 0, dp(3));
+        params.setMargins(0, dp(4), 0, dp(4));
         baris.setLayoutParams(params);
 
-        LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        ikonParams.setMargins(0, dp(4), dp(8), dp(4));
-        baris.addView(new IkonFitur(getContext, pola, true), ikonParams);
+        // Kotak ikon menempel penuh di tepi kiri dan setinggi baris, tanpa margin.
+        baris.addView(new IkonFitur(getContext, pola, true),
+                new LinearLayout.LayoutParams(dp(IkonFitur.LEBAR_DP), MATCH_PARENT));
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        isiParams.setMargins(0, dp(4), dp(6), dp(4));
+        isiParams.setMargins(dp(12), dp(6), dp(8), dp(6));
         baris.addView(isi, isiParams);
 
         if (kontrol != null)
@@ -1487,31 +1554,13 @@ public class Menu {
         final LinearLayout baris = baris(IkonFitur.POSISI, kolom, null);
         linLayout.addView(baris);
 
-        pantauSaatTerpasang(baris, new Runnable() {
+        daftarkanPemantau(new Runnable() {
             @Override
             public void run() {
                 if (baris.isShown())
                     nilai.setText(PosisiTeks());
-                baris.postDelayed(this, 1000);
             }
         });
-    }
-
-    /** Menjalankan detak hanya selama view menempel di jendela. */
-    private void pantauSaatTerpasang(final View view, final Runnable detak) {
-        view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View v) {
-                view.removeCallbacks(detak);
-                view.postDelayed(detak, 1000);
-            }
-
-            @Override
-            public void onViewDetachedFromWindow(View v) {
-                view.removeCallbacks(detak);
-            }
-        });
-        view.postDelayed(detak, 1000);
     }
 
     private String PosisiTeks() {
@@ -1556,14 +1605,14 @@ public class Menu {
         kotak.setOrientation(LinearLayout.HORIZONTAL);
         kotak.setGravity(Gravity.CENTER_VERTICAL);
         kotak.setBackground(Theme.tombol(getContext));
-        kotak.setPadding(0, 0, dp(8), 0);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
-        params.setMargins(0, dp(6), 0, dp(6));
+        kotak.setPadding(dp(3), dp(3), dp(8), dp(3));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, dp(50));
+        params.setMargins(0, dp(4), 0, dp(4));
         kotak.setLayoutParams(params);
 
-        LinearLayout.LayoutParams ikonParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        ikonParams.setMargins(0, dp(4), dp(8), dp(4));
-        kotak.addView(new IkonFitur(getContext, pola, true), ikonParams);
+        // Ikon menempel penuh di dalam garis tombol.
+        kotak.addView(new IkonFitur(getContext, pola, true),
+                new LinearLayout.LayoutParams(dp(IkonFitur.LEBAR_DP - 3), MATCH_PARENT));
 
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f);
         kotak.addView(isi, isiParams);
@@ -1601,6 +1650,8 @@ public class Menu {
     }
 
     public void onDestroy() {
+        detakJalan = false;
+        handlerDetak.removeCallbacksAndMessages(null);
         if (rootFrame != null) {
             mWindowManager.removeView(rootFrame);
         }
