@@ -5,29 +5,30 @@
 
 // Menu hanya menulis nilai di sini. Setiap hook membaca sakelar pada tiap
 // panggilan, jadi menyalakan atau mematikan fitur tidak pernah memasang atau
-// melepas hook saat game berjalan.
+// melepas hook saat game berjalan. Tulisannya datang dari thread UI dan
+// bacaannya dari thread game, jadi setiap sakelar atomik.
 struct Fitur {
-    bool iap = true;
-    bool slot = true;
-    bool inputTeks = true;
-    bool rentangSkin = true;
-    bool kataKasar = true;
-    bool simpanDunia = true;
-    bool ukuranRoom = true;
-    bool sandiRoom = true;
-    bool privasi = true;
-    bool salinSkin = true;
-    bool chatPribadi = true;
-    bool tombolTendang = true;
-    bool tembakOtomatis = true;
-    bool busterPenuh = true;
-    bool kotoran = true;
-    bool makanan = true;
-    bool efek = true;
-    bool terpental = true;
-    bool labelVersi = true;
-    bool roomKit = true;
-    bool noClip = false;
+    std::atomic<bool> iap{true};
+    std::atomic<bool> slot{true};
+    std::atomic<bool> inputTeks{true};
+    std::atomic<bool> rentangSkin{true};
+    std::atomic<bool> kataKasar{true};
+    std::atomic<bool> simpanDunia{true};
+    std::atomic<bool> ukuranRoom{true};
+    std::atomic<bool> sandiRoom{true};
+    std::atomic<bool> privasi{true};
+    std::atomic<bool> salinSkin{true};
+    std::atomic<bool> chatPribadi{true};
+    std::atomic<bool> tombolTendang{true};
+    std::atomic<bool> tembakOtomatis{true};
+    std::atomic<bool> busterPenuh{true};
+    std::atomic<bool> kotoran{true};
+    std::atomic<bool> makanan{true};
+    std::atomic<bool> efek{true};
+    std::atomic<bool> terpental{true};
+    std::atomic<bool> labelVersi{true};
+    std::atomic<bool> roomKit{true};
+    std::atomic<bool> noClip{false};
 };
 
 // Tombol menu berjalan di thread UI, sedangkan posisi dibaca hook update pemain
