@@ -51,9 +51,9 @@ dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat ga
 
 **Fitur baru**
 
-- **No Clip** mematikan `Collider2D` milik pemain bila ada. Game ini memakai fisika tile
-  sendiri, jadi bila pemain tidak membawa komponen Unity tersebut, fitur ini tidak berefek dan
-  alasannya dicatat di log.
+- **No Clip** mematikan `Collider2D` pemain bila ada, atau membuat `Rigidbody2D`-nya
+  kinematik bila hanya komponen itu yang ada. Game ini memakai fisika tile sendiri, jadi bila
+  pemain tidak membawa komponen Unity tersebut, fitur tidak berefek dan alasannya dicatat di log.
 - **Teleport** memindahkan pemain ke koordinat X/Y yang diisi di menu. Tombol hanya menitipkan
   permintaan; posisi baru dipasang di hook update pemain pada thread game.
 
