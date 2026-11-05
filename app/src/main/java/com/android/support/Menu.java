@@ -118,6 +118,11 @@ public class Menu {
 
     native boolean IsGameLibLoaded();
 
+    // Section Room: daftar tamu berformat "nama<TAB>kunci" per baris.
+    native String DaftarPemain();
+
+    native boolean TendangPemain(String kunci);
+
     //Here we write the code for our Menu
     // Reference: https://www.androidhive.info/2016/11/android-floating-widget-like-facebook-chat-head/
     public Menu(Context context) {
@@ -518,6 +523,10 @@ public class Menu {
                 case "Category":
                     subFeat++;
                     Category(linearLayout, strSplit[1]);
+                    break;
+                case "PlayerList":
+                    subFeat++;
+                    PlayerList(linearLayout, strSplit[1]);
                     break;
                 case "RichTextView":
                     subFeat++;
@@ -1095,6 +1104,114 @@ public class Menu {
         collapse.addView(textView);
         collapse.addView(collapseSub);
         linLayout.addView(collapse);
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void PlayerList(LinearLayout linLayout, final String featName) {
+        LinearLayout container = new LinearLayout(getContext);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(10, 5, 0, 5);
+
+        TextView judul = new TextView(getContext);
+        judul.setText(featName);
+        judul.setTextColor(TEXT_COLOR_2);
+        judul.setTypeface(null, Typeface.BOLD);
+        container.addView(judul);
+
+        final LinearLayout daftar = new LinearLayout(getContext);
+        daftar.setOrientation(LinearLayout.VERTICAL);
+        container.addView(daftar);
+
+        Button muatUlang = new Button(getContext);
+        muatUlang.setText("Muat ulang daftar pemain");
+        muatUlang.setTextColor(TEXT_COLOR_2);
+        muatUlang.setBackgroundColor(BTN_COLOR);
+        muatUlang.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isiDaftarPemain(daftar);
+            }
+        });
+        container.addView(muatUlang);
+
+        linLayout.addView(container);
+        isiDaftarPemain(daftar);
+
+        // Tamu bisa masuk atau keluar kapan saja, jadi daftar menyegarkan
+        // dirinya selama menu masih menempel di jendela.
+        daftar.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (daftar.getWindowToken() == null) {
+                    return;
+                }
+                isiDaftarPemain(daftar);
+                daftar.postDelayed(this, 2000);
+            }
+        }, 2000);
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void isiDaftarPemain(LinearLayout daftar) {
+        daftar.removeAllViews();
+
+        String data;
+        try {
+            data = DaftarPemain();
+        } catch (Throwable t) {
+            data = null;
+        }
+        if (data == null || data.length() == 0) {
+            TextView kosong = new TextView(getContext);
+            kosong.setText("Tidak ada tamu di room ini");
+            kosong.setTextColor(TEXT_COLOR_2);
+            daftar.addView(kosong);
+            return;
+        }
+
+        for (String baris : data.split("\n")) {
+            String[] bagian = baris.split("\t", 2);
+            if (bagian.length < 2 || bagian[0].length() == 0 || bagian[1].length() == 0)
+                continue;
+            daftar.addView(barisPemain(bagian[0], bagian[1]));
+        }
+    }
+
+    private LinearLayout barisPemain(String nama, final String kunci) {
+        LinearLayout baris = new LinearLayout(getContext);
+        baris.setOrientation(LinearLayout.HORIZONTAL);
+        baris.setGravity(Gravity.CENTER_VERTICAL);
+        baris.setPadding(0, 4, 0, 4);
+
+        TextView label = new TextView(getContext);
+        label.setText(nama);
+        label.setTextColor(TEXT_COLOR_2);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+        baris.addView(label);
+
+        Button tendang = new Button(getContext);
+        tendang.setText("Tendang");
+        tendang.setTextSize(12);
+        tendang.setTextColor(TEXT_COLOR_2);
+        tendang.setBackgroundColor(BtnOFF);
+        tendang.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean diterima;
+                try {
+                    diterima = TendangPemain(kunci);
+                } catch (Throwable t) {
+                    diterima = false;
+                }
+                Toast.makeText(getContext(),
+                        diterima ? "Tendangan dikirim" : "Tunggu tendangan sebelumnya",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+        baris.addView(tendang);
+        return baris;
     }
 
     private void Category(LinearLayout linLayout, String text) {

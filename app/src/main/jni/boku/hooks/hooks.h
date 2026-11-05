@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 void pasangHookIap();
 void pasangHookMultiplayer();
 void pasangHookChat();
@@ -45,3 +47,11 @@ void setelTahanTangan(bool tahan);
 // Mengembalikan id yang terakhir dipegang ke tangan setelah animasi makan
 // menyembunyikan sprite-nya, jadi makanan yang ditahan tetap terlihat.
 void segarkanTangan();
+
+// Daftar tamu untuk section Room di menu, ditulis sebagai baris
+// "nama<TAB>kunci" yang dipisah newline. Aman dipanggil dari thread UI.
+void salinDaftarPemain(char* keluaran, size_t ukuran);
+
+// Mengantrekan satu tendangan dari menu. Paketnya dikirim dari hook update tamu,
+// di thread game, dengan jeda yang sama seperti /kick all.
+bool antrekanTendangPemain(const char* kunci);

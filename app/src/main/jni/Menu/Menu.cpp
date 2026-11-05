@@ -1,5 +1,6 @@
 #include "Includes/obfuscate.h"
 #include "Menu/Menu.hpp"
+#include "boku/hooks/hooks.h"
 
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
     (void)thiz;
@@ -55,4 +56,25 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
         env->SetObjectArrayElement(ret, i, env->NewStringUTF(features[i]));
 
     return (ret);
+}
+
+// Menu hanya meneruskan salinan yang sudah disiapkan thread game, jadi tidak
+// ada objek IL2CPP yang disentuh dari thread UI.
+jstring DaftarPemain(JNIEnv *env, jclass clazz) {
+    (void) clazz;
+    char teks[4096] = {};
+    salinDaftarPemain(teks, sizeof(teks));
+    return env->NewStringUTF(teks);
+}
+
+jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci) {
+    (void) clazz;
+    if (!kunci)
+        return JNI_FALSE;
+    const char *teks = env->GetStringUTFChars(kunci, nullptr);
+    if (!teks)
+        return JNI_FALSE;
+    bool diterima = antrekanTendangPemain(teks);
+    env->ReleaseStringUTFChars(kunci, teks);
+    return diterima ? JNI_TRUE : JNI_FALSE;
 }

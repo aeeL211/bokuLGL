@@ -12,26 +12,40 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
-            OBFUSCATE("Category_Boku Boku"),
+            OBFUSCATE("Category_Ekonomi"),
             OBFUSCATE("0_Toggle_True_Simulasi pembelian"),
             OBFUSCATE("1_Toggle_True_Slot penyimpanan tanpa batas"),
+
+            OBFUSCATE("Category_Input & Profil"),
             OBFUSCATE("2_Toggle_True_Batas input dan profil"),
             OBFUSCATE("3_Toggle_True_Rentang slider skin"),
             OBFUSCATE("4_Toggle_True_Bebas kata terlarang"),
+            OBFUSCATE("17_Toggle_True_Label versi modded"),
+
+            OBFUSCATE("Category_Room & Dunia"),
             OBFUSCATE("5_Toggle_True_Simpan dunia dan ukuran room"),
             OBFUSCATE("6_Toggle_True_Sandi room kosong"),
+            OBFUSCATE("18_Toggle_True_RoomKit /kick all"),
+            OBFUSCATE("PlayerList_Tamu di room"),
+
+            OBFUSCATE("Category_Akun & Privasi"),
             OBFUSCATE("7_Toggle_True_Privasi akun"),
             OBFUSCATE("8_Toggle_True_Salin skin otomatis"),
+
+            OBFUSCATE("Category_Chat & Sosial"),
             OBFUSCATE("9_Toggle_True_Pesan pribadi di chat room"),
             OBFUSCATE("10_Toggle_True_Tombol tendang tamu"),
+
+            OBFUSCATE("Category_Aksi Pemain"),
             OBFUSCATE("11_Toggle_True_Tembak otomatis"),
             OBFUSCATE("12_Toggle_True_Buster amunisi penuh"),
             OBFUSCATE("13_Toggle_True_Kotoran di tangan"),
             OBFUSCATE("14_Toggle_True_Makanan di tangan"),
-            OBFUSCATE("15_Toggle_True_Matikan getar dan puing"),
             OBFUSCATE("16_Toggle_True_Tanpa terpental"),
-            OBFUSCATE("17_Toggle_True_Label versi modded"),
-            OBFUSCATE("18_Toggle_True_RoomKit"),
+
+            OBFUSCATE("Category_Tampilan"),
+            OBFUSCATE("15_Toggle_True_Matikan getar dan puing"),
+
             OBFUSCATE("Category_Gerak"),
             OBFUSCATE("19_Toggle_No Clip"),
             OBFUSCATE("20_InputValue_600_X"),

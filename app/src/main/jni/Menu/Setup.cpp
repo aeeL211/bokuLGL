@@ -18,6 +18,10 @@ int RegisterMenu(JNIEnv *env) {
                                                    "()[Ljava/lang/String;"),                                                          reinterpret_cast<void *>(SettingsList)},
             {OBFUSCATE("GetFeatureList"),  OBFUSCATE(
                                                    "()[Ljava/lang/String;"),                                                          reinterpret_cast<void *>(GetFeatureList)},
+            {OBFUSCATE("DaftarPemain"),    OBFUSCATE(
+                                                   "()Ljava/lang/String;"),                                                           reinterpret_cast<void *>(DaftarPemain)},
+            {OBFUSCATE("TendangPemain"),   OBFUSCATE(
+                                                   "(Ljava/lang/String;)Z"),                                                          reinterpret_cast<void *>(TendangPemain)},
     };
 
     jclass clazz = env->FindClass(OBFUSCATE("com/android/support/Menu"));
