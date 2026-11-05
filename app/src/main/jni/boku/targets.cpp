@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "il2cpp_api.h"
+#include "log.h"
 
 namespace {
 
@@ -128,8 +129,13 @@ int scan() {
 
     int ditemukan = 0;
     for (const Target& entri : targets) {
-        if (entri.addr)
+        if (entri.addr) {
             ditemukan++;
+            continue;
+        }
+        // Nama yang tidak cocok dengan build game disebut satu per satu, supaya
+        // hitungan yang kurang dari T_COUNT bisa ditelusuri tanpa menebak.
+        LOGE("Target tidak ditemukan saat scan: %s.%s/%d", entri.cls, entri.name, entri.argc);
     }
     return ditemukan;
 }
