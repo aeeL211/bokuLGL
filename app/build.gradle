@@ -49,9 +49,11 @@ android {
 }
 
 // CI installs the NDK itself; pointing AGP at it avoids downloading another copy.
+// The version must match the directory name, otherwise AGP rejects the pair.
 def ndkHome = System.getenv("ANDROID_NDK_HOME")
 if (ndkHome) {
     android.ndkPath = ndkHome
+    android.ndkVersion = new File(ndkHome).getName()
 }
 
 //dependencies must be placed below 'android' brackets to get it work on AIDE

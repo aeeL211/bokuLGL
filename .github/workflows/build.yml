@@ -140,6 +140,10 @@ jobs:
           grep -n "sh_linker_init" shadowhook/shadowhook/src/main/cpp/shadowhook.c
 
       - name: Build APK
+        env:
+          # Point AGP at the NDK installed above instead of the runner's copy.
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           set -euo pipefail
           chmod +x gradlew
