@@ -1205,7 +1205,7 @@ public class Menu {
                 } catch (Throwable t) {
                     diterima = false;
                 }
-                Toast.makeText(getContext(),
+                Toast.makeText(Menu.this.getContext(),
                         diterima ? "Tendangan dikirim" : "Tunggu tendangan sebelumnya",
                         Toast.LENGTH_SHORT).show();
             }
