@@ -1,0 +1,109 @@
+package com.android.support;
+
+import java.util.Locale;
+
+/**
+ * Teks dialog yang muncul saat sebuah baris fitur ditekan lama.
+ *
+ * Isinya mengikuti README, jadi kalau perilaku sebuah fitur berubah, teks di
+ * sini ikut diubah. Baris yang nomornya dihitung sendiri oleh featureList
+ * (daftar pemain, posisi pemain, tautan) dikenali dari namanya lebih dulu
+ * supaya tidak bertabrakan dengan nomor fitur 0.
+ */
+public final class Penjelasan {
+    private Penjelasan() {
+    }
+
+    public static String untuk(int fitur, String nama) {
+        String n = nama == null ? "" : nama.toLowerCase(Locale.ROOT);
+
+        if (n.contains("pemain di room"))
+            return "Menampilkan host, pemain sendiri, dan tamu yang sedang ada di room. "
+                    + "Ketuk kartu untuk memilih, lalu salin skin atau tendang tamu dari sini. "
+                    + "Daftar dibaca sekali per detik selama barisnya terlihat.";
+        if (n.contains("posisi pemain"))
+            return "Menampilkan tile dan koordinat dunia pemain sekali per detik selama "
+                    + "barisnya terlihat. Angka ini bisa dipakai untuk mengisi titik teleport.";
+        if (n.contains("lapor"))
+            return "Membuka Telegram @aeeL2 untuk lapor bug atau saran.";
+
+        switch (fitur) {
+            case 0:
+                return "Item bisa dibeli tanpa Play Billing dan tanpa biaya. Semua tile, model, "
+                        + "dan melody langsung terbuka tanpa perlu dibeli.";
+            case 1:
+                return "Semua jenis slot penyimpanan terbuka tanpa batas, termasuk slot model "
+                        + "dan melody.";
+            case 2:
+                return "Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room "
+                        + "dinaikkan.";
+            case 4:
+                return "Kata terlarang tidak disaring lagi di perangkat ini. Pemain lain tetap "
+                        + "memakai filter mereka sendiri.";
+            case 5:
+                return "Save world tetap bisa dilakukan walaupun host mematikan izinnya, dan "
+                        + "room di atas batas ukuran perangkat tetap terdaftar dan bisa dimasuki. "
+                        + "Ukuran dunia baru bisa dipilih sampai 600x300.";
+            case 6:
+                return "Room bersandi bisa dimasuki tanpa mengisi sandi.";
+            case 7:
+                return "Baris privasi akun menampilkan detail yang dipilih pemiliknya, bukan "
+                        + "menyembunyikannya.";
+            case 9:
+                return "Pesan pribadi ikut tampil di chat room sebagai [PM -> nama penerima] dan "
+                        + "dicatat di log.";
+            case 11:
+                return "Pistol dan buster menembak berulang selama tombol interaksi ditahan.";
+            case 12:
+                return "Buster selalu memakai amunisi terkuat.";
+            case 13:
+                return "Kotoran tetap di tangan, bisa dilempar berulang dengan kekuatan penuh dan "
+                        + "arah sesuai bidikan.";
+            case 14:
+                return "Gingerbread dan hot cross bun tetap di tangan setelah dimakan.";
+            case 15:
+                return "Getar kamera dibuang dari dua titik masuknya, jadi layar tidak bergetar "
+                        + "saat ledakan atau tembakan.";
+            case 16:
+                return "Ledakan tidak lagi membuat pemain terpental.";
+            case 19:
+                return "Kotak gerak pemain dilebarkan ke kiri, kanan, dan atas pada tiap "
+                        + "pemeriksaan fisika tile. Sisi bawah dibiarkan supaya lantai tetap "
+                        + "dipijak.";
+            case 20:
+                return "Koordinat tile dunia untuk titik X tujuan teleport. Isi X dan Y, lalu "
+                        + "tekan Pindahkan pemain.";
+            case 21:
+                return "Koordinat tile dunia untuk titik Y tujuan teleport. Isi X dan Y, lalu "
+                        + "tekan Pindahkan pemain.";
+            case 22:
+                return "Memindahkan pemain ke titik X/Y. Kecepatan dinolkan dan tile di sekitar "
+                        + "badan dibangun ulang. Input di luar -1024..1024 ditolak.";
+            case 23:
+                return "Mengalikan speed.x pemain lokal tiap frame, 0,5x sampai 5,0x. Ketuk "
+                        + "angka di kanan untuk kembali ke 1,0x.";
+            case 24:
+                return "Menskalakan tambahan turun speed.y tiap frame, bukan Rigidbody2D. "
+                        + "Rentang 0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
+            case 27:
+                return "Batas geser posisi skin X/Y dan potret: 5 sampai 100. Nilai 25 berarti "
+                        + "-25..+25 dan 5 berarti bawaan game -5..+5. Nilai baru dipakai saat "
+                        + "editor skin dibuka lagi.";
+            case 28:
+                return "Puing tile tidak dimunculkan saat tile pecah. Tile dan rekamannya tetap "
+                        + "utuh.";
+            case -1:
+                return "Menyimpan pilihan fitur ke preferensi. Saat dimatikan, semua preferensi "
+                        + "dibersihkan.";
+            case -4:
+                return "Transparansi ikon melayang, 10% sampai 100%.";
+            case -5:
+                return "Ukuran ikon melayang, 30 sampai 80 dp.";
+            case -6:
+                return "Sumber ikon melayang: URL, data URI, atau path berkas gambar/GIF. "
+                        + "Kosongkan untuk ikon bawaan. SVG tidak didukung.";
+            default:
+                return "Penjelasan fitur ini belum tersedia.";
+        }
+    }
+}

@@ -24,7 +24,8 @@ pernah memuat library itu, jadi tidak ada satu pun hook yang terpasang.
 Semua fitur menyala sejak awal kecuali **No Clip**. Sakelar di menu hanya mengubah nilai yang
 dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat game berjalan.
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
-Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
+Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas. Tekan lama pada baris
+fitur untuk membaca penjelasan singkatnya.
 
 **Room dan Dunia**
 

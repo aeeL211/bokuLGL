@@ -396,7 +396,8 @@ public class Menu {
                         scrollView.removeView(mods);
                         scrollView.addView(mSettings);
                         scrollView.scrollTo(0, 0);
-                        title.setText("Setelan");
+                        // Judul utama tetap "BOKU Menu"; hanya subjudul yang
+                        // menandai halaman setelan.
                         subTitle.setText("Menu \\ Setelan");
                         setelanBtn.setText("Kembali");
                     }
@@ -758,6 +759,8 @@ public class Menu {
                 switchR.toggle();
             }
         });
+        pasangPenjelasan(baris, featNum, featName);
+        pasangPenjelasan(switchR, featNum, featName);
         linLayout.addView(baris);
     }
 
@@ -861,7 +864,9 @@ public class Menu {
 
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
-        linLayout.addView(baris(IkonFitur.pola(featNum, featName), kolom, null));
+        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), kolom, null);
+        pasangPenjelasan(baris, featNum, featName);
+        linLayout.addView(baris);
     }
 
     /** Satuan angka slider: pengali kecepatan, persen opasitas, atau dp ikon. */
@@ -895,7 +900,10 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
+        LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        pasangPenjelasan(kotak, featNum, featName);
+        pasangPenjelasan(button, featNum, featName);
+        linLayout.addView(kotak);
     }
 
     private void ButtonLink(LinearLayout linLayout, final String featName, final String url) {
@@ -908,7 +916,10 @@ public class Menu {
                 getContext.startActivity(intent);
             }
         });
-        linLayout.addView(kotakTombol(IkonFitur.TELEGRAM, button));
+        final LinearLayout kotak = kotakTombol(IkonFitur.TELEGRAM, button);
+        pasangPenjelasan(kotak, -100, featName);
+        pasangPenjelasan(button, -100, featName);
+        linLayout.addView(kotak);
     }
 
     private void ButtonOnOff(LinearLayout linLayout, final int featNum, String featName, boolean switchedOn) {
@@ -943,6 +954,8 @@ public class Menu {
                 }
             }
         });
+        pasangPenjelasan(kotak, featNum, finalfeatName);
+        pasangPenjelasan(button, featNum, finalfeatName);
         linLayout.addView(kotak);
     }
 
@@ -989,7 +1002,10 @@ public class Menu {
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-        linLayout.addView(baris(IkonFitur.pola(featNum, featName), spinner, null));
+        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), spinner, null);
+        pasangPenjelasan(baris, featNum, featName);
+        pasangPenjelasan(spinner, featNum, featName);
+        linLayout.addView(baris);
     }
 
     private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
@@ -1061,7 +1077,10 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
+        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        pasangPenjelasan(kotak, featNum, featName);
+        pasangPenjelasan(button, featNum, featName);
+        linLayout.addView(kotak);
     }
 
     private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
@@ -1134,7 +1153,10 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
+        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        pasangPenjelasan(kotak, featNum, featName);
+        pasangPenjelasan(button, featNum, featName);
+        linLayout.addView(kotak);
     }
 
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
@@ -1193,7 +1215,10 @@ public class Menu {
             }
         });
 
-        linLayout.addView(kotakTombol(IkonFitur.pola(featNum, featName), button));
+        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        pasangPenjelasan(kotak, featNum, featName);
+        pasangPenjelasan(button, featNum, featName);
+        linLayout.addView(kotak);
     }
 
     /**
@@ -1221,6 +1246,7 @@ public class Menu {
 
         final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), kolom, null);
         baris.setBackground(Theme.barisTekan(getContext));
+        pasangPenjelasan(baris, featNum, featName);
         baris.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -1312,7 +1338,10 @@ public class Menu {
                 }
             }
         });
-        linLayout.addView(baris(IkonFitur.pola(featNum, featName), checkBox, null));
+        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), checkBox, null);
+        pasangPenjelasan(baris, featNum, featName);
+        pasangPenjelasan(checkBox, featNum, featName);
+        linLayout.addView(baris);
     }
 
     @SuppressLint("SetTextI18n")
@@ -1348,6 +1377,7 @@ public class Menu {
             Radioo.setTypeface(Theme.font(getContext));
             Radioo.setButtonTintList(ColorStateList.valueOf(Theme.ICON_BOX));
             Radioo.setOnClickListener(first_radio_listener);
+            pasangPenjelasan(Radioo, featNum, featName);
             radioGroup.addView(Radioo);
         }
 
@@ -1357,6 +1387,7 @@ public class Menu {
                     + "'>" + lists.get(index - 1)));
             ((RadioButton) radioGroup.getChildAt(index)).setChecked(true);
         }
+        pasangPenjelasan(radioGroup, featNum, featName);
         linLayout.addView(radioGroup);
     }
 
@@ -1503,6 +1534,7 @@ public class Menu {
             }
         });
         judulBaris.addView(muatUlang);
+        pasangPenjelasan(judulBaris, 0, featName);
 
         linLayout.addView(container);
         isiDaftarPemain(daftar, jumlah);
@@ -1821,6 +1853,7 @@ public class Menu {
         kolom.addView(nilai);
 
         final LinearLayout baris = baris(IkonFitur.POSISI, kolom, null);
+        pasangPenjelasan(baris, 0, featName);
         linLayout.addView(baris);
 
         daftarkanPemantau(new Runnable() {
@@ -1886,6 +1919,31 @@ public class Menu {
         LinearLayout.LayoutParams isiParams = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f);
         kotak.addView(isi, isiParams);
         return kotak;
+    }
+
+    /**
+     * Tekan lama pada baris fitur membuka dialog penjelasan. Listener dipasang
+     * di baris dan di kontrol yang bisa menelan sentuhan (tombol, sakelar,
+     * spinner), supaya tekan lama tetap bekerja di bagian mana pun.
+     */
+    private void pasangPenjelasan(View tampilan, final int featNum, final String featName) {
+        if (tampilan == null)
+            return;
+        tampilan.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                tampilkanPenjelasan(featNum, featName);
+                return true;
+            }
+        });
+    }
+
+    private void tampilkanPenjelasan(int featNum, String featName) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext);
+        builder.setTitle(Html.fromHtml(featName));
+        builder.setMessage(Penjelasan.untuk(featNum, featName));
+        builder.setPositiveButton("Mengerti", null);
+        tampilkanDialog(builder);
     }
 
     private void tampilkanDialog(AlertDialog.Builder builder) {
