@@ -251,6 +251,7 @@ public class Menu {
         footer.setPadding(dp(8), dp(6), dp(8), dp(6));
 
         final Button hideBtn = teksTombol("Sembunyikan (tahan = keluar)");
+        hideBtn.setBackground(Theme.tombol(context));
         hideBtn.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(42)));
         hideBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
@@ -1242,7 +1243,8 @@ public class Menu {
         else
             warna = Theme.TRACK;
 
-        TextView lencana = Theme.teks(getContext, peran, 12f, Theme.TITLE_TEXT);
+        int warnaTeks = warna == Theme.ACCENT ? Theme.TEXT : Theme.ACTIVE_BORDER;
+        TextView lencana = Theme.teks(getContext, peran, 12f, warnaTeks);
         lencana.setGravity(Gravity.CENTER);
         lencana.setPadding(dp(6), dp(2), dp(6), dp(2));
         lencana.setBackground(Theme.lencana(getContext, warna));

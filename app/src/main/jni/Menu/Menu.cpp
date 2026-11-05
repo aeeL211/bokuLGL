@@ -39,8 +39,8 @@ jboolean antrekanAksi(JNIEnv *env, jstring kunci, jstring nama, bool salin) {
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
     (void)thiz;
     (void)ctx;
-    setText(env, title, OBFUSCATE("Mod oleh Febrian/Ian"));
-    setText(env, subtitle, OBFUSCATE("Boku Boku | Semua fitur aktif sejak awal, kecuali No Clip"));
+    setText(env, title, OBFUSCATE("Boku Boku"));
+    setText(env, subtitle, OBFUSCATE("Mod oleh Febrian/Ian | Semua fitur aktif sejak awal, kecuali No Clip"));
 }
 
 jstring Icon(JNIEnv *env, jobject thiz) {
