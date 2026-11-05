@@ -40,7 +40,7 @@ void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitl
     (void)thiz;
     (void)ctx;
     setText(env, title, OBFUSCATE("BOKU Menu 1.1"));
-    setText(env, subtitle, OBFUSCATE("Pertama kali buat mod menu, aku harap ini lancar"));
+    setText(env, subtitle, OBFUSCATE("Pertama kali buat mod menu, I hope this goes well"));
 }
 
 jstring Icon(JNIEnv *env, jobject thiz) {
@@ -72,6 +72,10 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
     const char *features[] = {
             OBFUSCATE("Category_Pengaturan"),
             OBFUSCATE("-1_Toggle_Simpan preferensi"), //-1 is checked on Preferences.java
+            OBFUSCATE("Category_Ikon"),
+            OBFUSCATE("-4_SeekBar_Opasitas ikon_10_100_70_0"),
+            OBFUSCATE("-5_SeekBar_Ukuran ikon_30_80_45_0"),
+            OBFUSCATE("-6_InputText_Sumber gambar ikon"),
             OBFUSCATE("ButtonLink_Lapor bug/saran_https://t.me/aeeL2"),
     };
 

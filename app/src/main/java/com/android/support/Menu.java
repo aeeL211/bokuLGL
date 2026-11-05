@@ -22,7 +22,6 @@ import android.text.TextUtils;
 import android.text.method.DigitsKeyListener;
 import android.util.Base64;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -79,6 +78,9 @@ public class Menu {
     WindowManager mWindowManager;
     WindowManager.LayoutParams vmParams;
     ImageView startimage;
+    WebView webIkon;
+    String sumberIkon = "";
+    String sumberWebTerpasang;
     FrameLayout rootFrame;
     ScrollView scrollView;
     boolean stopChecking, overlayRequired;
@@ -160,6 +162,45 @@ public class Menu {
         jalankanPemantau();
     }
 
+    /**
+     * Menyamakan ukuran, opasitas, dan sumber ikon collapsed dengan setelan.
+     * Ikon bawaan tetap di ImageView; sumber dari pengguna dimuat di WebView
+     * supaya gambar bergerak (GIF) ikut berjalan.
+     */
+    private void terapkanIkon() {
+        int sisi = dp(ICON_SIZE);
+        for (View ikon : new View[]{startimage, webIkon}) {
+            ViewGroup.LayoutParams params = ikon.getLayoutParams();
+            params.width = sisi;
+            params.height = sisi;
+            ikon.setLayoutParams(params);
+        }
+        mCollapsed.setAlpha(ICON_ALPHA);
+
+        String sumber = sumberIkon == null ? "" : sumberIkon.trim();
+        if (sumber.length() == 0)
+            sumber = IconWebViewData();
+        boolean pakaiWeb = sumber != null && sumber.length() > 0;
+        if (pakaiWeb) {
+            if (!sumber.equals(sumberWebTerpasang)) {
+                sumberWebTerpasang = sumber;
+                webIkon.loadData(htmlIkon(sumber), "text/html", "utf-8");
+            }
+            webIkon.setVisibility(View.VISIBLE);
+            startimage.setVisibility(View.GONE);
+        } else {
+            webIkon.setVisibility(View.GONE);
+            startimage.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private String htmlIkon(String sumber) {
+        return "<html><head></head><body style=\"margin:0;padding:0;overflow:hidden\">"
+                + "<img src=\"" + TextUtils.htmlEncode(sumber)
+                + "\" style=\"width:100%;height:100%;object-fit:contain\">"
+                + "</body></html>";
+    }
+
     //Here we write the code for our Menu
     // Reference: https://www.androidhive.info/2016/11/android-floating-widget-like-facebook-chat-head/
     public Menu(Context context) {
@@ -184,9 +225,8 @@ public class Menu {
         //********** The icon to open mod menu **********
         startimage = new ImageView(context);
         startimage.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        int applyDimension = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ICON_SIZE, context.getResources().getDisplayMetrics()); //Icon size
-        startimage.getLayoutParams().height = applyDimension;
-        startimage.getLayoutParams().width = applyDimension;
+        startimage.getLayoutParams().height = dp(ICON_SIZE);
+        startimage.getLayoutParams().width = dp(ICON_SIZE);
         startimage.setScaleType(ImageView.ScaleType.FIT_XY);
         byte[] decode = Base64.decode(Icon(), 0);
         startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
@@ -199,22 +239,16 @@ public class Menu {
             }
         });
 
-        //********** The icon in Webview to open mod menu **********
-        WebView wView = new WebView(context); //Icon size width=\"50\" height=\"50\"
-        wView.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        int applyDimension2 = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ICON_SIZE, context.getResources().getDisplayMetrics()); //Icon size
-        wView.getLayoutParams().height = applyDimension2;
-        wView.getLayoutParams().width = applyDimension2;
-        wView.loadData("<html>" +
-                "<head></head>" +
-                "<body style=\"margin: 0; padding: 0\">" +
-                "<img src=\"" + IconWebViewData() + "\" width=\"" + ICON_SIZE + "\" height=\"" + ICON_SIZE + "\" >" +
-                "</body>" +
-                "</html>", "text/html", "utf-8");
-        wView.setBackgroundColor(0x00000000); //Transparent
-        wView.setAlpha(ICON_ALPHA);
-        wView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
-        wView.setOnTouchListener(onTouchListener());
+        //********** Ikon dari sumber pilihan pengguna (URL atau GIF) **********
+        webIkon = new WebView(context);
+        webIkon.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+        webIkon.getLayoutParams().height = dp(ICON_SIZE);
+        webIkon.getLayoutParams().width = dp(ICON_SIZE);
+        ((ViewGroup.MarginLayoutParams) webIkon.getLayoutParams()).topMargin = dp(10);
+        webIkon.setBackgroundColor(0x00000000); //Transparent
+        webIkon.setVisibility(View.GONE);
+        webIkon.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webIkon.setOnTouchListener(onTouchListener());
 
         //********** Settings **********
         mSettings = new LinearLayout(context);
@@ -320,11 +354,8 @@ public class Menu {
         //********** Adding view components **********
         mRootContainer.addView(mCollapsed);
         mRootContainer.addView(mExpanded);
-        if (IconWebViewData() != null) {
-            mCollapsed.addView(wView);
-        } else {
-            mCollapsed.addView(startimage);
-        }
+        mCollapsed.addView(startimage);
+        mCollapsed.addView(webIkon);
         mExpanded.addView(header);
         Theme.Zigzag zigAtas = new Theme.Zigzag(context, Theme.HEADER, true);
         zigAtas.setBackgroundColor(Theme.BODY);
@@ -337,6 +368,7 @@ public class Menu {
         mExpanded.addView(zigBawah, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
         mExpanded.addView(footer);
 
+        terapkanIkon();
         Init(context, title, subTitle);
         Theme.applyFont(mExpanded);
         Theme.applyFont(mSettings);
@@ -434,7 +466,7 @@ public class Menu {
                         int rawX = (int) (motionEvent.getRawX() - initialTouchX);
                         int rawY = (int) (motionEvent.getRawY() - initialTouchY);
                         mExpanded.setAlpha(1f);
-                        mCollapsed.setAlpha(1f);
+                        mCollapsed.setAlpha(ICON_ALPHA);
                         //The check for Xdiff <10 && YDiff< 10 because sometime elements moves a little while clicking.
                         //So that is click event.
                         if (rawX < 10 && rawY < 10 && isViewCollapsed()) {
@@ -605,8 +637,13 @@ public class Menu {
         if (!tersimpan)
             Preferences.changeFeatureInt(featName, featNum, nilaiAwal);
 
-        // Kecepatan dan gravitasi memakai pengali, jadi angkanya diberi "x".
-        final String satuan = (featNum == 23 || featNum == 24) ? "x" : "";
+        // Opasitas dan ukuran ikon langsung dipakai saat slider dibaca.
+        if (featNum == -4)
+            ICON_ALPHA = nilaiAwal / 100f;
+        else if (featNum == -5)
+            ICON_SIZE = nilaiAwal;
+
+        final String satuan = satuanFitur(featNum);
 
         LinearLayout kolom = new LinearLayout(getContext);
         kolom.setOrientation(LinearLayout.VERTICAL);
@@ -658,6 +695,13 @@ public class Menu {
                     nilai = max;
                 Preferences.changeFeatureInt(featName, featNum, nilai);
                 angka.setText(nilaiTeks(nilai, desimal) + satuan);
+                if (featNum == -4 || featNum == -5) {
+                    if (featNum == -4)
+                        ICON_ALPHA = nilai / 100f;
+                    else
+                        ICON_SIZE = nilai;
+                    terapkanIkon();
+                }
             }
         });
 
@@ -672,6 +716,17 @@ public class Menu {
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
         linLayout.addView(baris(IkonFitur.pola(featNum), kolom, null));
+    }
+
+    /** Satuan angka slider: pengali kecepatan, persen opasitas, atau dp ikon. */
+    private String satuanFitur(int featNum) {
+        if (featNum == 23 || featNum == 24)
+            return "x";
+        if (featNum == -4)
+            return "%";
+        if (featNum == -5)
+            return "dp";
+        return "";
     }
 
     /** Angka slider ditampilkan dengan jumlah desimal yang ditulis di feature list. */
@@ -939,13 +994,21 @@ public class Menu {
     private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
         final Button button = teksTombol("");
         String string = Preferences.loadPrefString(featName, featNum);
-        button.setText(Html.fromHtml(featName + ": " + string));
+        if (featNum == -6)
+            sumberIkon = string;
+        String tampil = featNum == -6 && string.length() == 0 ? "bawaan" : string;
+        button.setText(Html.fromHtml(featName + ": " + tampil));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
 
                 final EditText editText = new EditText(getContext);
+                if (featNum == -6) {
+                    editText.setHint("URL gambar atau GIF, kosongkan untuk bawaan");
+                    editText.setText(sumberIkon);
+                    editText.setSelection(editText.length());
+                }
                 editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
                     @Override
                     public void onFocusChange(View v, boolean hasFocus) {
@@ -959,7 +1022,7 @@ public class Menu {
                 });
                 editText.requestFocus();
 
-                alertName.setTitle("Masukkan teks");
+                alertName.setTitle(featNum == -6 ? "Sumber gambar ikon" : "Masukkan teks");
                 alertName.setView(editText);
                 LinearLayout layoutName = new LinearLayout(getContext);
                 layoutName.setOrientation(LinearLayout.VERTICAL);
@@ -969,7 +1032,15 @@ public class Menu {
                 alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         String str = editText.getText().toString();
-                        button.setText(Html.fromHtml(featName + ": " + str));
+                        if (featNum == -6) {
+                            str = str.trim();
+                            sumberIkon = str;
+                            button.setText(Html.fromHtml(featName + ": "
+                                    + (str.length() == 0 ? "bawaan" : str)));
+                            terapkanIkon();
+                        } else {
+                            button.setText(Html.fromHtml(featName + ": " + str));
+                        }
                         Preferences.changeFeatureString(featName, featNum, str);
                         editText.setFocusable(false);
                     }
