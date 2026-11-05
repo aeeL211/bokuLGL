@@ -3,28 +3,18 @@
 
 The shipped library must not contain the class and method names in plaintext,
 so the strings are packed into one blob and XORed with a key derived from the
-build seed and the library file name. targets.cpp decrypts the blob at startup
-with the name of the library it was actually loaded from; a renamed copy
-decrypts to garbage and resolves no target.
+build seed. targets.cpp decrypts the blob at startup with the same seed, so
+every build ships a different table and no plaintext name is stored.
 """
 
 import re
 import sys
 
 MASK = (1 << 64) - 1
-FNV_OFFSET = 0xCBF29CE484222325
-FNV_PRIME = 0x100000001B3
 MIX_A = 0xBF58476D1CE4E5B9
 MIX_B = 0x94D049BB133111EB
 GOLDEN = 0x9E3779B97F4A7C15
 PARAM_NONE = 0xFFFF
-
-
-def fnv1a64(data):
-    value = FNV_OFFSET
-    for byte in data:
-        value = ((value ^ byte) * FNV_PRIME) & MASK
-    return value
 
 
 def mix(value):
@@ -33,8 +23,8 @@ def mix(value):
     return (value ^ (value >> 31)) & MASK
 
 
-def key_byte(seed, library_hash, index):
-    value = (seed ^ library_hash ^ (index * GOLDEN)) & MASK
+def key_byte(seed, index):
+    value = (seed ^ (index * GOLDEN)) & MASK
     return mix(value) & 0xFF
 
 
@@ -85,7 +75,7 @@ def build_blob(rows):
     return blob, data
 
 
-def emit_header(path, rows, blob, seed, library_hash):
+def emit_header(path, rows, blob, seed):
     lines = [
         "#pragma once",
         "",
@@ -110,7 +100,6 @@ def emit_header(path, rows, blob, seed, library_hash):
         "",
         f"constexpr uint32_t kTargetBlobSize = {len(blob)};",
         f"constexpr uint64_t kBuildSeed = 0x{seed:016x}ULL;",
-        f"constexpr uint64_t kExpectedLibraryHash = 0x{library_hash:016x}ULL;",
         "constexpr uint16_t kNoParam = 0xFFFF;",
         "",
         "extern const uint8_t kTargetBlob[];",
@@ -121,10 +110,10 @@ def emit_header(path, rows, blob, seed, library_hash):
         out.write("\n".join(lines))
 
 
-def emit_source(path, blob, data, seed, library_hash):
+def emit_source(path, blob, data, seed):
     cipher = bytearray(len(blob))
     for index, byte in enumerate(blob):
-        cipher[index] = byte ^ key_byte(seed, library_hash, index)
+        cipher[index] = byte ^ key_byte(seed, index)
 
     lines = [
         '#include "targets_generated.h"',
@@ -150,11 +139,11 @@ def emit_source(path, blob, data, seed, library_hash):
 
 
 def main():
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 5:
         raise SystemExit(
-            "usage: gen_targets.py <targets.def> <header-out> <source-out> <seed> <library-name>"
+            "usage: gen_targets.py <targets.def> <header-out> <source-out> <seed>"
         )
-    def_path, header_path, source_path, seed_text, library_name = sys.argv[1:]
+    def_path, header_path, source_path, seed_text = sys.argv[1:]
     try:
         seed = int(seed_text, 0)
     except ValueError:
@@ -163,9 +152,8 @@ def main():
         raise SystemExit("build seed does not fit in 64 bits")
     rows = parse(def_path)
     blob, data = build_blob(rows)
-    library_hash = fnv1a64(library_name.encode("utf-8"))
-    emit_header(header_path, rows, blob, seed, library_hash)
-    emit_source(source_path, blob, data, seed, library_hash)
+    emit_header(header_path, rows, blob, seed)
+    emit_source(source_path, blob, data, seed)
 
 
 if __name__ == "__main__":

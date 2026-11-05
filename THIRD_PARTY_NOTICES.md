@@ -1,43 +1,25 @@
 # Third-party notices
 
-`libboku.so` links the following third-party code. Nothing is vendored in this repository:
-every component is fetched from its upstream release at build time.
+`libboku.so` links the following third-party code. Dobby is the only native component shipped
+with the repository; everything else comes from the LGL template or the Android NDK.
 
-## ShadowHook
+## Dobby
 
-- Upstream: https://github.com/bytedance/android-inline-hook
-- Version: v2.0.1, pinned in `.github/workflows/build.yml` (`SHADOWHOOK_TAG`) and overridable
-  with the `shadowhook_tag` workflow input.
-- License: MIT
-- How it is used: the upstream source archive is extracted during the CI build and compiled
-  into `libboku.so` as a static archive. `sh_jni.c` is excluded, so the binary contains no
-  ShadowHook `JNI_OnLoad`. Public ShadowHook symbols are hidden and are not exported.
-- Local modification: one call in `shadowhook.c` is rewritten at build time so that a failed
-  `sh_linker_init()` is not fatal. A single-file build ships no `libshadowhook_nothing.so`, and
-  upstream uses that stub for the soinfo field-offset scan. The scan serves
-  `shadowhook_hook_sym_name` and dlopen tracking, neither of which this mod calls;
-  `shadowhook_hook_func_addr`, the only API used here, is unaffected.
+- Upstream: https://github.com/jmpews/Dobby
+- Version: the prebuilt archive bundled with the LGL Mod Menu template, built from upstream
+  commit `0932d69c320e786672361ab53825ba8f4245e9d3`.
+- License: Apache License 2.0. A copy is kept at `app/src/main/jni/Dobby/LICENSE`.
+- How it is used: `app/src/main/jni/Dobby/arm64-v8a/libdobby.a` is linked statically into
+  `libboku.so`. Only `DobbyHook` is called, from `boku/hook.cpp`. The archive is linked with
+  `--exclude-libs,ALL`, so no `Dobby` or `dobby_` symbol is exported.
+- No source changes: the archive is used as shipped by the template.
 
-## xdl
-
-- Upstream: https://github.com/hexhacking/xdl, bundled inside ShadowHook under
-  `shadowhook/src/main/cpp/third_party/xdl`
-- License: Apache License 2.0
-- How it is used: compiled from the same ShadowHook source archive and linked statically.
-
-## linux-syscall-support
-
-- Upstream: https://chromium.googlesource.com/linux-syscall-support, bundled inside ShadowHook
-  under `shadowhook/src/main/cpp/third_party/lss`
-- License: Apache License 2.0 (BSD-style option)
-- How it is used: headers only, compiled into the ShadowHook objects.
-
-The full license texts are collected at build time into `THIRD_PARTY_LICENSES`, which is
-published next to `libboku.so` in the `bokuLGL-apk` artifact.
+The full license text is collected at build time into `THIRD_PARTY_LICENSES`, which is published
+next to `libboku.so` in the `bokuLGL-apk` artifact.
 
 ## LGL Mod Menu
 
 - Upstream: https://github.com/LGLTeam/Android-Mod-Menu
 - License: GNU General Public License v3.0. The template's `LICENSE` is kept in this repository.
 - How it is used: the floating menu, its Java bridge and its JNI registration come from the
-  template. Dobby, KittyMemory and xDL are removed; hooking uses ShadowHook instead.
+  template. KittyMemory and xDL are not used; hooking goes through the bundled Dobby archive.

@@ -1,8 +1,5 @@
 apply plugin: 'com.android.application'
 
-// ShadowHook is fetched by CI and passed in; nothing is vendored.
-def shadowhookRoot = project.findProperty("SHADOWHOOK_ROOT") ?: System.getenv("SHADOWHOOK_ROOT") ?: ""
-
 android {
     compileSdkVersion 36
     defaultConfig {
@@ -20,10 +17,8 @@ android {
         // block below only carries the script path.
         externalNativeBuild {
             cmake {
-                arguments "-DSHADOWHOOK_ROOT=" + shadowhookRoot,
-                        "-DBOKU_BUILD_SEED=" + (project.findProperty("BOKU_BUILD_SEED") ?: "1"),
-                        "-DBOKU_BUILD_COMMIT=" + (project.findProperty("BOKU_BUILD_COMMIT") ?: "dev"),
-                        "-DBOKU_LIB_NAME=libboku.so"
+                arguments "-DBOKU_BUILD_SEED=" + (project.findProperty("BOKU_BUILD_SEED") ?: "1"),
+                        "-DBOKU_BUILD_COMMIT=" + (project.findProperty("BOKU_BUILD_COMMIT") ?: "dev")
             }
         }
     }

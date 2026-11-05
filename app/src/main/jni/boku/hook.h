@@ -2,9 +2,9 @@
 
 #include "targets.h"
 
-// Pembungkus tipis ShadowHook. Setiap hook lewat sini supaya kegagalan tercatat
+// Pembungkus tipis Dobby. Setiap hook lewat sini supaya kegagalan tercatat
 // di satu tempat dan pemanggil bisa membiarkan fitur itu pada perilaku vanilla.
-bool inisialisasiShadowHook();
+bool inisialisasiHook();
 bool pasangHook(Target& entri, void* pengganti);
 
 // Memasang hook pada alamat mentah, bukan pada entri target. Probe crash memakainya

@@ -9,7 +9,7 @@ void bukaFileLog();
 void pasangLogCrash();
 
 // Mencatat pemanggil abort() dan __stack_chk_fail() supaya SIGABRT berikutnya
-// menyebut kode yang memutuskan mematikan proses. Panggil setelah ShadowHook siap.
+// menyebut kode yang memutuskan mematikan proses. Panggil setelah Dobby siap.
 void pasangProbeCrash();
 
 // Path lengkap berkas yang ditulis sesi ini, atau nullptr sebelum dibuka.

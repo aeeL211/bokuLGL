@@ -1,7 +1,6 @@
 #include "hook.h"
 
-#include <shadowhook.h>
-
+#include "Dobby/dobby.h"
 #include "log.h"
 
 namespace {
@@ -10,17 +9,11 @@ int jumlahTerpasang = 0;
 
 } // namespace
 
-// Inisialisasi sekali dan sedini mungkin: mode tidak bisa berubah setelah
-// diinisialisasi dan mode unique membuat sebuah hook bisa memanggil trampoline-nya
-// langsung. debuggable tetap false karena ia menulis ke logcat, yang tidak dipakai
-// proyek ini.
-bool inisialisasiShadowHook() {
-    int kode = shadowhook_init(SHADOWHOOK_MODE_UNIQUE, false);
-    if (kode) {
-        LOGE("ShadowHook gagal diinisialisasi: %d %s", kode, shadowhook_to_errmsg(kode));
-        return false;
-    }
-    LOGI("ShadowHook siap");
+// Dobby tidak punya mode global yang harus dipilih sebelum hook pertama, jadi
+// inisialisasi hanya menandai backend siap. Setiap DobbyHook tetap memeriksa
+// hasilnya sendiri.
+bool inisialisasiHook() {
+    LOGI("Dobby siap");
     return true;
 }
 
@@ -29,20 +22,19 @@ bool pasangHook(Target& entri, void* pengganti) {
         LOGE("Target tidak ditemukan: %s.%s", entri.cls, entri.name);
         return false;
     }
-    // Dua berkas bisa menamai method yang sama, dan ShadowHook hanya memiliki satu
-    // hook per alamat pada mode unique, jadi sebuah target menyimpan stub pertamanya
-    // dan melaporkan pengulangan sebagai terpasang daripada menimpa trampoline yang
+    // Dua berkas bisa menamai method yang sama, dan Dobby menolak alamat yang
+    // sudah pernah di-hook. Target mengingat pemasangan pertamanya dan
+    // melaporkan pengulangan sebagai terpasang, bukan menimpa trampoline yang
     // sudah dipanggil berkas pertama.
-    if (entri.stub)
+    if (entri.terpasang)
         return true;
-    void* stub = shadowhook_hook_func_addr(entri.addr, pengganti, &entri.orig);
-    if (!stub) {
-        int kode = shadowhook_get_errno();
-        LOGE("Hook gagal: %s.%s (error %d, %s)", entri.cls, entri.name, kode,
-             shadowhook_to_errmsg(kode));
+    int kode = DobbyHook(entri.addr, reinterpret_cast<dobby_dummy_func_t>(pengganti),
+                         reinterpret_cast<dobby_dummy_func_t*>(&entri.orig));
+    if (kode != 0) {
+        LOGE("Hook gagal: %s.%s (Dobby %d)", entri.cls, entri.name, kode);
         return false;
     }
-    entri.stub = stub;
+    entri.terpasang = true;
     jumlahTerpasang++;
     return true;
 }
@@ -54,10 +46,10 @@ bool pasangHookProbe(void* alamat, void* pengganti, void** asli, const char* nam
         LOGE("Probe tidak ditemukan: %s", nama);
         return false;
     }
-    void* stub = shadowhook_hook_func_addr(alamat, pengganti, asli);
-    if (!stub) {
-        int kode = shadowhook_get_errno();
-        LOGE("Probe gagal: %s (error %d, %s)", nama, kode, shadowhook_to_errmsg(kode));
+    int kode = DobbyHook(alamat, reinterpret_cast<dobby_dummy_func_t>(pengganti),
+                         reinterpret_cast<dobby_dummy_func_t*>(asli));
+    if (kode != 0) {
+        LOGE("Probe gagal: %s (Dobby %d)", nama, kode);
         return false;
     }
     return true;

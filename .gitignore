@@ -86,8 +86,7 @@ lint/tmp/
 
 # Android Profiling
 *.hprof
-# Native build inputs fetched by CI
-shadowhook/
+# Native build outputs
 dist/
 *.so
 *.tar.gz

@@ -1,12 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-# ASM compiles the ShadowHook arm64 trampoline glue (arch/arm64/sh_glue.S).
-project(boku C CXX ASM)
+project(boku C CXX)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 set(BOKU_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/boku")
 set(BOKU_BUILD_SEED "1" CACHE STRING "Per-build seed for the encrypted target table")
-set(BOKU_LIB_NAME "libboku.so" CACHE STRING "Library name the target table is bound to")
 set(BOKU_BUILD_COMMIT "dev" CACHE STRING "Build commit shown in the log")
 string(LENGTH "${BOKU_BUILD_COMMIT}" BOKU_BUILD_COMMIT_LEN)
 if(BOKU_BUILD_COMMIT_LEN GREATER 7)
@@ -28,67 +26,25 @@ if(NOT DEFINED ANDROID_ABI OR NOT ANDROID_ABI MATCHES "^arm64-v8a$")
     "Use the NDK toolchain file with arm64-v8a.")
 endif()
 
-# Upstream's own CMakeLists builds a shared library and a companion stub, which
-# a one-file delivery cannot ship, so only the sources are reused here. sh_jni.c
-# is excluded because it defines a second JNI_OnLoad and that symbol must stay
-# menu/Setup.cpp's.
-set(SHADOWHOOK_ROOT "" CACHE PATH "Root of the fetched ShadowHook source tree")
-if(NOT SHADOWHOOK_ROOT)
-  message(FATAL_ERROR "Pass -DSHADOWHOOK_ROOT=<dir of the fetched ShadowHook source tree>")
+# Dobby ships as a prebuilt static archive in the template (arm64-v8a only),
+# so there is nothing to compile here: the linker pulls the objects the hook
+# wrapper reaches and --exclude-libs,ALL keeps their symbols out of .dynsym.
+set(DOBBY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Dobby")
+if(NOT EXISTS "${DOBBY_DIR}/arm64-v8a/libdobby.a")
+  message(FATAL_ERROR "Dobby archive not found in ${DOBBY_DIR}/arm64-v8a")
 endif()
-
-set(SHADOWHOOK_SRC "${SHADOWHOOK_ROOT}/shadowhook/src/main/cpp")
-if(NOT EXISTS "${SHADOWHOOK_SRC}/include/shadowhook.h")
-  message(FATAL_ERROR "shadowhook.h not found in ${SHADOWHOOK_SRC}/include")
-endif()
-
-file(GLOB SHADOWHOOK_CORE "${SHADOWHOOK_SRC}/*.c")
-list(FILTER SHADOWHOOK_CORE EXCLUDE REGEX "/sh_jni\\.c$")
-file(GLOB SHADOWHOOK_ARCH "${SHADOWHOOK_SRC}/arch/arm64/*.c")
-file(GLOB SHADOWHOOK_ARCH_ASM "${SHADOWHOOK_SRC}/arch/arm64/*.S")
-file(GLOB SHADOWHOOK_COMMON "${SHADOWHOOK_SRC}/common/*.c")
-file(GLOB SHADOWHOOK_XDL "${SHADOWHOOK_SRC}/third_party/xdl/*.c")
-
-add_library(shadowhook STATIC
-  ${SHADOWHOOK_CORE}
-  ${SHADOWHOOK_ARCH}
-  ${SHADOWHOOK_ARCH_ASM}
-  ${SHADOWHOOK_COMMON}
-  ${SHADOWHOOK_XDL}
+add_library(dobby STATIC IMPORTED)
+set_target_properties(dobby PROPERTIES
+  IMPORTED_LOCATION "${DOBBY_DIR}/arm64-v8a/libdobby.a"
+  INTERFACE_INCLUDE_DIRECTORIES "${DOBBY_DIR}"
 )
-
-target_compile_features(shadowhook PRIVATE c_std_11)
-target_include_directories(shadowhook PRIVATE
-  "${SHADOWHOOK_SRC}"
-  "${SHADOWHOOK_SRC}/arch/arm64"
-  "${SHADOWHOOK_SRC}/common"
-  "${SHADOWHOOK_SRC}/third_party/xdl"
-  "${SHADOWHOOK_SRC}/third_party/bsd"
-  "${SHADOWHOOK_SRC}/third_party/lss"
-)
-target_include_directories(shadowhook PUBLIC "${SHADOWHOOK_SRC}/include")
-
-# Hidden visibility keeps shadowhook_* and sh_* out of .dynsym; the archive is
-# stripped from the export table too by --exclude-libs,ALL on the final link.
-target_compile_options(shadowhook PRIVATE
-  -Oz
-  -fvisibility=hidden
-  -ffunction-sections
-  -fdata-sections
-  -fno-unwind-tables
-  -fno-asynchronous-unwind-tables
-  -fno-stack-protector
-  -fno-ident
-  -fomit-frame-pointer
-)
-set_target_properties(shadowhook PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # File logging is on by default; -DBOKU_LOG=OFF drops it for the smallest .so.
 option(BOKU_LOG "Enable file logging" ON)
 
 # The target names are shipped as one encrypted blob. The key is derived from
-# BOKU_BUILD_SEED and the library file name, so a renamed copy decrypts to
-# garbage and resolves nothing.
+# BOKU_BUILD_SEED, so every build ships a different blob and no class or method
+# name appears in the library as plaintext.
 set(TARGETS_DIR "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${TARGETS_DIR}")
 set(TARGETS_HEADER "${TARGETS_DIR}/targets_generated.h")
@@ -98,7 +54,7 @@ add_custom_command(
   COMMAND ${Python3_EXECUTABLE} "${BOKU_ROOT}/tools/gen_targets.py"
           "${BOKU_ROOT}/targets.def"
           "${TARGETS_HEADER}" "${TARGETS_SOURCE}"
-          "${BOKU_BUILD_SEED}" "${BOKU_LIB_NAME}"
+          "${BOKU_BUILD_SEED}"
   DEPENDS "${BOKU_ROOT}/targets.def" "${BOKU_ROOT}/tools/gen_targets.py"
   COMMENT "Generating encrypted target table"
   VERBATIM)
@@ -204,23 +160,15 @@ target_link_options(boku PRIVATE
   -Wl,--pack-dyn-relocs=android
 )
 
-# shadowhook: static archive. dl: dlopen, dlsym, dladdr. log: ShadowHook's own
-# __android_log_print calls and the template's logger.
-target_link_libraries(boku PRIVATE shadowhook dl log)
+# Dobby: static archive. dl: dlopen, dlsym, dladdr. log: Android logging used
+# by the template and the crash handler.
+target_link_libraries(boku PRIVATE dobby dl log)
 
 if(BOKU_LOG)
   target_compile_definitions(boku PRIVATE BOKU_LOG)
 endif()
 
 target_compile_definitions(boku PRIVATE BOKU_BUILD_COMMIT="${BOKU_BUILD_COMMIT_SHORT}")
-
-# The post-build step writes the hash of the read-only segments into the data
-# segment. The runtime refuses to install hooks when the hash does not match.
-add_custom_command(TARGET boku POST_BUILD
-  COMMAND ${Python3_EXECUTABLE} "${BOKU_ROOT}/tools/embed_integrity.py"
-          "$<TARGET_FILE:boku>"
-  COMMENT "Embedding integrity hash"
-  VERBATIM)
 
 # Hidden by default; JNI_OnLoad opts back in with JNIEXPORT.
 set_target_properties(boku PROPERTIES

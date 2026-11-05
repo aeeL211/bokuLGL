@@ -11,21 +11,14 @@ Target targets[T_COUNT] = {};
 char kolamNama[kTargetBlobSize + 1] = {};
 bool siap = false;
 
-uint64_t fnv1a64(const char* teks) {
-    uint64_t nilai = 0xcbf29ce484222325ULL;
-    for (const auto* p = reinterpret_cast<const unsigned char*>(teks); *p; p++)
-        nilai = (nilai ^ *p) * 0x100000001b3ULL;
-    return nilai;
-}
-
 uint64_t campur(uint64_t masukan) {
     masukan = (masukan ^ (masukan >> 30)) * 0xbf58476d1ce4e5b9ULL;
     masukan = (masukan ^ (masukan >> 27)) * 0x94d049bb133111ebULL;
     return masukan ^ (masukan >> 31);
 }
 
-uint8_t byteKunci(uint64_t hash, uint32_t indeks) {
-    uint64_t nilai = kBuildSeed ^ hash ^ (static_cast<uint64_t>(indeks) * 0x9e3779b97f4a7c15ULL);
+uint8_t byteKunci(uint64_t seed, uint32_t indeks) {
+    uint64_t nilai = seed ^ (static_cast<uint64_t>(indeks) * 0x9e3779b97f4a7c15ULL);
     return static_cast<uint8_t>(campur(nilai) & 0xFF);
 }
 
@@ -45,18 +38,12 @@ bool paramCocok(const Target& entri, void* metode) {
 
 } // namespace
 
-bool inisialisasiTarget(const char* namaPustaka) {
+bool inisialisasiTarget() {
     if (siap)
         return true;
-    if (!namaPustaka || !*namaPustaka)
-        return false;
-
-    uint64_t hash = fnv1a64(namaPustaka);
-    if (hash != kExpectedLibraryHash)
-        return false;
 
     for (uint32_t i = 0; i < kTargetBlobSize; i++)
-        kolamNama[i] = static_cast<char>(kTargetBlob[i] ^ byteKunci(hash, i));
+        kolamNama[i] = static_cast<char>(kTargetBlob[i] ^ byteKunci(kBuildSeed, i));
     kolamNama[kTargetBlobSize] = '\0';
 
     for (uint32_t i = 0; i < static_cast<uint32_t>(T_COUNT); i++) {

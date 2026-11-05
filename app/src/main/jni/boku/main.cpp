@@ -10,7 +10,6 @@
 #include "jni_bridge.h"
 #include "log.h"
 #include "mod.h"
-#include "protect.h"
 #include "targets.h"
 #include "toast.h"
 
@@ -27,9 +26,9 @@ void* pekerja(void*) {
     for (int i = 0; i < 10 && !kelasUnityPlayer(); i++)
         usleep(100000);
     catatLingkungan();
-    if (!inisialisasiProteksi())
+    if (!inisialisasiTarget())
         return nullptr;
-    if (!inisialisasiShadowHook())
+    if (!inisialisasiHook())
         return nullptr;
 
     // Menu menanyakan IsGameLibLoaded() sebelum menampilkan daftar fitur, jadi
