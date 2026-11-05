@@ -81,7 +81,6 @@ set(MOD_SOURCES
   "${BOKU_ROOT}/hook.cpp"
   "${BOKU_ROOT}/il2cpp_api.cpp"
   "${BOKU_ROOT}/targets.cpp"
-  "${BOKU_ROOT}/protect.cpp"
   "${BOKU_ROOT}/info.cpp"
   "${BOKU_ROOT}/hooks/action_input.cpp"
   "${BOKU_ROOT}/hooks/iap.cpp"
