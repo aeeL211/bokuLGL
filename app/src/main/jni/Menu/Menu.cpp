@@ -2,6 +2,40 @@
 #include "Menu/Menu.hpp"
 #include "boku/hooks/hooks.h"
 
+namespace {
+
+bool ambilTeks(JNIEnv *env, jstring teks, const char *&keluaran) {
+    keluaran = nullptr;
+    if (!teks)
+        return false;
+    keluaran = env->GetStringUTFChars(teks, nullptr);
+    return keluaran != nullptr;
+}
+
+void lepasTeks(JNIEnv *env, jstring teks, const char *isi) {
+    if (isi)
+        env->ReleaseStringUTFChars(teks, isi);
+}
+
+// Antrean menyalin teksnya sendiri, jadi pinjaman string Java hanya hidup
+// selama pemanggilan ini.
+jboolean antrekanAksi(JNIEnv *env, jstring kunci, jstring nama, bool salin) {
+    const char *teksKunci = nullptr;
+    if (!ambilTeks(env, kunci, teksKunci))
+        return JNI_FALSE;
+
+    const char *teksNama = nullptr;
+    bool adaNama = ambilTeks(env, nama, teksNama);
+    bool diterima = salin ? antrekanSalinPemain(teksKunci, adaNama ? teksNama : nullptr)
+                          : antrekanTendangPemain(teksKunci, adaNama ? teksNama : nullptr);
+    if (adaNama)
+        lepasTeks(env, nama, teksNama);
+    lepasTeks(env, kunci, teksKunci);
+    return diterima ? JNI_TRUE : JNI_FALSE;
+}
+
+} // namespace
+
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
     (void)thiz;
     (void)ctx;
@@ -67,14 +101,12 @@ jstring DaftarPemain(JNIEnv *env, jclass clazz) {
     return env->NewStringUTF(teks);
 }
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci) {
+jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
     (void) clazz;
-    if (!kunci)
-        return JNI_FALSE;
-    const char *teks = env->GetStringUTFChars(kunci, nullptr);
-    if (!teks)
-        return JNI_FALSE;
-    bool diterima = antrekanTendangPemain(teks);
-    env->ReleaseStringUTFChars(kunci, teks);
-    return diterima ? JNI_TRUE : JNI_FALSE;
+    return antrekanAksi(env, kunci, nama, false);
+}
+
+jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
+    (void) clazz;
+    return antrekanAksi(env, kunci, nama, true);
 }

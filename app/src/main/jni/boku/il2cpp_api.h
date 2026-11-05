@@ -70,6 +70,9 @@ const uint16_t* karakterString(void* teks);
 // tidak pernah dianggap sama.
 bool samaString(void* pertama, void* kedua);
 void* stringUtf16Baru(const uint16_t* karakter, int32_t panjang);
+// Teks dari menu atau berkas datang sebagai UTF-8, sedangkan argumen game
+// bertipe string IL2CPP.
+void* stringDariUtf8(const char* teks);
 // Teks IL2CPP memakai UTF-16, sedangkan baris log dan path file memakai UTF-8.
 bool keUtf8(void* teks, char* keluaran, size_t ukuran);
 void* dataFieldStatis(void* kelas);

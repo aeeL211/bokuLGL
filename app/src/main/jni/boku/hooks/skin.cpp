@@ -1,12 +1,14 @@
 #include "hooks.h"
 
 #include <fcntl.h>
+#include <pthread.h>
 #include <unistd.h>
 
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
-#include "fitur.h"
 #include "hook.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -17,7 +19,6 @@ namespace {
 // String model berisi beberapa ratus field yang dipisah. Batas ini hanya
 // menghentikan panjang yang rusak agar tidak berjalan melewati string.
 constexpr int32_t kBatasKarakterModel = 16384;
-constexpr size_t kBatasByteModel = static_cast<size_t>(kBatasKarakterModel) * 3 + 1;
 // Satu entri per skin berbeda yang bisa tampil dalam satu sesi; pengulangan hanya
 // memakan satu pencarian tabel.
 constexpr int kBatasHash = 512;
@@ -25,31 +26,52 @@ constexpr int kUkuranTabelHash = 1024;
 constexpr int kTopengTabelHash = kUkuranTabelHash - 1;
 constexpr int kBatasSlot = 1000;
 constexpr size_t kBatasBytePath = 1024;
-// Id pengguna itu pendek; yang lebih panjang tidak layak jadi entri map.
+// Kunci tamu itu pendek; yang lebih panjang tidak layak jadi entri cache.
 constexpr size_t kBatasBytePengguna = 64;
+// Satu entri per tamu yang modelnya bisa disalin dari menu.
+constexpr int kMaksTamu = 16;
 // Berkas dibaca per potongan, jadi tidak ada buffer sebesar string model.
 constexpr size_t kBatasBytePotongan = 1024;
 constexpr uint64_t kAwalHash = 1469598103934665603ull;
 constexpr uint64_t kPrimaHash = 1099511628211ull;
 
-char teksModel[kBatasByteModel];
 char teksPath[kBatasBytePath];
 
-uint64_t tabelHash[kUkuranTabelHash];
+// Hash model yang sudah punya slot, beserta nomor slotnya, supaya permintaan
+// salin berikutnya bisa menyebut tempat skin itu sudah tersimpan.
+struct SlotModel {
+    uint64_t hash;
+    int slot;
+};
+
+SlotModel tabelHash[kUkuranTabelHash];
 int jumlahHashModel = 0;
 int slotBerikut = 1;
 bool slotSiap = false;
 
-// Slot yang tersimpan dan pengguna asalnya, supaya nama tampilan yang datang
-// belakangan bisa ditulis di samping model miliknya. Pengguna disimpan sebagai
-// hash supaya perbandingannya satu angka, bukan satu string.
-struct SlotPengguna {
-    uint64_t pengguna;
-    int slot;
+// Model tamu disimpan di memori saat mereka masuk room. Penulisan ke slot baru
+// terjadi ketika pemain memintanya dari menu, jadi tidak ada skin yang masuk
+// tanpa persetujuan pemakai.
+struct ModelTamu {
+    char kunci[kBatasBytePengguna];
+    char* model;
 };
 
-SlotPengguna daftarSlotPengguna[kBatasHash];
-int jumlahSlotPengguna = 0;
+ModelTamu daftarTamu[kMaksTamu];
+int jumlahTamu = 0;
+int tamuBerikut = 0;
+
+// Hook masuk tamu dan hook update tamu bisa berjalan di thread yang berbeda,
+// jadi cache-nya dijaga kunci. Pembaca menyalin modelnya lalu melepas kunci,
+// supaya entri yang diganti tidak terbaca setengah jadi.
+pthread_mutex_t kunciTamu = PTHREAD_MUTEX_INITIALIZER;
+
+// Model milik satu tamu, disalin dari cache supaya entrinya boleh diganti
+// setelah fungsi pengambil selesai.
+struct SalinanModel {
+    char* teks = nullptr;
+    ~SalinanModel() { free(teks); }
+};
 
 Field fieldTamu = {};
 Field fieldDataManajer = {};
@@ -68,32 +90,58 @@ uint64_t hashTeks(const char* teks, size_t panjang, uint64_t awal = kAwalHash) {
 }
 
 // Tabel terbuka dengan indeks dari hash itu sendiri, jadi skin yang sudah ada
-// ditemukan tanpa memindai daftar. Nol menandai slot kosong, dan hash nol
-// dipindahkan ke satu supaya tidak pernah terbaca sebagai slot kosong.
-bool hashTercatat(uint64_t nilai) {
+// ditemukan tanpa memindai daftar. Hash nol dipindahkan ke satu supaya tidak
+// pernah terbaca sebagai slot kosong.
+int cariSlot(uint64_t nilai) {
     if (!nilai)
         nilai = 1;
     int i = static_cast<int>(nilai & kTopengTabelHash);
-    while (tabelHash[i] != 0) {
-        if (tabelHash[i] == nilai)
-            return true;
+    while (tabelHash[i].hash != 0) {
+        if (tabelHash[i].hash == nilai)
+            return tabelHash[i].slot;
         i = (i + 1) & kTopengTabelHash;
     }
-    return false;
+    return 0;
 }
 
-void catatHash(uint64_t nilai) {
+void catatSlot(uint64_t nilai, int slot) {
     if (jumlahHashModel >= kBatasHash)
         return;
     if (!nilai)
         nilai = 1;
     int i = static_cast<int>(nilai & kTopengTabelHash);
-    while (tabelHash[i] != 0 && tabelHash[i] != nilai)
+    while (tabelHash[i].hash != 0 && tabelHash[i].hash != nilai)
         i = (i + 1) & kTopengTabelHash;
-    if (tabelHash[i] == nilai)
+    if (tabelHash[i].hash == nilai)
         return;
-    tabelHash[i] = nilai;
+    tabelHash[i].hash = nilai;
+    tabelHash[i].slot = slot;
     jumlahHashModel++;
+}
+
+void lepasModelTamu(ModelTamu& entri) {
+    free(entri.model);
+    entri.model = nullptr;
+    entri.kunci[0] = '\0';
+}
+
+// Slot dipakai ulang dari awal saat daftar penuh, jadi tamu yang paling lama
+// tidak lagi bisa disalin tanpa keluar dan masuk lagi.
+ModelTamu& slotTamu(const char* kunci) {
+    for (int i = 0; i < jumlahTamu; i++) {
+        if (!strcmp(daftarTamu[i].kunci, kunci))
+            return daftarTamu[i];
+    }
+    int indeks = jumlahTamu;
+    if (jumlahTamu < kMaksTamu) {
+        jumlahTamu++;
+    } else {
+        indeks = tamuBerikut;
+        tamuBerikut = (tamuBerikut + 1) % kMaksTamu;
+        lepasModelTamu(daftarTamu[indeks]);
+    }
+    snprintf(daftarTamu[indeks].kunci, sizeof(daftarTamu[indeks].kunci), "%s", kunci);
+    return daftarTamu[indeks];
 }
 
 // Folder model dimiliki Manager yang sama dengan pemegang daftar tamu, jadi
@@ -156,7 +204,7 @@ bool bacaSlot(void* model, int slot) {
     }
     close(fd);
     if (adaIsi)
-        catatHash(nilai);
+        catatSlot(nilai, slot);
     return true;
 }
 
@@ -168,106 +216,127 @@ void isiSlotAwal(void* model) {
     LOGI("Slot skin: %d tersimpan, berikutnya %d", jumlahHashModel, slotBerikut);
 }
 
-// Setiap tamu datang dengan string yang disimpan game sendiri di Data.txt, jadi
-// satu salinan per skin berbeda masuk ke slot model kosong pertama. Slot itu
-// dikembalikan supaya namanya bisa ditempelkan begitu profil tiba.
-int simpanModel(void* manajerTamu, void* modelStr) {
-    if (!fieldSiap || !modelStr)
-        return 0;
+// Model tamu disalin ke memori, bukan ke disk, karena menu memutuskan kapan
+// skin itu disimpan. Kuncinya adalah id tamu yang juga dipakai daftar pemain.
+void simpanModelTamu(void* kunci, void* model) {
+    char teksKunci[kBatasBytePengguna];
+    if (!kunci || !model || !keUtf8(kunci, teksKunci, sizeof(teksKunci)) || !teksKunci[0])
+        return;
+    int32_t panjang = panjangString(model);
+    if (panjang <= 0 || panjang > kBatasKarakterModel)
+        return;
+
+    // Satu unit UTF-16 menjadi paling banyak tiga byte UTF-8, dan penulis UTF-8
+    // menyisakan empat byte di ujung; ukuran ini pas untuk seluruh isi string.
+    size_t ukuran = static_cast<size_t>(panjang) * 3 + 4;
+    auto* teks = static_cast<char*>(malloc(ukuran));
+    if (!teks)
+        return;
+    if (!keUtf8(model, teks, ukuran)) {
+        free(teks);
+        return;
+    }
+
+    pthread_mutex_lock(&kunciTamu);
+    ModelTamu& entri = slotTamu(teksKunci);
+    free(entri.model);
+    entri.model = teks;
+    pthread_mutex_unlock(&kunciTamu);
+    LOGI("Model tamu dicatat: %s (%d karakter)", teksKunci, panjang);
+}
+
+bool ambilModelTamu(const char* kunci, SalinanModel& hasil) {
+    pthread_mutex_lock(&kunciTamu);
+    for (int i = 0; i < jumlahTamu; i++) {
+        if (strcmp(daftarTamu[i].kunci, kunci) || !daftarTamu[i].model)
+            continue;
+        hasil.teks = strdup(daftarTamu[i].model);
+        break;
+    }
+    pthread_mutex_unlock(&kunciTamu);
+    return hasil.teks != nullptr;
+}
+
+} // namespace
+
+HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama, int& slot) {
+    slot = 0;
+    if (!fieldSiap || !manajerTamu || !kunci || !*kunci)
+        return HasilSalin::Gagal;
+
+    SalinanModel tersalin;
+    if (!ambilModelTamu(kunci, tersalin) || !*tersalin.teks)
+        return HasilSalin::TidakAda;
+    const char* modelTeks = tersalin.teks;
+
     void* model = modelData(manajerTamu);
     if (!model) {
-        if (fieldSiap && !sudahCatatTidakSiap) {
+        if (!sudahCatatTidakSiap) {
             sudahCatatTidakSiap = true;
-            LOGE("Model skin belum siap, skin setelah ini dilewati");
+            LOGE("Model skin belum siap, salin skin dilewati");
         }
-        return 0;
+        return HasilSalin::Gagal;
     }
-    if (!keUtf8(modelStr, teksModel, sizeof(teksModel)))
-        return 0;
-    size_t panjang = strlen(teksModel);
 
     if (!slotSiap) {
         slotSiap = true;
         isiSlotAwal(model);
     }
-    uint64_t nilai = hashTeks(teksModel, panjang);
-    if (hashTercatat(nilai))
-        return 0;
+
+    uint64_t nilai = hashTeks(modelTeks, strlen(modelTeks));
+    int tersimpan = cariSlot(nilai);
+    if (tersimpan) {
+        slot = tersimpan;
+        return HasilSalin::SudahAda;
+    }
     if (slotBerikut > kBatasSlot) {
         LOGE("Slot skin penuh, %d skin tersimpan", jumlahHashModel);
-        return 0;
+        return HasilSalin::Gagal;
     }
 
-    tulisSlot(model, slotBerikut, modelStr);
+    void* teksModel = stringDariUtf8(modelTeks);
+    if (!teksModel) {
+        LOGE("String model gagal dibuat untuk slot %d", slotBerikut);
+        return HasilSalin::Gagal;
+    }
+    tulisSlot(model, slotBerikut, teksModel);
     if (!slotAda(model, slotBerikut)) {
         LOGE("Penulisan skin gagal: slot %d", slotBerikut);
-        return 0;
+        return HasilSalin::Gagal;
     }
-    catatHash(nilai);
-    LOGI("Skin tersimpan: slot %d (%zu byte)", slotBerikut, panjang);
-    return slotBerikut++;
-}
 
-void catatPengguna(void* user, int slot) {
-    char teks[kBatasBytePengguna];
-    if (jumlahSlotPengguna >= kBatasHash || !keUtf8(user, teks, sizeof(teks)))
-        return;
-    daftarSlotPengguna[jumlahSlotPengguna].pengguna = hashTeks(teks, strlen(teks));
-    daftarSlotPengguna[jumlahSlotPengguna].slot = slot;
-    jumlahSlotPengguna++;
-}
+    slot = slotBerikut++;
+    catatSlot(nilai, slot);
+    LOGI("Skin tamu disimpan: slot %d (%zu byte)", slot, strlen(modelTeks));
 
-// Tamu membawa nama profil hanya setelah handshake join, jadi nama ditulis di
-// sini, ke setiap slot tempat model pengguna itu disimpan.
-void tulisNamaPengguna(void* manajerTamu, void* user, void* name) {
-    char teks[kBatasBytePengguna];
-    if (!fieldSiap || !name || panjangString(name) == 0 || !keUtf8(user, teks, sizeof(teks)))
-        return;
-    void* model = modelData(manajerTamu);
-    if (!model)
-        return;
-
-    uint64_t pengguna = hashTeks(teks, strlen(teks));
-    for (int i = 0; i < jumlahSlotPengguna; i++) {
-        if (daftarSlotPengguna[i].pengguna != pengguna)
-            continue;
-        tulisNamaSlot(model, daftarSlotPengguna[i].slot, name);
-        LOGI("Nama skin: slot %d", daftarSlotPengguna[i].slot);
+    if (nama && *nama) {
+        void* teksNama = stringDariUtf8(nama);
+        if (teksNama) {
+            tulisNamaSlot(model, slot, teksNama);
+            LOGI("Nama skin: slot %d", slot);
+        }
     }
+    return HasilSalin::Tersimpan;
 }
+
+namespace {
 
 using FnTambah = void (*)(void*, void*, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, void*,
                           void*, void*, void*, void*, bool, bool, bool, bool, bool, bool, void*);
 
 // Daftar tamu dibangun dari satu panggilan ini di host maupun client, dan
-// argumen Model-nya adalah string skin penuh, jadi tidak ada yang perlu diurai
-// di sini.
+// argumen Model-nya adalah string skin penuh. Model itu hanya disimpan di
+// memori sampai pemain memintanya lewat menu.
 void hookTambah(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t dir, int32_t s,
                 int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
                 bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
                 bool dollSetting, void* method) {
-    if (fitur().salinSkin) {
-        int slot = simpanModel(self, model);
-        if (slot)
-            catatPengguna(user, slot);
-    }
+    simpanModelTamu(key, model);
 
     auto asli = reinterpret_cast<FnTambah>(target(T_GUEST_ADD).orig);
     if (asli)
         asli(self, user, z, x, y, dir, s, obj, key, dollName, parent, model, ping, build, detonate,
              saveWorld, dollInteract, dollMove, dollSetting, method);
-}
-
-using FnNama = void (*)(void*, void*, void*, void*);
-
-// Profil datang setelah join, jadi nama tampilan ditulis ke slot tempat model
-// tamu itu disimpan.
-void hookNama(void* self, void* user, void* name, void* method) {
-    auto asli = reinterpret_cast<FnNama>(target(T_GUEST_NAME).orig);
-    if (asli)
-        asli(self, user, name, method);
-    if (fitur().salinSkin)
-        tulisNamaPengguna(self, user, name);
 }
 
 } // namespace
@@ -281,8 +350,7 @@ void pasangHookSkin() {
     fieldSiap = fieldSiap && cariField(kelasData, "model", fieldModel);
     void* kelasModel = fieldSiap ? kelasField(fieldModel) : nullptr;
     fieldSiap = fieldSiap && cariField(kelasModel, "_filename", fieldNamaBerkas);
-    LOGI("Field model skin %s", fieldSiap ? "OK" : "tidak ada, skin tidak disentuh");
+    LOGI("Field model skin %s", fieldSiap ? "OK" : "tidak ada, salin skin tidak aktif");
 
     pasangHook(target(T_GUEST_ADD), reinterpret_cast<void*>(hookTambah));
-    pasangHook(target(T_GUEST_NAME), reinterpret_cast<void*>(hookNama));
 }

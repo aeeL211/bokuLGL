@@ -121,7 +121,9 @@ public class Menu {
     // Section Room: daftar tamu berformat "nama<TAB>kunci" per baris.
     native String DaftarPemain();
 
-    native boolean TendangPemain(String kunci);
+    native boolean TendangPemain(String kunci, String nama);
+
+    native boolean SalinSkinPemain(String kunci, String nama);
 
     //Here we write the code for our Menu
     // Reference: https://www.androidhive.info/2016/11/android-floating-widget-like-facebook-chat-head/
@@ -1129,6 +1131,7 @@ public class Menu {
         muatUlang.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                daftar.setTag(null);
                 isiDaftarPemain(daftar);
             }
         });
@@ -1153,15 +1156,24 @@ public class Menu {
 
     @SuppressLint("SetTextI18n")
     private void isiDaftarPemain(LinearLayout daftar) {
-        daftar.removeAllViews();
-
         String data;
         try {
             data = DaftarPemain();
         } catch (Throwable t) {
             data = null;
         }
-        if (data == null || data.length() == 0) {
+        if (data == null)
+            data = "";
+
+        // Daftar ini dibangun ulang tiap 2 detik, jadi isi yang sama dilewati.
+        // Tanpa itu, baris dan tombolnya diganti terus dan ketukan yang jatuh
+        // bertepatan dengan penggantian bisa hilang.
+        if (data.equals(daftar.getTag()))
+            return;
+        daftar.setTag(data);
+        daftar.removeAllViews();
+
+        if (data.length() == 0) {
             TextView kosong = new TextView(getContext);
             kosong.setText("Tidak ada tamu di room ini");
             kosong.setTextColor(TEXT_COLOR_2);
@@ -1177,7 +1189,7 @@ public class Menu {
         }
     }
 
-    private LinearLayout barisPemain(String nama, final String kunci) {
+    private LinearLayout barisPemain(final String nama, final String kunci) {
         LinearLayout baris = new LinearLayout(getContext);
         baris.setOrientation(LinearLayout.HORIZONTAL);
         baris.setGravity(Gravity.CENTER_VERTICAL);
@@ -1191,23 +1203,52 @@ public class Menu {
         label.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
         baris.addView(label);
 
+        Button salin = new Button(getContext);
+        salin.setText("Salin skin");
+        salin.setTextSize(11);
+        salin.setTextColor(TEXT_COLOR_2);
+        salin.setBackgroundColor(BtnON);
+        salin.setMinWidth(0);
+        salin.setMinimumWidth(0);
+        salin.setPadding(8, 4, 8, 4);
+        salin.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean diterima;
+                try {
+                    diterima = SalinSkinPemain(kunci, nama);
+                } catch (Throwable t) {
+                    diterima = false;
+                }
+                // Hasil sebenarnya dikabarkan toast dari thread game; di sini
+                // hanya antrean yang bisa langsung ditolak.
+                if (!diterima)
+                    Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                            Toast.LENGTH_SHORT).show();
+            }
+        });
+        baris.addView(salin);
+
         Button tendang = new Button(getContext);
         tendang.setText("Tendang");
-        tendang.setTextSize(12);
+        tendang.setTextSize(11);
         tendang.setTextColor(TEXT_COLOR_2);
         tendang.setBackgroundColor(BtnOFF);
+        tendang.setMinWidth(0);
+        tendang.setMinimumWidth(0);
+        tendang.setPadding(8, 4, 8, 4);
         tendang.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 boolean diterima;
                 try {
-                    diterima = TendangPemain(kunci);
+                    diterima = TendangPemain(kunci, nama);
                 } catch (Throwable t) {
                     diterima = false;
                 }
-                Toast.makeText(Menu.this.getContext,
-                        diterima ? "Tendangan dikirim" : "Tunggu tendangan sebelumnya",
-                        Toast.LENGTH_SHORT).show();
+                if (!diterima)
+                    Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                            Toast.LENGTH_SHORT).show();
             }
         });
         baris.addView(tendang);

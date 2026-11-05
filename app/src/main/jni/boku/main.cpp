@@ -86,7 +86,7 @@ void* pekerja(void*) {
     pasangHookSlot();
     pasangHookSpoof();
     pasangHookTendang();
-    pasangHookRoomKit();
+    pasangHookRoom();
     pasangHookPemain();
     LOGI("Hook terpasang: %d", jumlahHookTerpasang());
     toastMasuk();

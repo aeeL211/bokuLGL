@@ -17,7 +17,6 @@ struct Fitur {
     std::atomic<bool> ukuranRoom{true};
     std::atomic<bool> sandiRoom{true};
     std::atomic<bool> privasi{true};
-    std::atomic<bool> salinSkin{true};
     std::atomic<bool> chatPribadi{true};
     std::atomic<bool> tombolTendang{true};
     std::atomic<bool> tembakOtomatis{true};
@@ -26,8 +25,6 @@ struct Fitur {
     std::atomic<bool> makanan{true};
     std::atomic<bool> efek{true};
     std::atomic<bool> terpental{true};
-    std::atomic<bool> labelVersi{true};
-    std::atomic<bool> roomKit{true};
     std::atomic<bool> noClip{false};
 };
 

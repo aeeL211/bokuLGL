@@ -23,7 +23,7 @@ void pasangHookTangan();
 void pasangHookSlot();
 void pasangHookSpoof();
 void pasangHookTendang();
-void pasangHookRoomKit();
+void pasangHookRoom();
 void pasangHookPemain();
 
 // Dipanggil dari hook update pemain, di thread game. Menangani Teleport dan
@@ -48,10 +48,19 @@ void setelTahanTangan(bool tahan);
 // menyembunyikan sprite-nya, jadi makanan yang ditahan tetap terlihat.
 void segarkanTangan();
 
+// Hasil salin skin satu tamu. Slot hanya diisi untuk Tersimpan dan SudahAda.
+enum class HasilSalin { Gagal, Tersimpan, SudahAda, TidakAda };
+
+// Menulis model tamu ke slot kosong pertama, beserta nama pemiliknya. Model
+// berasal dari cache yang diisi hook Guest__Manager.Add, jadi pemanggilnya hanya
+// menyebut kunci dan nama tamu. Dipanggil di thread game.
+HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama, int& slot);
+
 // Daftar tamu untuk section Room di menu, ditulis sebagai baris
 // "nama<TAB>kunci" yang dipisah newline. Aman dipanggil dari thread UI.
 void salinDaftarPemain(char* keluaran, size_t ukuran);
 
-// Mengantrekan satu tendangan dari menu. Paketnya dikirim dari hook update tamu,
-// di thread game, dengan jeda yang sama seperti /kick all.
-bool antrekanTendangPemain(const char* kunci);
+// Mengantrekan satu aksi dari menu. Aksi dijalankan dari hook update tamu, di
+// thread game, satu per detak supaya paket tidak bertabrakan.
+bool antrekanTendangPemain(const char* kunci, const char* nama);
+bool antrekanSalinPemain(const char* kunci, const char* nama);

@@ -23,7 +23,8 @@ pernah memuat library itu, jadi tidak ada satu pun hook yang terpasang.
 
 Semua fitur menyala sejak awal kecuali **No Clip**. Sakelar di menu hanya mengubah nilai yang
 dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat game berjalan.
-Menu dikelompokkan per kategori.
+Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
+Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas.
 
 **Ekonomi**
 
@@ -36,7 +37,7 @@ Menu dikelompokkan per kategori.
 - Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
 - Slider posisi skin X/Y dan portrait X/Y melebar dari -5..5 menjadi -25..25.
 - Kata terlarang tidak disaring lagi di perangkat ini.
-- Label versi diberi akhiran ` (modded)`.
+- Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
 
 **Room dan dunia**
 
@@ -44,16 +45,18 @@ Menu dikelompokkan per kategori.
 - Room bersandi bisa dimasuki tanpa mengisi sandi.
 - Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
 - Ukuran dunia baru bisa dipilih sampai 600x300.
-- `/kick all` di chat mengeluarkan semua tamu satu per satu.
 - **Daftar pemain** di menu menampilkan tamu yang sedang ada di room, lengkap dengan tombol
-  **Tendang** per pemain. Daftarnya diperbarui dari thread game tiap 0,4 detik dan disegarkan
-  ulang di menu tiap 2 detik; host dan pemain sendiri tidak ikut ditampilkan.
+  **Salin skin** dan **Tendang** per pemain. Daftarnya diperbarui dari thread game tiap 0,4 detik
+  dan disegarkan ulang di menu tiap 2 detik; host dan pemain sendiri tidak ikut ditampilkan.
+- **Salin skin** menulis model tamu yang dipilih ke slot model kosong pertama, lalu menulis nama
+  pemiliknya ke `Name.txt` slot itu. Model tamu dicatat di memori saat mereka masuk room, jadi
+  tidak ada skin yang tersimpan tanpa tombol ditekan.
+- **Tendang** mengirim paket tendang dan paket penghapusan tamu sebagai host, sama seperti tombol
+  tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
 
 **Akun dan privasi**
 
 - Baris privasi akun tidak lagi menyembunyikan detail yang dipilih pemiliknya.
-- Skin yang terlihat di room disalin otomatis ke slot model kosong pertama, dan nama pemiliknya
-  ditulis ke `Name.txt` slot itu.
 
 **Chat dan sosial**
 
@@ -68,7 +71,7 @@ Menu dikelompokkan per kategori.
 - Gingerbread dan hot cross bun tetap di tangan setelah dimakan.
 - Ledakan tidak lagi membuat pemain terpental.
 
-**Tampilan**
+**Optimisasi**
 
 - Getar kamera dan serpihan tile dimatikan.
 
@@ -83,8 +86,9 @@ Menu dikelompokkan per kategori.
 ## Batasan
 
 - Hanya `arm64-v8a`. Tidak ada komponen Java tambahan, Xposed, atau LSPosed di luar menu LGL.
-- RoomKit hanya menerima `/kick`; bentuk lain dianggap chat biasa.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
+- Model tamu hanya bisa disalin bila tamu itu masuk room selagi mod berjalan. Cache menyimpan
+  16 tamu terakhir, dan tamu yang sudah keluar tidak lagi ditawarkan di daftar.
 - Teleport memakai `Transform.set_position`, jadi bila fisika tile game menulis ulang posisi
   pada frame yang sama, pemain bisa kembali ke tempat semula.
 
@@ -105,13 +109,12 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 
 ```
 Dobby siap
-Scan selesai: 107 dari 107 metode ditemukan
+Scan selesai: 102 dari 102 metode ditemukan
 Field pemain OK
 Field nama tamu siap
 Field daftar pemain siap
-Field RoomKit siap
-Hook terpasang: 79
+Hook terpasang: 76
 ```
 
-Bila `Hook terpasang` jauh di bawah 79, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 76, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.

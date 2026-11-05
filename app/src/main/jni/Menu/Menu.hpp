@@ -18,7 +18,9 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context);
 // Section Room: teks "nama<TAB>kunci" per tamu, dipisah newline.
 jstring DaftarPemain(JNIEnv *env, jclass clazz);
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci);
+jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
+
+jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
 
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value, jlong Lvalue,

@@ -2,6 +2,7 @@
 
 #include <dlfcn.h>
 
+#include <cstdlib>
 #include <cstring>
 
 #include "log.h"
@@ -215,6 +216,50 @@ void* stringUtf16Baru(const uint16_t* karakter, int32_t panjang) {
 
 namespace {
 
+// Urutan yang rusak dibaca satu byte dan menjadi U+FFFD, jadi sisa teks tetap
+// tersalin. Mengembalikan jumlah byte yang dipakai.
+size_t bacaTitikKode(const char* teks, size_t tersedia, uint32_t& kode) {
+    unsigned char awal = static_cast<unsigned char>(teks[0]);
+    size_t panjang = 0;
+    if (awal < 0x80) {
+        kode = awal;
+        return 1;
+    }
+    if ((awal & 0xE0) == 0xC0) {
+        kode = awal & 0x1F;
+        panjang = 2;
+    } else if ((awal & 0xF0) == 0xE0) {
+        kode = awal & 0x0F;
+        panjang = 3;
+    } else if ((awal & 0xF8) == 0xF0) {
+        kode = awal & 0x07;
+        panjang = 4;
+    } else {
+        kode = 0xFFFD;
+        return 1;
+    }
+    if (panjang > tersedia) {
+        kode = 0xFFFD;
+        return 1;
+    }
+    for (size_t i = 1; i < panjang; i++) {
+        unsigned char lanjut = static_cast<unsigned char>(teks[i]);
+        if ((lanjut & 0xC0) != 0x80) {
+            kode = 0xFFFD;
+            return 1;
+        }
+        kode = (kode << 6) | (lanjut & 0x3F);
+    }
+    // Bentuk terpendek ditolak supaya satu karakter tidak punya dua ejaan.
+    if ((panjang == 2 && kode < 0x80) || (panjang == 3 && kode < 0x800) ||
+        (panjang == 4 && kode < 0x10000) || kode > 0x10FFFF ||
+        (kode >= 0xD800 && kode <= 0xDFFF)) {
+        kode = 0xFFFD;
+        return 1;
+    }
+    return panjang;
+}
+
 // Paling banyak empat byte, jadi pemanggil yang menyisakan empat byte punya ruang
 // untuk kode apa pun.
 size_t tulisTitikKode(uint32_t kode, char* keluaran) {
@@ -241,6 +286,37 @@ size_t tulisTitikKode(uint32_t kode, char* keluaran) {
 }
 
 } // namespace
+
+void* stringDariUtf8(const char* teks) {
+    if (!teks)
+        return nullptr;
+    size_t panjang = strlen(teks);
+    static const uint16_t kosong = 0;
+    if (!panjang)
+        return stringUtf16Baru(&kosong, 0);
+    // Satu titik kode UTF-8 menjadi paling banyak dua unit UTF-16, dan jumlah
+    // byte menjadi batas atas jumlah titik kode.
+    size_t kapasitas = panjang * 2 + 2;
+    auto* buf = static_cast<uint16_t*>(malloc(kapasitas * sizeof(uint16_t)));
+    if (!buf)
+        return nullptr;
+
+    int32_t terpakai = 0;
+    for (size_t i = 0; i < panjang;) {
+        uint32_t kode = 0;
+        i += bacaTitikKode(teks + i, panjang - i, kode);
+        if (kode >= 0x10000) {
+            kode -= 0x10000;
+            buf[terpakai++] = static_cast<uint16_t>(0xD800 + (kode >> 10));
+            buf[terpakai++] = static_cast<uint16_t>(0xDC00 + (kode & 0x3FF));
+        } else {
+            buf[terpakai++] = static_cast<uint16_t>(kode);
+        }
+    }
+    void* hasil = stringUtf16Baru(buf, terpakai);
+    free(buf);
+    return hasil;
+}
 
 bool keUtf8(void* teks, char* keluaran, size_t ukuran) {
     int32_t panjang = panjangString(teks);

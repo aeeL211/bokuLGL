@@ -5,52 +5,52 @@
 #include "boku/fitur.h"
 
 // Nomor fitur ditulis eksplisit supaya urutannya tidak bergeser saat entri baru
-// disisipkan. Category tidak dihitung sebagai fitur.
+// disisipkan. Collapse dan PlayerList tidak dihitung sebagai fitur.
 // Toggle, ButtonOnOff, dan CheckBox menyala sejak awal bila memakai awalan True_.
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     (void)context;
     jobjectArray ret;
 
+    // Setiap kategori adalah satu header Collapse dan isinya memakai awalan
+    // CollapseAdd_, jadi seluruh section tertutup saat menu dibuka dan tinggal
+    // dibuka satu per satu. Nomor fitur ditulis eksplisit di isi section.
     const char *features[] = {
-            OBFUSCATE("Category_Ekonomi"),
-            OBFUSCATE("0_Toggle_True_Simulasi pembelian"),
-            OBFUSCATE("1_Toggle_True_Slot penyimpanan tanpa batas"),
+            OBFUSCATE("Collapse_Ekonomi"),
+            OBFUSCATE("CollapseAdd_0_Toggle_True_Simulasi pembelian"),
+            OBFUSCATE("CollapseAdd_1_Toggle_True_Slot penyimpanan tanpa batas"),
 
-            OBFUSCATE("Category_Input & Profil"),
-            OBFUSCATE("2_Toggle_True_Batas input dan profil"),
-            OBFUSCATE("3_Toggle_True_Rentang slider skin"),
-            OBFUSCATE("4_Toggle_True_Bebas kata terlarang"),
-            OBFUSCATE("17_Toggle_True_Label versi modded"),
+            OBFUSCATE("Collapse_Input dan Profil"),
+            OBFUSCATE("CollapseAdd_2_Toggle_True_Batas input dan profil"),
+            OBFUSCATE("CollapseAdd_3_Toggle_True_Rentang slider skin"),
+            OBFUSCATE("CollapseAdd_4_Toggle_True_Bebas kata terlarang"),
 
-            OBFUSCATE("Category_Room & Dunia"),
-            OBFUSCATE("5_Toggle_True_Simpan dunia dan ukuran room"),
-            OBFUSCATE("6_Toggle_True_Sandi room kosong"),
-            OBFUSCATE("18_Toggle_True_RoomKit /kick all"),
-            OBFUSCATE("PlayerList_Tamu di room"),
+            OBFUSCATE("Collapse_Room dan Dunia"),
+            OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan ukuran room"),
+            OBFUSCATE("CollapseAdd_6_Toggle_True_Sandi room kosong"),
+            OBFUSCATE("CollapseAdd_PlayerList_Tamu di room"),
 
-            OBFUSCATE("Category_Akun & Privasi"),
-            OBFUSCATE("7_Toggle_True_Privasi akun"),
-            OBFUSCATE("8_Toggle_True_Salin skin otomatis"),
+            OBFUSCATE("Collapse_Akun dan Privasi"),
+            OBFUSCATE("CollapseAdd_7_Toggle_True_Privasi akun"),
 
-            OBFUSCATE("Category_Chat & Sosial"),
-            OBFUSCATE("9_Toggle_True_Pesan pribadi di chat room"),
-            OBFUSCATE("10_Toggle_True_Tombol tendang tamu"),
+            OBFUSCATE("Collapse_Chat dan Sosial"),
+            OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi di chat room"),
+            OBFUSCATE("CollapseAdd_10_Toggle_True_Tombol tendang tamu"),
 
-            OBFUSCATE("Category_Aksi Pemain"),
-            OBFUSCATE("11_Toggle_True_Tembak otomatis"),
-            OBFUSCATE("12_Toggle_True_Buster amunisi penuh"),
-            OBFUSCATE("13_Toggle_True_Kotoran di tangan"),
-            OBFUSCATE("14_Toggle_True_Makanan di tangan"),
-            OBFUSCATE("16_Toggle_True_Tanpa terpental"),
+            OBFUSCATE("Collapse_Aksi Pemain"),
+            OBFUSCATE("CollapseAdd_11_Toggle_True_Tembak otomatis"),
+            OBFUSCATE("CollapseAdd_12_Toggle_True_Buster amunisi penuh"),
+            OBFUSCATE("CollapseAdd_13_Toggle_True_Kotoran di tangan"),
+            OBFUSCATE("CollapseAdd_14_Toggle_True_Makanan di tangan"),
+            OBFUSCATE("CollapseAdd_16_Toggle_True_Tanpa terpental"),
 
-            OBFUSCATE("Category_Tampilan"),
-            OBFUSCATE("15_Toggle_True_Matikan getar dan puing"),
+            OBFUSCATE("Collapse_Optimisasi"),
+            OBFUSCATE("CollapseAdd_15_Toggle_True_Matikan getar dan puing"),
 
-            OBFUSCATE("Category_Gerak"),
-            OBFUSCATE("19_Toggle_No Clip"),
-            OBFUSCATE("20_InputValue_600_X"),
-            OBFUSCATE("21_InputValue_300_Y"),
-            OBFUSCATE("22_Button_Teleport"),
+            OBFUSCATE("Collapse_Gerak"),
+            OBFUSCATE("CollapseAdd_19_Toggle_No Clip"),
+            OBFUSCATE("CollapseAdd_20_InputValue_600_X"),
+            OBFUSCATE("CollapseAdd_21_InputValue_300_Y"),
+            OBFUSCATE("CollapseAdd_22_Button_Teleport"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -102,9 +102,6 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
         case 7:
             sakelar.privasi = boolean;
             break;
-        case 8:
-            sakelar.salinSkin = boolean;
-            break;
         case 9:
             sakelar.chatPribadi = boolean;
             break;
@@ -128,12 +125,6 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             break;
         case 16:
             sakelar.terpental = boolean;
-            break;
-        case 17:
-            sakelar.labelVersi = boolean;
-            break;
-        case 18:
-            sakelar.roomKit = boolean;
             break;
         case 19:
             sakelar.noClip = boolean;
