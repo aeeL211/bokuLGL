@@ -48,6 +48,9 @@ void* pekerja(void*) {
     // dipotret.
     pasangLogCrash();
     pasangProbeCrash();
+    // libil2cpp dan pustaka pendampingnya selesai dimuat sebelum titik ini,
+    // jadi tabel modul dipotret ulang supaya frame crash nanti bisa dinamai.
+    segarkanModul();
     LOGI("API IL2CPP terikat");
 
     void* domain = nullptr;
@@ -88,6 +91,7 @@ void* pekerja(void*) {
     pasangHookTendang();
     pasangHookRoom();
     pasangHookPemain();
+    segarkanModul();
     LOGI("Hook terpasang: %d", jumlahHookTerpasang());
     toastMasuk();
     return nullptr;

@@ -6,6 +6,7 @@
 #include <link.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -282,19 +283,32 @@ struct SlotSignal {
 
 // Alamat kembali di stack yang crash menyebut rantai pemanggil, tetapi
 // menyelesaikannya dengan dladdr() akan mengambil kunci linker di proses yang
-// sudah rusak. Karena itu rentang modul dipotret sekali, sebelum ada crash, dan
-// penangannya hanya membandingkan angka. Hanya segmen executable yang disimpan,
-// jadi kata data yang kebetulan berada di modul yang dimuat tidak dibaca sebagai
-// kode.
+// sudah rusak. Karena itu rentang modul dipotret sebelum ada crash dan
+// disegarkan setelah pustaka game termuat, lalu penangannya hanya membandingkan
+// angka. Hanya segmen executable yang disimpan, jadi kata data yang kebetulan
+// berada di modul yang dimuat tidak dibaca sebagai kode.
 struct Modul {
     const char* nama;
     uintptr_t awal;
     uintptr_t akhir;
 };
 
-constexpr int kBatasModul = 32;
+constexpr int kBatasModul = 64;
 Modul modul[kBatasModul] = {};
 int jumlahModul = 0;
+bool penanganTerpasang = false;
+
+// Alamat kembali pada arm64 bisa membawa bit penandatangan pointer (PAC) dari
+// fungsi yang memakainya, sedangkan alamat modul tidak. Bit atas dibuang sebelum
+// perbandingan, karena tanpa itu setiap frame dianggap di luar modul dan tidak
+// pernah tercetak.
+uintptr_t tanpaPac(uintptr_t alamat) {
+#if defined(__aarch64__)
+    return alamat & 0x0000FFFFFFFFFFFFull;
+#else
+    return alamat;
+#endif
+}
 
 int kumpulkanModul(struct dl_phdr_info* info, size_t, void*) {
     if (jumlahModul >= kBatasModul)
@@ -333,7 +347,14 @@ std::atomic<uintptr_t> pemanggilStackCheck{0};
 void* abortAsli = nullptr;
 void* stackCheckAsli = nullptr;
 
+// bionic menyimpan pesan yang dipasang lewat android_set_abort_message() dan
+// menampilkannya di tombstone. Pesan yang sama dicetak di sini, karena sering
+// menyebut pemeriksaan mana yang memutuskan mematikan proses.
+char pesanAbort[256] = {};
+void* pesanAbortAsli = nullptr;
+
 bool tulisFrameKode(int fd, const char* waktu, const char* penanda, uintptr_t alamat) {
+    alamat = tanpaPac(alamat);
     for (int m = 0; m < jumlahModul; m++) {
         if (alamat < modul[m].awal || alamat >= modul[m].akhir)
             continue;
@@ -370,6 +391,54 @@ void probeStackCheck() {
     _exit(127);
 }
 
+void probePesanAbort(const char* pesan) {
+    if (pesan)
+        snprintf(pesanAbort, sizeof(pesanAbort), "%s", pesan);
+    auto asli = reinterpret_cast<void (*)(const char*)>(pesanAbortAsli);
+    if (asli)
+        asli(pesan);
+}
+
+// Alamat probe tidak selalu jatuh di modul yang terpotret, jadi alamat mentahnya
+// tetap dicetak supaya bisa dicocokkan dengan dump atau tombstone.
+void tulisPenanda(int fd, const char* waktu, const char* penanda, uintptr_t alamat) {
+    if (!alamat)
+        return;
+    alamat = tanpaPac(alamat);
+    if (tulisFrameKode(fd, waktu, penanda, alamat))
+        return;
+    char baris[256];
+    int n = snprintf(baris, sizeof(baris), "[%s] ERROR CRASH %s raw=0x%lx\n", waktu, penanda,
+                     static_cast<unsigned long>(alamat));
+    if (n > 0 && fd >= 0)
+        write(fd, baris, static_cast<size_t>(n));
+}
+
+// Thread yang memanggil abort bukan selalu thread utama, dan namanya
+// menunjukkan komponen mana yang sedang berjalan saat proses dimatikan.
+void tulisThread(int fd, const char* waktu) {
+    long tid = syscall(SYS_gettid);
+    char nama[80] = "?";
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/self/task/%ld/comm", tid);
+    int berkas = open(path, O_RDONLY | O_CLOEXEC);
+    if (berkas >= 0) {
+        ssize_t n = read(berkas, nama, sizeof(nama) - 1);
+        close(berkas);
+        if (n > 0) {
+            nama[n] = '\0';
+            char* akhir = strchr(nama, '\n');
+            if (akhir)
+                *akhir = '\0';
+        }
+    }
+    char baris[192];
+    int n =
+        snprintf(baris, sizeof(baris), "[%s] ERROR CRASH thread=%s tid=%ld\n", waktu, nama, tid);
+    if (n > 0 && fd >= 0)
+        write(fd, baris, static_cast<size_t>(n));
+}
+
 SlotSignal daftarSlot[] = {
     {SIGSEGV, {}},
     {SIGBUS, {}},
@@ -394,24 +463,39 @@ void tanganiCrash(int sig, siginfo_t* info, void* konteks) {
     // melewati buffer.
     char waktu[16];
     formatWaktu(waktu, sizeof(waktu), "%H:%M:%S");
+    long tid = syscall(SYS_gettid);
     char baris[512];
     int n = snprintf(baris, sizeof(baris),
                      "[%s] ERROR CRASH signal=%s code=%d pc=0x%lx module=%s+0x%lx "
-                     "fault=0x%lx lr=0x%lx x19=0x%lx x20=0x%lx\n",
+                     "fault=0x%lx tid=%ld\n",
                      waktu, namaSignal(sig), info->si_code, static_cast<unsigned long>(pc), nama,
-                     static_cast<unsigned long>(offset), static_cast<unsigned long>(fault),
-                     static_cast<unsigned long>(lr),
-                     static_cast<unsigned long>(uc->uc_mcontext.regs[19]),
-                     static_cast<unsigned long>(uc->uc_mcontext.regs[20]));
+                     static_cast<unsigned long>(offset), static_cast<unsigned long>(fault), tid);
     int fd = fdLog;
     if (n > 0 && fd >= 0)
         write(fd, baris, static_cast<size_t>(n));
 
+    n = snprintf(baris, sizeof(baris),
+                 "[%s] ERROR CRASH regs lr=0x%lx x19=0x%lx x20=0x%lx sp=0x%lx\n", waktu,
+                 static_cast<unsigned long>(tanpaPac(lr)),
+                 static_cast<unsigned long>(uc->uc_mcontext.regs[19]),
+                 static_cast<unsigned long>(uc->uc_mcontext.regs[20]),
+                 static_cast<unsigned long>(uc->uc_mcontext.sp));
+    if (n > 0 && fd >= 0)
+        write(fd, baris, static_cast<size_t>(n));
+
+    tulisThread(fd, waktu);
+    if (pesanAbort[0]) {
+        n = snprintf(baris, sizeof(baris), "[%s] ERROR CRASH abort message=%s\n", waktu,
+                     pesanAbort);
+        if (n > 0 && fd >= 0)
+            write(fd, baris, static_cast<size_t>(n));
+    }
+
     // Probe tahu dari mana abort() dipanggil, dan itulah satu-satunya frame yang
     // berarti saat IL2CPP atau runtime C++ memutuskan mengakhiri proses.
-    tulisFrameKode(fd, waktu, "abort caller", pemanggilAbort.load(std::memory_order_relaxed));
-    tulisFrameKode(fd, waktu, "stack check caller",
-                   pemanggilStackCheck.load(std::memory_order_relaxed));
+    tulisPenanda(fd, waktu, "abort caller", pemanggilAbort.load(std::memory_order_relaxed));
+    tulisPenanda(fd, waktu, "stack check caller",
+                 pemanggilStackCheck.load(std::memory_order_relaxed));
 
     // Hanya kata yang jatuh di dalam segmen modul executable yang dicetak, jadi
     // nilai heap, data modul dan kata stack basi tetap di luar log.
@@ -513,8 +597,18 @@ void cetakLog(char tingkat, const char* fmt, ...) {
     tulisBaris(baris, static_cast<int>(akhir));
 }
 
-void pasangLogCrash() {
+void segarkanModul() {
+    jumlahModul = 0;
     dl_iterate_phdr(kumpulkanModul, nullptr);
+}
+
+void pasangLogCrash() {
+    segarkanModul();
+    // Penangan hanya dipasang sekali; pemanggilan berikutnya cukup menyegarkan
+    // daftar modul, karena slot.lama sudah berisi penangan kita sendiri.
+    if (penanganTerpasang)
+        return;
+    penanganTerpasang = true;
     for (SlotSignal& slot : daftarSlot) {
         struct sigaction aksi = {};
         aksi.sa_sigaction = tanganiCrash;
@@ -533,6 +627,11 @@ void pasangProbeCrash() {
     void* alamatStackCheck = dlsym(RTLD_DEFAULT, "__stack_chk_fail");
     pasangHookProbe(alamatStackCheck, reinterpret_cast<void*>(probeStackCheck), &stackCheckAsli,
                     "__stack_chk_fail");
+    // libc mengekspor fungsi ini sebagai simbol lemah, jadi ketiadaannya hanya
+    // menghilangkan satu baris pesan dari blok crash.
+    void* alamatPesan = dlsym(RTLD_DEFAULT, "android_set_abort_message");
+    pasangHookProbe(alamatPesan, reinterpret_cast<void*>(probePesanAbort), &pesanAbortAsli,
+                    "android_set_abort_message");
 }
 
 #else

@@ -8,6 +8,10 @@ void cetakLog(char tingkat, const char* fmt, ...);
 void bukaFileLog();
 void pasangLogCrash();
 
+// Memotret ulang daftar modul tanpa memasang penangan lagi. Panggil setelah
+// pustaka game selesai dimuat, supaya nama modul muncul di blok crash.
+void segarkanModul();
+
 // Mencatat pemanggil abort() dan __stack_chk_fail() supaya SIGABRT berikutnya
 // menyebut kode yang memutuskan mematikan proses. Panggil setelah Dobby siap.
 void pasangProbeCrash();
@@ -22,6 +26,7 @@ const char* pathFileLog();
 
 inline void bukaFileLog() {}
 inline void pasangLogCrash() {}
+inline void segarkanModul() {}
 inline void pasangProbeCrash() {}
 inline const char* pathFileLog() { return nullptr; }
 
