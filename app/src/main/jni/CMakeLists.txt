@@ -128,15 +128,16 @@ set_source_files_properties(${MOD_SOURCES} "${TARGETS_SOURCE}" PROPERTIES
   COMPILE_OPTIONS "-Wall;-Wextra;-Wshadow;-Wno-unused-parameter;-Werror")
 set_source_files_properties(${MENU_SOURCES} PROPERTIES COMPILE_OPTIONS "-w")
 
-# Size and codegen: no exceptions, RTTI or unwind tables, and one section per
-# function and data item so the linker can drop what no hook reaches.
+# Size and codegen: no exceptions or RTTI, one section per function and data
+# item so the linker can drop what no hook reaches. Unwind tables stay on: a
+# managed exception the game itself catches has to be able to pass through a
+# hook frame, and a frame without CFI would abort the process instead.
 target_compile_options(boku PRIVATE
   -Oz
   -flto
   -fno-exceptions
   -fno-rtti
-  -fno-unwind-tables
-  -fno-asynchronous-unwind-tables
+  -funwind-tables
   -fno-stack-protector
   -fno-ident
   -fomit-frame-pointer
