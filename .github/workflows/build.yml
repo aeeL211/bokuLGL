@@ -70,12 +70,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Android NDK
+      # The runner image ships several NDKs. Take the newest one and hand its
+      # path and version to Gradle, so AGP never downloads another copy and the
+      # pair always matches.
+      - name: Detect NDK
         id: ndk
-        uses: nttld/setup-ndk@v1.6.0
-        with:
-          ndk-version: r30
-          add-to-path: false
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          NDK_DIR="$(ls -d "$SDK"/ndk/*/ 2>/dev/null | sort -V | tail -1)"
+          NDK_DIR="${NDK_DIR%/}"
+          [ -n "$NDK_DIR" ] || { echo "::error::no NDK installed in $SDK/ndk"; exit 1; }
+          echo "path=$NDK_DIR" >> "$GITHUB_OUTPUT"
+          echo "version=$(basename "$NDK_DIR")" >> "$GITHUB_OUTPUT"
+          echo "NDK $NDK_DIR"
 
       - name: Setup JDK
         uses: actions/setup-java@v5
@@ -141,9 +149,9 @@ jobs:
 
       - name: Build APK
         env:
-          # Point AGP at the NDK installed above instead of the runner's copy.
-          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          # Point AGP at the detected NDK instead of downloading its default.
+          NDK_PATH: ${{ steps.ndk.outputs.path }}
+          NDK_VERSION: ${{ steps.ndk.outputs.version }}
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -155,7 +163,7 @@ jobs:
       - name: Verify native library inside the APK
         run: |
           set -euo pipefail
-          RE="${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          RE="${{ steps.ndk.outputs.path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           APK="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
           [ -n "$APK" ] || { echo "::error::no debug APK was produced"; exit 1; }
           echo "APK: $APK"
