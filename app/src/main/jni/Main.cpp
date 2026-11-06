@@ -50,7 +50,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("CollapseAdd_24_SeekBar_Gravitasi pemain_0_30_10_1"),
             OBFUSCATE("CollapseAdd_LivePos_Posisi pemain"),
             OBFUSCATE("CollapseAdd_20_InputValue_1024_Titik X tujuan"),
-            OBFUSCATE("CollapseAdd_21_InputValue_1024_Titik Y tujuan"),
+            OBFUSCATE("CollapseAdd_21_InputValue_1024_Titik Y tujuan (UI)"),
             OBFUSCATE("CollapseAdd_22_Button_Pindahkan pemain"),
     };
 

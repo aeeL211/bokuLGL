@@ -87,16 +87,22 @@ fitur untuk membaca penjelasan singkatnya.
 - **Kecepatan pemain** 0,5x sampai 5,0x dengan langkah 0,1x dan bawaan 1,0x. Nilai ini mengalikan
   `speed.add.x` pemain lokal tepat sebelum `Physics__Manager.Pos__Check` menghitung langkah
   berikutnya, lalu nilai aslinya dikembalikan. Karena yang dikali hanya tambahan langkah,
-  pengali tidak menumpuk dan badan fisika lain tidak ikut tersentuh.
-- **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Game memakai fisika
-  tile sendiri, bukan `Rigidbody2D`, jadi yang diskalakan adalah selisih turun `speed.y` di dalam
-  `Player__State__Std__Air.Transform__Gravity`. Nilai 0,0x membuang tarikan turun sehingga pemain
-  melayang di ketinggian sekarang; dorongan naik dari lompatan tetap diberikan, jadi pemain akan
-  terus naik sampai gravitasi dinaikkan lagi.
+  pengali tidak menumpuk dan badan fisika lain tidak ikut tersentuh. Batas jarak kamera
+  (`Physics__Manager._speed.limit`) ikut diskalakan selama `Camera__Manager.Pos__Update`, jadi
+  kamera tetap mengejar pemain cepat tanpa mematikan smoothing-nya.
+- **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Semua gerakan pemain
+  lewat `Physics__Manager.Pos__Check`, jadi yang diskalakan adalah komponen turun `speed.add.y`
+  tepat sebelum langkah dihitung, lalu nilai aslinya dikembalikan. Ini berlaku juga saat terbang,
+  berenang, memanjat turun, dan meluncur, bukan hanya saat jatuh biasa. Nilai 0,0x membuang gerak
+  turun sehingga pemain melayang di ketinggian sekarang; dorongan naik dari lompatan tetap
+  diberikan, jadi pemain bisa terus naik sampai gravitasi dinaikkan lagi.
 - Ketuk angka di kanan slider **Kecepatan pemain** atau **Gravitasi pemain** untuk
   mengembalikan slider ke 1,0x sekaligus mengirim nilai bawaannya ke hook.
-- **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Nilainya adalah
-  koordinat tile dunia yang dipakai fisika game, bukan piksel layar. Skala diambil dari
+- **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. X adalah koordinat tile
+  dari tepi kiri dunia. Y memakai satuan UI game: 0 adalah tengah dunia, sama dengan
+  `Tile__Manager.Display__Y` yang menghitung `Y tile - h/2` dengan `h` sebagai tinggi dunia yang
+  sedang dipakai. Tinggi dunia dibaca dari `Manager.tile._world_Size.h`, lalu Y tile dihitung
+  `Y UI + h/2`. Skala diambil dari
   `_Tile.pixel_Size`, yaitu ukuran satu tile dalam satuan dunia, dan titik acuannya adalah posisi
   pemain sekarang: `dunia tujuan = dunia sekarang + (tile tujuan - tile sekarang) * skala`.
   Bila `pixel_Size` tidak terbaca, rasio collider dipakai sebagai cadangan, lalu sampel gerakan
@@ -105,7 +111,8 @@ fitur untuk membaca penjelasan singkatnya.
   titik jejak `_world`, menolkan kecepatan, lalu meminta tile di sekitar badan dibangun ulang.
   Sebelum, target, sesudah, dan selisih setiap teleport dicatat di log.
 - Baris **Posisi pemain** menampilkan tile dan koordinat dunia pemain sekali per detik selama
-  barisnya terlihat.
+  barisnya terlihat. Tile Y sudah dalam satuan UI, jadi angkanya bisa langsung disalin ke titik
+  teleport.
 
 ## Batasan
 
@@ -116,19 +123,22 @@ fitur untuk membaca penjelasan singkatnya.
   pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
   hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
-- Kecepatan dan gravitasi hanya berlaku untuk pemain lokal. Nilai asli game tidak ditimpa
-  permanen: pengali dipasang selama satu panggilan method game lalu nilainya dikembalikan.
-- Gravitasi 0,0x tidak memakai fisika nol penuh: kecepatan turun yang sedang berjalan langsung
-  dibuang supaya pemain tidak jatuh, sedangkan dorongan naik dari lompatan dipertahankan. Naikkan
-  gravitasi lagi untuk turun.
+- Kecepatan, gravitasi, dan kamera hanya berlaku untuk pemain lokal. Nilai asli game tidak
+  ditimpa permanen: pengali dipasang selama satu panggilan method game lalu nilainya
+  dikembalikan.
+- Gravitasi bekerja dengan menskalakan seluruh komponen turun `speed.add.y`, jadi gerakan turun
+  yang disengaja seperti menyelam, meluncur, atau memanjat turun ikut melambat. Nilai 0,0x
+  membuang semua gerak turun; dorongan naik dari lompatan tetap dipertahankan. Naikkan gravitasi
+  lagi untuk turun.
 - Cache model tamu menyimpan 16 tamu terakhir. Tamu yang sudah keluar tidak lagi ditawarkan,
   dan model tamu yang tidak ada di cache maupun di daftar tamu hidup dilaporkan lewat toast
   "belum tercatat", bukan disalin dengan tebakan.
 - Teleport tidak memeriksa isi tile di titik tujuan, jadi memindahkan pemain ke dalam dinding bisa
   membuat fisika game mendorongnya keluar lagi. Input di luar -1024..1024 ditolak dan dicatat di
   log.
-- Koordinat Teleport adalah tile dunia. Titik yang jauh di luar peta bisa membuat pemain jatuh
-  tanpa lantai di bawahnya.
+- Koordinat Teleport memakai X tile dari tepi kiri dan Y satuan UI game (0 adalah tengah dunia).
+  Bila field tinggi dunia tidak terbaca, Y diperlakukan sebagai tile apa adanya dan peringatan
+  muncul di log. Titik yang jauh di luar peta bisa membuat pemain jatuh tanpa lantai di bawahnya.
 - Kalibrasi skala tile memakai `_Tile.pixel_Size` yang pasti. Bila field itu hilang, rasio
   collider atau perpindahan minimal empat tile dipakai sebagai cadangan, dan sebelum ada sampel
   titik tujuan bisa meleset.
@@ -159,7 +169,9 @@ Field daftar tamu OK
 Field nama tamu siap
 Field daftar pemain siap
 Field pemain OK
+Field tinggi dunia siap
 Field ukuran tile siap
+Field kamera siap
 Field tembus dinding siap
 Hook terpasang: 68
 ```

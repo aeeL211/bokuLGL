@@ -1880,7 +1880,8 @@ public class Menu {
         if (bagian.length < 4)
             return "Posisi belum terbaca";
         if (bagian[0].length() > 0 && bagian[1].length() > 0)
-            return "Tile " + bagian[0] + ", " + bagian[1] + "   Dunia " + bagian[2] + ", " + bagian[3];
+            return "Tile UI " + bagian[0] + ", " + bagian[1] + "   Dunia " + bagian[2] + ", "
+                    + bagian[3];
         return "Dunia " + bagian[2] + ", " + bagian[3];
     }
 

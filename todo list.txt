@@ -1,0 +1,85 @@
+TO DO — SETEL CUACA, MUSIM, DAN BACKGROUND (LOKAL)
+
+Tujuan
+- Menu bisa mengganti background, cuaca, dan musim/waktu di perangkat sendiri.
+- Tetap berlaku walaupun bukan host, tanpa mengirim paket dan tanpa mengubah setelan room.
+- Saat keluar-masuk room atau host mengganti setelan, nilai host/game kembali menang.
+
+Status: rencana, belum diimplementasikan.
+
+1. Jalur lokal yang sudah ditemukan
+- `Manager.bg` menunjuk `Background__Manager`, yang punya field `background`,
+  `period`, dan `weather`.
+- `Background__Bg.Change(int I)` dan `Background__Bg._Set(int Z, int I, bool Init)`
+  menerapkan background secara lokal. `Change` membaca zona aktif sendiri.
+- `Background__Period._Set(int Z, int I)` menerapkan periode secara lokal.
+- `Background__Weather.Change__Input(int I, bool Sound)` dan
+  `Background__Weather._Set(int Z, int I, bool Init)` menerapkan cuaca secara lokal.
+- `Z` adalah `Manager.zone.current` (`Zone__Manager.current`).
+- Jangan panggil `Bg__Change__Send`, `Period__Change__Send`,
+  `Weather__Change__Send`, `Host__Client__*`, atau `*_Receive`. `_Set` dan
+  `Change` di atas sudah dicek tidak memanggil jalur kirim.
+
+2. ID tidak boleh di-hardcode
+- Angka ID diambil dari field `_Id` runtime lewat nama, bukan dari urutan menu:
+  - `Background__Bg._Id`: `mountain`, `forest`, `city`, `desert`,
+    `forest_Dead`, `planet`.
+  - `Background__Period._Id`: `morning`, `twilight`, `night`.
+  - `Background__Weather._Id`: `sunshine`, `rain`, `thunderstorm`, `snow`,
+    `leaf`, `sakura`, `glow`, `star`, dan `virus` (`grn`/`ppl`).
+- Menu hanya menampilkan nama; angka diambil saat runtime dari field `_Id`
+  milik objek yang sedang hidup.
+
+3. Musim
+- Game tidak punya kelas `Season`. Yang tersedia hanya periode pagi/senja/malam
+  lewat `Background__Period`.
+- Rencana: "Musim" di menu dibuat sebagai preset lokal yang menggabungkan
+  background + periode + cuaca, bukan objek baru:
+  - Semi: `forest` + `morning` + `sakura`
+  - Panas: `desert` + `morning` + `sunshine`
+  - Gugur: `forest` + `twilight` + `leaf`
+  - Dingin: `forest_Dead` + `night` + `snow`
+- Tulis di penjelasan menu bahwa ini preset lokal, bukan musim bawaan game.
+- Alternatif bila pengguna hanya ingin waktu: tampilkan spinner
+  Pagi/Senja/Malam dan sebut sebagai "Waktu", bukan "Musim".
+
+4. Menu
+- Tambah section "Dunia" (atau gabung ke "Room dan Dunia"):
+  - Spinner Background: 6 pilihan.
+  - Spinner Cuaca: 9 pilihan.
+  - Spinner Musim: 4 preset di atas.
+  - Tombol "Terapkan setelan dunia" dan "Kembalikan ke host".
+- Format yang sudah dipakai menu: `CollapseAdd_<nomor>_Spinner_<label>_<item1,item2,...>`.
+- Menu hanya menulis permintaan ke struct atomik (pola `permintaanTeleport`),
+  bukan memanggil IL2CPP dari thread UI.
+- Hook update pemain lokal membaca permintaan sekali, memanggil jalur lokal, lalu
+  mencatat hasilnya ke log.
+
+5. Native
+- Field baru yang perlu dicari lewat nama: `Manager.bg`,
+  `Background__Manager.background`, `Background__Manager.period`,
+  `Background__Manager.weather`, `Zone__Manager.current`, dan field `_Id` tiap
+  bagian.
+- Fungsi `terapkanDunia(void* manajer)` dipanggil dari `saatUpdatePemain`
+  setelah teleport. Tidak perlu hook baru bila memakai hook
+  `Player__Manager._Update` yang sudah ada.
+- Simpan pilihan terakhir di `Fitur` (atomik) supaya menu bisa menampilkan
+  nilai yang sedang dipakai.
+- Log: `Dunia: background X, periode Y, cuaca Z` dan
+  `Dunia: field ... tidak lengkap` bila gagal.
+- Jangan menyentuh paket jaringan. Tidak ada `*_Send` di jalur ini.
+
+6. Batasan dan pengujian
+- Perubahan hanya visual lokal; pemain lain tidak melihatnya.
+- Host yang mengganti setelan sesudahnya akan menimpa pilihan lokal.
+- Uji sebagai tamu: ganti background, cuaca, dan musim, lalu keluar-masuk room.
+  Pastikan tidak ada paket keluar, game tidak crash, dan setelan host kembali.
+- Uji di beberapa ukuran dunia berbeda: Y UI 0 harus berada di tengah dunia dan
+  angka di baris posisi bisa langsung disalin ke titik teleport.
+- Periksa log start dan log fitur: tidak ada `Hook gagal`, tidak ada exception,
+  dan angka target/hook tetap sesuai README.
+
+7. Angka target
+- `targets.def` tetap 88 target dan 68 hook selama memakai hook yang sudah ada.
+- Bila nanti perlu hook `Background__Manager.Background__Update`, tambahkan
+  target baru dan sesuaikan angka di `README.md` serta `AGENTS.md`.

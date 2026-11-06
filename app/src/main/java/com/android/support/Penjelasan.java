@@ -23,7 +23,8 @@ public final class Penjelasan {
                     + "Daftar dibaca sekali per detik selama barisnya terlihat.";
         if (n.contains("posisi pemain"))
             return "Menampilkan tile dan koordinat dunia pemain sekali per detik selama "
-                    + "barisnya terlihat. Angka ini bisa dipakai untuk mengisi titik teleport.";
+                    + "barisnya terlihat. Tile Y memakai satuan UI game, jadi 0 adalah tengah "
+                    + "dunia dan angkanya bisa langsung dipakai untuk mengisi titik teleport.";
         if (n.contains("lapor"))
             return "Membuka Telegram @aeeL2 untuk lapor bug atau saran.";
 
@@ -71,25 +72,30 @@ public final class Penjelasan {
                         + "pemeriksaan fisika tile. Sisi bawah dibiarkan supaya lantai tetap "
                         + "dipijak.";
             case 20:
-                return "Koordinat tile dunia untuk titik X tujuan teleport. Isi X dan Y, lalu "
-                        + "tekan Pindahkan pemain.";
+                return "Koordinat tile X dunia untuk titik tujuan teleport. X 0 adalah tepi kiri "
+                        + "dunia. Isi X dan Y, lalu tekan Pindahkan pemain.";
             case 21:
-                return "Koordinat tile dunia untuk titik Y tujuan teleport. Isi X dan Y, lalu "
-                        + "tekan Pindahkan pemain.";
+                return "Koordinat Y tujuan dalam satuan UI game. Nilai 0 adalah tengah dunia, "
+                        + "dan Y UI dihitung dari Y tile dikurangi setengah tinggi dunia yang "
+                        + "sedang dipakai. Isi X dan Y, lalu tekan Pindahkan pemain.";
             case 22:
-                return "Memindahkan pemain ke titik X/Y. Jarak tile dikonversi dengan ukuran "
-                        + "tile game (pixel_Size) dari posisi sekarang, lalu tile dan dunia "
-                        + "ditulis bersama. Kecepatan dinolkan dan tile di sekitar badan dibangun "
-                        + "ulang. Input di luar -1024..1024 ditolak.";
+                return "Memindahkan pemain ke titik X/Y. Y menu digeser setengah tinggi dunia "
+                        + "supaya sama dengan Y UI game, lalu jarak tile dikonversi dengan ukuran "
+                        + "tile (pixel_Size) dari posisi sekarang. Tile dan dunia ditulis bersama, "
+                        + "kecepatan dinolkan, dan tile di sekitar badan dibangun ulang. Input di "
+                        + "luar -1024..1024 ditolak.";
             case 23:
                 return "Mengalikan speed.add.x pemain lokal tepat sebelum Pos__Check menghitung "
-                        + "langkah berikutnya, lalu nilai aslinya dikembalikan. Rentang 0,5x "
-                        + "sampai 5,0x; ketuk angka untuk kembali ke 1,0x.";
+                        + "langkah berikutnya, lalu nilai aslinya dikembalikan. Batas jarak kamera "
+                        + "ikut diskalakan selama kamera memperbarui posisi, jadi kamera tetap "
+                        + "mengikuti pada kecepatan tinggi. Rentang 0,5x sampai 5,0x; ketuk angka "
+                        + "untuk kembali ke 1,0x.";
             case 24:
-                return "Menskalakan selisih turun speed.y di dalam Transform__Gravity, bukan "
-                        + "Rigidbody2D. 0,0x membuang tarikan turun sehingga pemain melayang, "
-                        + "tetapi dorongan lompat tetap ada; naikkan lagi untuk turun. Rentang "
-                        + "0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
+                return "Menskalakan komponen turun speed.add.y pemain lokal tepat sebelum "
+                        + "Pos__Check, jadi berlaku untuk semua gerakan termasuk terbang, "
+                        + "berenang, dan meluncur. 0,0x membuang tarikan turun sehingga pemain "
+                        + "melayang, tetapi dorongan lompat tetap ada; naikkan lagi untuk turun. "
+                        + "Rentang 0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
             case 27:
                 return "Batas geser posisi skin X/Y dan potret: 5 sampai 100. Nilai 25 berarti "
                         + "-25..+25 dan 5 berarti bawaan game -5..+5. Nilai baru dipakai saat "
