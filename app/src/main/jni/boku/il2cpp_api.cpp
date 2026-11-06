@@ -474,3 +474,35 @@ void* cariKelas(const char* nama) {
     }
     return nullptr;
 }
+
+void* cariKelasField(const char* nama, const char* namaField) {
+    if (!nama || !namaField)
+        return nullptr;
+
+    Api& a = api;
+    void* domain = a.domain ? a.domain() : nullptr;
+    if (!domain || !a.assemblies || !a.image || !a.fieldFromName)
+        return nullptr;
+    size_t jumlahAssembly = 0;
+    void** assemblies = a.assemblies(domain, &jumlahAssembly);
+    if (!assemblies)
+        return nullptr;
+
+    // Kelas dengan nama sama bisa lebih dari satu, jadi kandidat baru diterima
+    // setelah field yang diminta benar-benar ada di dalamnya.
+    for (size_t i = 0; i < jumlahAssembly; i++) {
+        void* image = a.image(assemblies[i]);
+        if (!image)
+            continue;
+        size_t jumlahKelas = a.classCount(image);
+        for (size_t j = 0; j < jumlahKelas; j++) {
+            void* kelas = a.classAt(image, j);
+            const char* namaKelas = kelas ? a.className(kelas) : nullptr;
+            if (!namaKelas || strcmp(namaKelas, nama))
+                continue;
+            if (a.fieldFromName(kelas, namaField))
+                return kelas;
+        }
+    }
+    return nullptr;
+}

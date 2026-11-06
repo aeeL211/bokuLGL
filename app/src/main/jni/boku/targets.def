@@ -94,3 +94,9 @@ T_MODEL_TO_STR|_Model|Model__To__Str|1|
 # Fisika pemain. Kotak gerak dari tile dihitung di sini tiap frame, jadi No Clip
 # melonggarkan sisi kiri, kanan, dan atasnya setelah perhitungan itu selesai.
 T_DETECT_SET|Physics__Detect|_Set|3|
+# Kecepatan pemain. Pos__Check menghitung _world.check = pos.world + speed.add,
+# jadi speed.add.x diskalakan tepat sebelum pemeriksaan dan dikembalikan sesudahnya.
+T_POS_CHECK|Physics__Manager|Pos__Check|1|
+# Gravitasi pemain. Transform__Gravity mengurangi speed.y selama di udara, jadi
+# selisih satu panggilan itu yang diskalakan.
+T_AIR_GRAVITY|Player__State__Std__Air|Transform__Gravity|0|

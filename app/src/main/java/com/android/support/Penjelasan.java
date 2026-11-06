@@ -77,14 +77,19 @@ public final class Penjelasan {
                 return "Koordinat tile dunia untuk titik Y tujuan teleport. Isi X dan Y, lalu "
                         + "tekan Pindahkan pemain.";
             case 22:
-                return "Memindahkan pemain ke titik X/Y. Kecepatan dinolkan dan tile di sekitar "
-                        + "badan dibangun ulang. Input di luar -1024..1024 ditolak.";
+                return "Memindahkan pemain ke titik X/Y. Jarak tile dikonversi dengan ukuran "
+                        + "tile game (pixel_Size) dari posisi sekarang, lalu tile dan dunia "
+                        + "ditulis bersama. Kecepatan dinolkan dan tile di sekitar badan dibangun "
+                        + "ulang. Input di luar -1024..1024 ditolak.";
             case 23:
-                return "Mengalikan speed.x pemain lokal tiap frame, 0,5x sampai 5,0x. Ketuk "
-                        + "angka di kanan untuk kembali ke 1,0x.";
+                return "Mengalikan speed.add.x pemain lokal tepat sebelum Pos__Check menghitung "
+                        + "langkah berikutnya, lalu nilai aslinya dikembalikan. Rentang 0,5x "
+                        + "sampai 5,0x; ketuk angka untuk kembali ke 1,0x.";
             case 24:
-                return "Menskalakan tambahan turun speed.y tiap frame, bukan Rigidbody2D. "
-                        + "Rentang 0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
+                return "Menskalakan selisih turun speed.y di dalam Transform__Gravity, bukan "
+                        + "Rigidbody2D. 0,0x membuang tarikan turun sehingga pemain melayang, "
+                        + "tetapi dorongan lompat tetap ada; naikkan lagi untuk turun. Rentang "
+                        + "0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
             case 27:
                 return "Batas geser posisi skin X/Y dan potret: 5 sampai 100. Nilai 25 berarti "
                         + "-25..+25 dan 5 berarti bawaan game -5..+5. Nilai baru dipakai saat "

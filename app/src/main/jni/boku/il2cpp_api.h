@@ -90,3 +90,7 @@ void* tipeKelas(void* kelas);
 // Mencari kelas dari namanya di seluruh assembly. Dipakai untuk kelas Unity yang
 // tidak dinamai target mana pun, jadi tidak ikut terikat oleh scan().
 void* cariKelas(const char* nama);
+
+// Nama sederhana bisa dipakai lebih dari satu kelas (misalnya _Tile data tile
+// dan _Tile perilaku), jadi kelas hanya diterima bila punya field yang diminta.
+void* cariKelasField(const char* nama, const char* namaField);

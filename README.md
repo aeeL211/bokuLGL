@@ -85,18 +85,22 @@ fitur untuk membaca penjelasan singkatnya.
   pada tiap pemeriksaan fisika tile, jadi dinding dan langit-langit tidak lagi menahan langkah.
   Sisi bawah dibiarkan apa adanya supaya lantai tetap dipijak.
 - **Kecepatan pemain** 0,5x sampai 5,0x dengan langkah 0,1x dan bawaan 1,0x. Nilai ini mengalikan
-  `speed.x` pemain lokal pada tiap frame. Nilai yang pernah ditulis dibagi lagi sebelum dikali,
-  jadi pengali tidak menumpuk saat game menulis ulang kecepatannya sendiri.
+  `speed.add.x` pemain lokal tepat sebelum `Physics__Manager.Pos__Check` menghitung langkah
+  berikutnya, lalu nilai aslinya dikembalikan. Karena yang dikali hanya tambahan langkah,
+  pengali tidak menumpuk dan badan fisika lain tidak ikut tersentuh.
 - **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Game memakai fisika
-  tile sendiri, bukan `Rigidbody2D`, jadi yang diskalakan adalah tambahan turun `speed.y` tiap
-  frame; lompatan dan pendaratan tidak disentuh.
+  tile sendiri, bukan `Rigidbody2D`, jadi yang diskalakan adalah selisih turun `speed.y` di dalam
+  `Player__State__Std__Air.Transform__Gravity`. Nilai 0,0x membuang tarikan turun sehingga pemain
+  melayang di ketinggian sekarang; dorongan naik dari lompatan tetap diberikan, jadi pemain akan
+  terus naik sampai gravitasi dinaikkan lagi.
 - Ketuk angka di kanan slider **Kecepatan pemain** atau **Gravitasi pemain** untuk
   mengembalikan slider ke 1,0x sekaligus mengirim nilai bawaannya ke hook.
 - **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. Nilainya adalah
-  koordinat tile dunia yang dipakai fisika game, bukan piksel layar. Rumus konversinya
-  `dunia = offset + tile * skala`, dengan skala dan offset dikalibrasi dari perpindahan pemain
-  sendiri; sumbu yang belum punya sampel meminjam skala sumbu lain, dan bila keduanya belum
-  terkalibrasi skalanya dianggap 1.
+  koordinat tile dunia yang dipakai fisika game, bukan piksel layar. Skala diambil dari
+  `_Tile.pixel_Size`, yaitu ukuran satu tile dalam satuan dunia, dan titik acuannya adalah posisi
+  pemain sekarang: `dunia tujuan = dunia sekarang + (tile tujuan - tile sekarang) * skala`.
+  Bila `pixel_Size` tidak terbaca, rasio collider dipakai sebagai cadangan, lalu sampel gerakan
+  pemain setelah perpindahan minimal empat tile.
   Teleport menulis `Physics.pos.tile` dan `Physics.pos.world` sekaligus, memindahkan seluruh
   titik jejak `_world`, menolkan kecepatan, lalu meminta tile di sekitar badan dibangun ulang.
   Sebelum, target, sesudah, dan selisih setiap teleport dicatat di log.
@@ -112,9 +116,11 @@ fitur untuk membaca penjelasan singkatnya.
   pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
   hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
-- Kecepatan dan gravitasi hanya berlaku untuk pemain lokal. Nilai asli game tidak disimpan
-  permanen: pada 1,0x hook berhenti mengalikan, dan setelah respawn atau pindah scene hook membaca
-  nilai baru dari game.
+- Kecepatan dan gravitasi hanya berlaku untuk pemain lokal. Nilai asli game tidak ditimpa
+  permanen: pengali dipasang selama satu panggilan method game lalu nilainya dikembalikan.
+- Gravitasi 0,0x tidak memakai fisika nol penuh: kecepatan turun yang sedang berjalan langsung
+  dibuang supaya pemain tidak jatuh, sedangkan dorongan naik dari lompatan dipertahankan. Naikkan
+  gravitasi lagi untuk turun.
 - Cache model tamu menyimpan 16 tamu terakhir. Tamu yang sudah keluar tidak lagi ditawarkan,
   dan model tamu yang tidak ada di cache maupun di daftar tamu hidup dilaporkan lewat toast
   "belum tercatat", bukan disalin dengan tebakan.
@@ -123,9 +129,9 @@ fitur untuk membaca penjelasan singkatnya.
   log.
 - Koordinat Teleport adalah tile dunia. Titik yang jauh di luar peta bisa membuat pemain jatuh
   tanpa lantai di bawahnya.
-- Kalibrasi skala tile per sumbu butuh perpindahan minimal satu tile. Sebelum itu tebakan awal
-  dari rasio dunia/tile dipakai bila pemain berada di atas tile 1; kalau tidak, sumbu itu
-  meminjam skala sumbu lain atau memakai skala 1 sehingga titik tujuan bisa meleset.
+- Kalibrasi skala tile memakai `_Tile.pixel_Size` yang pasti. Bila field itu hilang, rasio
+  collider atau perpindahan minimal empat tile dipakai sebagai cadangan, dan sebelum ada sampel
+  titik tujuan bisa meleset.
 
 ## Build
 
@@ -147,17 +153,18 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 86 dari 86 metode ditemukan
+Scan selesai: 88 dari 88 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap
 Field daftar pemain siap
 Field pemain OK
+Field ukuran tile siap
 Field tembus dinding siap
-Hook terpasang: 66
+Hook terpasang: 68
 ```
 
-Bila `Hook terpasang` jauh di bawah 66, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 68, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

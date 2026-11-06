@@ -24,6 +24,8 @@ struct Vektor2 {
 };
 
 using FnDeteksi = void (*)(void*, void**, int32_t, float, float, void*);
+using FnPosCheck = void (*)(void*, void**, void*);
+using FnGravitasi = void (*)(void*, void*);
 
 // Batas yang dipakai No Clip. Nilainya jauh di luar ukuran dunia mana pun, jadi
 // pemeriksaan tabrakan tidak pernah menyempitkannya lagi.
@@ -32,6 +34,8 @@ constexpr int32_t kBatasTeleport = 1024;
 
 Field fieldAktorPemain = {};
 Field fieldPemainLokal = {};
+Field fieldAktorFisika = {};
+Field fieldPemainStatus = {};
 Field fieldDeteksiAktor = {};
 
 // Posisi tile milik game disimpan di Physics.pos, terpisah dari Transform Unity.
@@ -50,6 +54,22 @@ Field fieldSegar = {};
 Field fieldKecepatan = {};
 Field fieldKecepatanX = {};
 Field fieldKecepatanY = {};
+Field fieldKecepatanAdd = {};
+Field fieldKecepatanAddX = {};
+Field fieldKecepatanAddY = {};
+
+// Skala awal teleport diambil dari ukuran tile game, dengan collider pemain
+// sebagai cadangan: size adalah ukuran dalam satuan dunia, sedangkan tile_Size
+// adalah jumlah tile yang ditempati.
+Field fieldCollider = {};
+Field fieldUkuranCollider = {};
+Field fieldUkuranTile = {};
+Field fieldUkuranTileW = {};
+Field fieldUkuranTileH = {};
+Field fieldUkuranPixel = {};
+// Nama _Tile dipakai dua kelas berbeda, jadi kelas yang punya pixel_Size
+// diikat sekali saat hook dipasang. Pemindaian penuh tidak diulang tiap frame.
+void* kelasTile = nullptr;
 
 // Tile bisa berupa Vector2 pecahan atau Vector2Int. Tipe field dibaca sekali
 // saat hook dipasang supaya penulisan tidak menebak lebar tiap field.
@@ -88,17 +108,15 @@ double sekarangDetik() {
     return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
 }
 
-// Pos.tile dan Pos.world memakai ruang koordinat berbeda. Skala dan titik nol
-// diturunkan dari perpindahan pemain sendiri, jadi tidak ada angka ajaib yang
-// di-hardcode. Tiap sumbu dikalibrasi terpisah karena pemain jarang bergerak
-// satu tile penuh di kedua sumbu pada saat yang sama.
+// Pos.tile dan Pos.world memakai ruang koordinat berbeda. Selisih keduanya
+// memberi satu skala yang berlaku untuk kedua sumbu, jadi teleport tidak perlu
+// menebak titik nol Y dari rasio dunia/tile yang bisa meleset.
 struct Kalibrasi {
-    bool siapX;
-    bool siapY;
-    int sampelX;
-    int sampelY;
-    float skalaX;
-    float skalaY;
+    bool siap;
+    bool pasti;
+    bool dariGerak;
+    float skala;
+    int sampel;
     float offsetX;
     float offsetY;
     bool adaAcuan;
@@ -109,14 +127,9 @@ struct Kalibrasi {
 };
 Kalibrasi kalibrasi = {};
 
-// Kecepatan dan gravitasi hanya mengubah Physics.speed milik pemain lokal.
-// Nilai asli game tidak pernah ditimpa permanen: pada 1,0x nilai dasar dipasang
-// kembali, dan setelah respawn hook membaca nilai baru dari game.
-void* manajerTerakhir = nullptr;
-void* fisikaTerakhir = nullptr;
-float tulisXTerakhir = 0.0f;
-float tulisYTerakhir = 0.0f;
-float kaliTerakhir = 1.0f;
+// Kecepatan dan gravitasi hanya mengubah fisika pemain lokal. Nilai asli game
+// tidak pernah ditimpa permanen: pengali dipasang selama satu panggilan method
+// game lalu nilainya dikembalikan seperti semula.
 int logKecepatan = -1;
 int logGravitasi = -1;
 
@@ -194,101 +207,143 @@ void simpanPosisi(bool adaTile, const Vektor2& tile, const Vektor2& dunia) {
     pthread_mutex_unlock(&kunciPosisi);
 }
 
-// Perpindahan antar-tile memberi pasangan (tile, dunia). Rasio keduanya adalah
-// skala yang dipakai game, dan selisihnya adalah titik nol dunia. Sampel baru
-// hanya dipakai setelah perpindahan minimal satu tile pada sumbu itu.
-void tambahSampel(float& skala, float& offset, int& sampel, float deltaTile, float deltaDunia,
-                  float tile, float dunia) {
-    if (fabsf(deltaTile) < 0.999f)
-        return;
+// Perpindahan pemain memberi pasangan (tile, dunia). Rasio keduanya adalah
+// satuan dunia per tile, dan skalanya sama untuk kedua sumbu. Sampel baru
+// dipakai setelah perpindahan minimal empat tile supaya pembulatan angka tile
+// tidak mendominasi hasil.
+bool tambahSampel(float deltaTile, float deltaDunia, const char* sumbu) {
+    if (fabsf(deltaTile) < 4.0f)
+        return false;
     float kandidat = deltaDunia / deltaTile;
     if (!std::isfinite(kandidat) || kandidat < 0.05f || kandidat > 4096.0f)
-        return;
-    if (sampel == 0) {
-        skala = kandidat;
-        offset = dunia - tile * kandidat;
-        sampel = 1;
-        return;
+        return false;
+    if (!kalibrasi.dariGerak) {
+        kalibrasi.skala = kandidat;
+        kalibrasi.dariGerak = true;
+        kalibrasi.sampel = 1;
+        LOGI("Teleport: skala %.2f dari gerakan %s", kandidat, sumbu);
+        return true;
     }
-    skala = skala * 0.8f + kandidat * 0.2f;
-    offset = offset * 0.8f + (dunia - tile * skala) * 0.2f;
-    sampel++;
+    kalibrasi.skala = kalibrasi.skala * 0.8f + kandidat * 0.2f;
+    kalibrasi.sampel++;
+    if (kalibrasi.sampel % 8 == 0)
+        LOGI("Teleport: skala %.2f dari %d sampel", kalibrasi.skala, kalibrasi.sampel);
+    return true;
+}
+
+// Skala awal teleport diambil dari ukuran tile game. Bila field itu belum
+// terbaca, collider pemain menjadi cadangan: size adalah ukuran badan dalam
+// satuan dunia, sedangkan tile_Size adalah jumlah tile yang ditempati. Gerakan
+// pemain menggantikan tebakan collider pada sampel pertama.
+void cobaSkalaAwal(void* fisika) {
+    if (kalibrasi.pasti || !fisika)
+        return;
+
+    // _Tile.pixel_Size adalah ukuran satu tile dalam satuan dunia dan berlaku
+    // untuk kedua sumbu, jadi nilainya tidak bergantung pada model pemain.
+    if (kelasTile && fieldUkuranPixel.field) {
+        void* statis = dataFieldStatis(kelasTile);
+        int32_t piksel = statis ? bacaInt(statis, fieldUkuranPixel) : 0;
+        if (piksel > 0) {
+            kalibrasi.skala = static_cast<float>(piksel);
+            kalibrasi.siap = true;
+            kalibrasi.pasti = true;
+            LOGI("Teleport: skala awal %.2f dari pixel_Size", kalibrasi.skala);
+            return;
+        }
+    }
+
+    if (kalibrasi.siap)
+        return;
+
+    if (!fieldCollider.field || !fieldUkuranCollider.field || !fieldUkuranTile.field ||
+        !fieldUkuranTileW.field || !fieldUkuranTileH.field)
+        return;
+    void* collider = bacaPtr(fisika, fieldCollider);
+    if (!collider)
+        return;
+    void* ukuranTile = bacaPtr(collider, fieldUkuranTile);
+    if (!ukuranTile)
+        return;
+
+    Vektor2 ukuran = {};
+    if (!bacaVektor(collider, fieldUkuranCollider, ukuran))
+        return;
+    float tileW = bacaFloat(ukuranTile, fieldUkuranTileW);
+    float tileH = bacaFloat(ukuranTile, fieldUkuranTileH);
+
+    float kandidat = 0.0f;
+    if (std::isfinite(tileW) && tileW > 0.01f && ukuran.x > 0.01f)
+        kandidat = ukuran.x / tileW;
+    else if (std::isfinite(tileH) && tileH > 0.01f && ukuran.y > 0.01f)
+        kandidat = ukuran.y / tileH;
+    if (!std::isfinite(kandidat) || kandidat < 0.05f || kandidat > 4096.0f)
+        return;
+
+    kalibrasi.skala = kandidat;
+    kalibrasi.siap = true;
+    LOGI("Teleport: skala awal %.2f dari collider", kandidat);
 }
 
 void perbaruiKalibrasi(const Vektor2& dunia, const Vektor2& tile) {
-    // Tanpa gerakan, hanya posisi sekarang yang bisa dipakai. Rasio dunia/tile
-    // masih berguna kalau titik nol dunia memang nol; nilai ini hanya tebakan
-    // awal dan akan dikoreksi sampel perpindahan.
-    if (!kalibrasi.siapX && fabsf(tile.x) > 1.0f) {
-        float rasio = dunia.x / tile.x;
-        if (std::isfinite(rasio) && rasio > 0.05f && rasio < 4096.0f) {
-            kalibrasi.skalaX = rasio;
-            kalibrasi.offsetX = dunia.x - tile.x * rasio;
-            kalibrasi.sampelX = 0;
-            kalibrasi.siapX = true;
-            LOGI("Teleport: tebakan skala X %.2f dari posisi sekarang", rasio);
-        }
-    }
-    if (!kalibrasi.siapY && fabsf(tile.y) > 1.0f) {
-        float rasio = dunia.y / tile.y;
-        if (std::isfinite(rasio) && rasio > 0.05f && rasio < 4096.0f) {
-            kalibrasi.skalaY = rasio;
-            kalibrasi.offsetY = dunia.y - tile.y * rasio;
-            kalibrasi.sampelY = 0;
-            kalibrasi.siapY = true;
-            LOGI("Teleport: tebakan skala Y %.2f dari posisi sekarang", rasio);
-        }
-    }
-
     if (!kalibrasi.adaAcuan) {
         kalibrasi.acuanDuniaX = dunia.x;
         kalibrasi.acuanDuniaY = dunia.y;
         kalibrasi.acuanTileX = tile.x;
         kalibrasi.acuanTileY = tile.y;
+        float skala = kalibrasi.siap ? kalibrasi.skala : 1.0f;
+        kalibrasi.offsetX = dunia.x - tile.x * skala;
+        kalibrasi.offsetY = dunia.y - tile.y * skala;
         kalibrasi.adaAcuan = true;
+        return;
+    }
+
+    // Skala dari pixel_Size sudah pasti, jadi sampel gerakan tidak boleh
+    // menggantinya. Titik nol tetap diperbarui untuk jalur tanpa field tile.
+    if (kalibrasi.pasti) {
+        kalibrasi.offsetX = dunia.x - tile.x * kalibrasi.skala;
+        kalibrasi.offsetY = dunia.y - tile.y * kalibrasi.skala;
         return;
     }
 
     float deltaTileX = tile.x - kalibrasi.acuanTileX;
     float deltaTileY = tile.y - kalibrasi.acuanTileY;
-    bool ambilX = fabsf(deltaTileX) >= 0.999f;
-    bool ambilY = fabsf(deltaTileY) >= 0.999f;
-    if (!ambilX && !ambilY)
+    if (fabsf(deltaTileX) < 0.5f && fabsf(deltaTileY) < 0.5f)
         return;
 
-    int sampelXSebelum = kalibrasi.sampelX;
-    int sampelYSebelum = kalibrasi.sampelY;
-    if (ambilX) {
-        tambahSampel(kalibrasi.skalaX, kalibrasi.offsetX, kalibrasi.sampelX, deltaTileX,
-                     dunia.x - kalibrasi.acuanDuniaX, tile.x, dunia.x);
-        kalibrasi.acuanDuniaX = dunia.x;
-        kalibrasi.acuanTileX = tile.x;
+    bool ambil = false;
+    if (fabsf(deltaTileX) >= fabsf(deltaTileY)) {
+        ambil = tambahSampel(deltaTileX, dunia.x - kalibrasi.acuanDuniaX, "X");
+    } else {
+        ambil = tambahSampel(deltaTileY, dunia.y - kalibrasi.acuanDuniaY, "Y");
     }
-    if (ambilY) {
-        tambahSampel(kalibrasi.skalaY, kalibrasi.offsetY, kalibrasi.sampelY, deltaTileY,
-                     dunia.y - kalibrasi.acuanDuniaY, tile.y, dunia.y);
-        kalibrasi.acuanDuniaY = dunia.y;
-        kalibrasi.acuanTileY = tile.y;
-    }
-    kalibrasi.siapX = kalibrasi.siapX || kalibrasi.sampelX > 0;
-    kalibrasi.siapY = kalibrasi.siapY || kalibrasi.sampelY > 0;
-    if (kalibrasi.sampelX == 1 && sampelXSebelum == 0)
-        LOGI("Teleport: kalibrasi X skala %.2f offset %.2f", kalibrasi.skalaX, kalibrasi.offsetX);
-    if (kalibrasi.sampelY == 1 && sampelYSebelum == 0)
-        LOGI("Teleport: kalibrasi Y skala %.2f offset %.2f", kalibrasi.skalaY, kalibrasi.offsetY);
+    if (!ambil)
+        return;
+
+    kalibrasi.siap = true;
+    kalibrasi.acuanDuniaX = dunia.x;
+    kalibrasi.acuanDuniaY = dunia.y;
+    kalibrasi.acuanTileX = tile.x;
+    kalibrasi.acuanTileY = tile.y;
+    kalibrasi.offsetX = dunia.x - tile.x * kalibrasi.skala;
+    kalibrasi.offsetY = dunia.y - tile.y * kalibrasi.skala;
 }
 
-Vektor2 keDunia(float tileX, float tileY) {
-    // Skala biasanya sama di kedua sumbu, jadi sumbu yang belum punya sampel
-    // meminjam skala sumbu lain. Titik nolnya tetap hanya dipakai bila sumbu
-    // itu sendiri sudah terkalibrasi.
-    float skalaCadangan =
-        kalibrasi.siapX ? kalibrasi.skalaX : (kalibrasi.siapY ? kalibrasi.skalaY : 1.0f);
-    Vektor2 hasil = {tileX * skalaCadangan, tileY * skalaCadangan};
-    if (kalibrasi.siapX)
-        hasil.x = kalibrasi.offsetX + tileX * kalibrasi.skalaX;
-    if (kalibrasi.siapY)
-        hasil.y = kalibrasi.offsetY + tileY * kalibrasi.skalaY;
+Vektor2 keDunia(float tileX, float tileY, const Vektor2& duniaSekarang,
+                const Vektor2& tileSekarang, bool adaTileSekarang) {
+    float skala = kalibrasi.siap ? kalibrasi.skala : 1.0f;
+    // Titik acuan sekarang membatalkan selisih tetap antara tile dan dunia,
+    // jadi rumus ini tetap benar walau titik nol sumbu Y belum pernah dihitung.
+    if (adaTileSekarang) {
+        Vektor2 hasil = {duniaSekarang.x + (tileX - tileSekarang.x) * skala,
+                         duniaSekarang.y + (tileY - tileSekarang.y) * skala};
+        return hasil;
+    }
+    Vektor2 hasil = {tileX * skala, tileY * skala};
+    if (kalibrasi.adaAcuan) {
+        hasil.x = kalibrasi.offsetX + tileX * skala;
+        hasil.y = kalibrasi.offsetY + tileY * skala;
+    }
     return hasil;
 }
 
@@ -306,9 +361,17 @@ bool tulisPosisiFisika(void* posisi, float tileX, float tileY, const Vektor2& du
         tulisVektor(jejak, fieldJejakBaru, dunia);
         tulisVektor(jejak, fieldJejakAkhir, dunia);
     }
-    // Kalibrasi berikutnya harus mulai dari titik tujuan, bukan dari titik lama
-    // yang jaraknya bisa ribuan tile.
-    kalibrasi.adaAcuan = false;
+    // Titik acuan berikutnya adalah tujuan teleport, bukan titik lama yang
+    // jaraknya bisa ribuan tile, supaya kalibrasi tidak memakai lompatan ini
+    // sebagai sampel gerakan.
+    kalibrasi.adaAcuan = true;
+    kalibrasi.acuanDuniaX = dunia.x;
+    kalibrasi.acuanDuniaY = dunia.y;
+    kalibrasi.acuanTileX = tileX;
+    kalibrasi.acuanTileY = tileY;
+    float skala = kalibrasi.siap ? kalibrasi.skala : 1.0f;
+    kalibrasi.offsetX = dunia.x - tileX * skala;
+    kalibrasi.offsetY = dunia.y - tileY * skala;
     return true;
 }
 
@@ -318,6 +381,13 @@ void kosongkanKecepatan(void* fisika) {
         return;
     tulisFloat(kecepatan, fieldKecepatanX, 0.0f);
     tulisFloat(kecepatan, fieldKecepatanY, 0.0f);
+    // Tambahan kecepatan ikut dipakai Pos__Check pada frame berikutnya, jadi
+    // sisa langkah sebelum teleport juga harus hilang.
+    void* tambahan = bacaPtr(kecepatan, fieldKecepatanAdd);
+    if (!tambahan)
+        return;
+    tulisFloat(tambahan, fieldKecepatanAddX, 0.0f);
+    tulisFloat(tambahan, fieldKecepatanAddY, 0.0f);
 }
 
 // Game memakai flag ini untuk membangun ulang tile di sekitar badan, jadi tile
@@ -382,25 +452,30 @@ void terapkanTeleport(void* manajer) {
     Vektor2 tileLama = {};
     bool adaDunia = bacaVektor(posisi, fieldDunia, duniaLama);
     bool adaTile = bacaTile(posisi, tileLama);
-    if (adaDunia && adaTile) {
+    if (!adaDunia) {
+        LOGE("Teleport ditolak: posisi dunia tidak terbaca");
+        return;
+    }
+    cobaSkalaAwal(fisika);
+    if (adaTile) {
         LOGI("Teleport: sebelum tile=(%.2f, %.2f) dunia=(%.1f, %.1f)", tileLama.x, tileLama.y,
              duniaLama.x, duniaLama.y);
-    } else if (adaDunia) {
+    } else {
         LOGI("Teleport: sebelum dunia=(%.1f, %.1f), tile tidak terbaca", duniaLama.x, duniaLama.y);
     }
 
-    Vektor2 duniaBaru = keDunia(static_cast<float>(tileX), static_cast<float>(tileY));
+    Vektor2 duniaBaru = keDunia(static_cast<float>(tileX), static_cast<float>(tileY), duniaLama,
+                                tileLama, adaTile);
     if (!std::isfinite(duniaBaru.x) || !std::isfinite(duniaBaru.y)) {
         LOGE("Teleport ditolak: hasil konversi bukan angka");
         return;
     }
-    if (!kalibrasi.siapX || !kalibrasi.siapY) {
-        LOGI("Teleport: kalibrasi belum lengkap, sumbu yang kosong memakai satuan tile apa adanya");
+    if (!kalibrasi.siap) {
+        LOGI("Teleport: skala belum terkalibrasi, satuan tile dipakai apa adanya");
     }
 
-    LOGI("Teleport: target tile=(%d, %d) dunia=(%.1f, %.1f) skala=(%.2f, %.2f) offset=(%.2f, "
-         "%.2f)",
-         tileX, tileY, duniaBaru.x, duniaBaru.y, kalibrasi.skalaX, kalibrasi.skalaY,
+    LOGI("Teleport: target tile=(%d, %d) dunia=(%.1f, %.1f) skala=%.2f offset=(%.2f, %.2f)",
+         tileX, tileY, duniaBaru.x, duniaBaru.y, kalibrasi.siap ? kalibrasi.skala : 1.0f,
          kalibrasi.offsetX, kalibrasi.offsetY);
     if (!tulisPosisiFisika(posisi, static_cast<float>(tileX), static_cast<float>(tileY),
                            duniaBaru)) {
@@ -427,78 +502,75 @@ float ambilKelipatan(int32_t nilai, float minimum, float maksimum) {
     return hasil;
 }
 
-bool miripNilai(float kiri, float kanan) {
-    return fabsf(kiri - kanan) <= 0.001f * (1.0f + fabsf(kanan));
+// Physics__Manager.a menunjuk Manager, dan Manager.player adalah pemain lokal.
+// Pos__Check dipanggil untuk setiap badan fisika, jadi hook hanya menyentuh
+// badan yang sama dengan Player__Manager.phy milik pemain lokal.
+bool fisikaMilikPemain(void* manajerFisika, void* fisika) {
+    void* global = bacaPtr(manajerFisika, fieldAktorFisika);
+    void* pemain = bacaPtr(global, fieldPemainLokal);
+    return pemain && bacaPtr(pemain, fieldFisika) == fisika;
 }
 
-// Physics.speed adalah kecepatan yang dipakai game untuk langkah berikutnya.
-// Sumbu X diskalakan penuh, sedangkan sumbu Y hanya menerima tambahan
-// gravitasi. Gravitasi game menumpuk di speed.y tiap frame, jadi selisih
-// terhadap nilai yang kita tulis frame lalu adalah tambahan satu frame itu;
-// tanpa pembanding itu pengali akan menumpuk sendiri.
-void terapkanKecepatanGravitasi(void* manajer) {
-    void* fisika = bacaPtr(manajer, fieldFisika);
-    if (!fisika)
-        return;
-    void* kecepatan = bacaPtr(fisika, fieldKecepatan);
-    if (!kecepatan)
+// Pos__Check hanya menghitung _world.check = pos.world + speed.add. Tambahan
+// kecepatan diskalakan tepat sebelum perhitungan dan dikembalikan sesudahnya,
+// jadi nilai asli game tidak pernah tertimpa permanen. Sumbu Y tidak disentuh
+// karena gravitasi punya slider sendiri.
+void hookPosCheck(void* sendiri, void** fisika, void* metode) {
+    auto asli = reinterpret_cast<FnPosCheck>(target(T_POS_CHECK).orig);
+    if (!asli)
         return;
 
-    float mentahX = bacaFloat(kecepatan, fieldKecepatanX);
-    float mentahY = bacaFloat(kecepatan, fieldKecepatanY);
-    if (!std::isfinite(mentahX) || !std::isfinite(mentahY))
-        return;
-
-    bool lanjut = manajer == manajerTerakhir && fisika == fisikaTerakhir;
     float kelipatan = ambilKelipatan(fitur().kecepatanPemain.load(), 0.5f, 5.0f);
-    float gravitasi = ambilKelipatan(fitur().gravitasiPemain.load(), 0.0f, 3.0f);
-
-    // Bila game tidak menyentuh speed.x, nilainya masih hasil kali frame lalu.
-    // Bagi dulu supaya pengali tidak menumpuk, lalu kalikan dengan nilai baru.
-    float dasarX = mentahX;
-    if (lanjut && kaliTerakhir != 1.0f && miripNilai(mentahX, tulisXTerakhir))
-        dasarX = mentahX / kaliTerakhir;
-    if (kelipatan != 1.0f)
-        dasarX *= kelipatan;
-
-    // Hanya jatuh yang dipercepat. Lompatan (speed.y positif) dan pendaratan
-    // (speed.y kembali nol) dibiarkan apa adanya.
-    float dasarY = mentahY;
-    if (lanjut && gravitasi != 1.0f) {
-        float delta = mentahY - tulisYTerakhir;
-        if (tulisYTerakhir <= 0.0f && mentahY < 0.0f && delta < -0.0001f && delta > -20.0f)
-            dasarY += delta * (gravitasi - 1.0f);
-    }
-
-    if (!std::isfinite(dasarX) || !std::isfinite(dasarY))
+    void* objek = fisika ? *fisika : nullptr;
+    if (kelipatan == 1.0f || !objek || !fisikaMilikPemain(sendiri, objek)) {
+        asli(sendiri, fisika, metode);
         return;
-    if (dasarX > 10000.0f)
-        dasarX = 10000.0f;
-    if (dasarX < -10000.0f)
-        dasarX = -10000.0f;
-    if (dasarY > 10000.0f)
-        dasarY = 10000.0f;
-    if (dasarY < -10000.0f)
-        dasarY = -10000.0f;
-
-    tulisFloat(kecepatan, fieldKecepatanX, dasarX);
-    tulisFloat(kecepatan, fieldKecepatanY, dasarY);
-    tulisXTerakhir = dasarX;
-    tulisYTerakhir = dasarY;
-    kaliTerakhir = kelipatan;
-    manajerTerakhir = manajer;
-    fisikaTerakhir = fisika;
-
-    int nilaiKecepatan = fitur().kecepatanPemain.load();
-    if (nilaiKecepatan != logKecepatan) {
-        logKecepatan = nilaiKecepatan;
-        LOGI("Kecepatan pemain: %.1fx", kelipatan);
     }
-    int nilaiGravitasi = fitur().gravitasiPemain.load();
-    if (nilaiGravitasi != logGravitasi) {
-        logGravitasi = nilaiGravitasi;
-        LOGI("Gravitasi pemain: %.1fx", gravitasi);
+
+    void* kecepatan = bacaPtr(objek, fieldKecepatan);
+    void* tambahan = kecepatan ? bacaPtr(kecepatan, fieldKecepatanAdd) : nullptr;
+    float asliX = tambahan ? bacaFloat(tambahan, fieldKecepatanAddX) : 0.0f;
+    if (!tambahan || !std::isfinite(asliX)) {
+        asli(sendiri, fisika, metode);
+        return;
     }
+
+    tulisFloat(tambahan, fieldKecepatanAddX, asliX * kelipatan);
+    asli(sendiri, fisika, metode);
+    tulisFloat(tambahan, fieldKecepatanAddX, asliX);
+}
+
+// Transform__Gravity menarik speed.y ke bawah selama di udara. Selisih satu
+// panggilan itu yang diskalakan, jadi nilai lain tidak ikut berubah. Rasio 0,0x
+// membuang tarikan turun: kecepatan turun langsung dinolkan supaya pemain tidak
+// jatuh, sedangkan dorongan naik dari lompatan dibiarkan dan baru berhenti saat
+// gravitasi dinaikkan lagi.
+void hookTransformGravitasi(void* sendiri, void* metode) {
+    auto asli = reinterpret_cast<FnGravitasi>(target(T_AIR_GRAVITY).orig);
+    if (!asli)
+        return;
+
+    float rasio = ambilKelipatan(fitur().gravitasiPemain.load(), 0.0f, 3.0f);
+    void* pemain = sendiri ? bacaPtr(sendiri, fieldPemainStatus) : nullptr;
+    void* fisika = pemain && pemainLokal(pemain) ? bacaPtr(pemain, fieldFisika) : nullptr;
+    void* kecepatan = fisika ? bacaPtr(fisika, fieldKecepatan) : nullptr;
+    if (rasio == 1.0f || !kecepatan) {
+        asli(sendiri, metode);
+        return;
+    }
+
+    float sebelum = bacaFloat(kecepatan, fieldKecepatanY);
+    asli(sendiri, metode);
+    float sesudah = bacaFloat(kecepatan, fieldKecepatanY);
+    if (!std::isfinite(sebelum) || !std::isfinite(sesudah))
+        return;
+    float delta = sesudah - sebelum;
+    if (fabsf(delta) < 0.0001f)
+        return;
+
+    float hasil = rasio <= 0.0f ? (sebelum > 0.0f ? sebelum : 0.0f) : sebelum + delta * rasio;
+    if (std::isfinite(hasil))
+        tulisFloat(kecepatan, fieldKecepatanY, hasil);
 }
 
 // Kotak gerak dari tile dipakai pemain saat melangkah, jadi sisi kiri, kanan,
@@ -580,8 +652,40 @@ bool cariFieldFisika(void* kelasManajer) {
         return false;
 
     void* kelasKecepatan = kelasField(fieldKecepatan);
-    return cariField(kelasKecepatan, "x", fieldKecepatanX) &&
-           cariField(kelasKecepatan, "y", fieldKecepatanY);
+    if (!cariField(kelasKecepatan, "x", fieldKecepatanX) ||
+        !cariField(kelasKecepatan, "y", fieldKecepatanY))
+        return false;
+
+    // add dipakai Pos__Check untuk menghitung langkah berikutnya. Bila field
+    // ini hilang, hook kecepatan dilewati tetapi teleport dan No Clip tetap
+    // berjalan.
+    if (!cariField(kelasKecepatan, "add", fieldKecepatanAdd) ||
+        !cariField(kelasField(fieldKecepatanAdd), "x", fieldKecepatanAddX) ||
+        !cariField(kelasField(fieldKecepatanAdd), "y", fieldKecepatanAddY)) {
+        fieldKecepatanAdd = {};
+        fieldKecepatanAddX = {};
+        fieldKecepatanAddY = {};
+        LOGE("Field speed.add tidak ditemukan; Kecepatan pemain nonaktif");
+    } else {
+        LOGI("Field kecepatan tambahan siap");
+    }
+
+    // Collider hanya dipakai untuk menebak skala awal teleport. Bila salah satu
+    // field tidak ada, teleport tetap memakai skala dari gerakan pemain.
+    if (cariField(kelasFisika, "collider", fieldCollider) &&
+        cariField(kelasField(fieldCollider), "size", fieldUkuranCollider) &&
+        cariField(kelasField(fieldCollider), "tile_Size", fieldUkuranTile) &&
+        cariField(kelasField(fieldUkuranTile), "w", fieldUkuranTileW) &&
+        cariField(kelasField(fieldUkuranTile), "h", fieldUkuranTileH)) {
+        LOGI("Field collider siap");
+    } else {
+        fieldUkuranCollider = {};
+        fieldUkuranTile = {};
+        fieldUkuranTileW = {};
+        fieldUkuranTileH = {};
+        LOGE("Field collider tidak lengkap; skala awal teleport dilewati");
+    }
+    return true;
 }
 
 bool cariFieldMargin() {
@@ -610,13 +714,25 @@ void saatUpdatePemain(void* manajer) {
         bool adaTile = bacaTile(posisi, tile);
         if (adaDunia && sekarangDetik() < posisiDiminta.load())
             simpanPosisi(adaTile, tile, dunia);
-        if (adaDunia && adaTile)
+        if (adaDunia && adaTile) {
+            cobaSkalaAwal(fisika);
             perbaruiKalibrasi(dunia, tile);
+        }
         verifikasiTeleport(posisi);
     }
 
     terapkanTeleport(manajer);
-    terapkanKecepatanGravitasi(manajer);
+
+    int nilaiKecepatan = fitur().kecepatanPemain.load();
+    if (nilaiKecepatan != logKecepatan) {
+        logKecepatan = nilaiKecepatan;
+        LOGI("Kecepatan pemain: %.1fx", ambilKelipatan(nilaiKecepatan, 0.5f, 5.0f));
+    }
+    int nilaiGravitasi = fitur().gravitasiPemain.load();
+    if (nilaiGravitasi != logGravitasi) {
+        logGravitasi = nilaiGravitasi;
+        LOGI("Gravitasi pemain: %.1fx", ambilKelipatan(nilaiGravitasi, 0.0f, 3.0f));
+    }
 }
 
 // Menyalin posisi terakhir untuk baris menu. Formatnya:
@@ -643,18 +759,42 @@ void salinPosisiPemain(char* keluaran, size_t ukuran) {
     }
 }
 
+void pasangHookKecepatanGravitasi() {
+    // Pos__Check dipanggil untuk semua badan fisika, jadi butuh Physics__Manager.a
+    // untuk mengenali pemain lokal.
+    if (!cariField(cariKelas("Physics__Manager"), "a", fieldAktorFisika))
+        LOGE("Field fisika manajer tidak ditemukan; Kecepatan pemain nonaktif");
+    else if (!fieldKecepatanAdd.field || !fieldKecepatanAddX.field)
+        LOGE("Field speed.add tidak lengkap; Kecepatan pemain nonaktif");
+    else
+        pasangHook(target(T_POS_CHECK), reinterpret_cast<void*>(hookPosCheck));
+
+    if (!cariField(cariKelas("Player__State__Std__Air"), "m", fieldPemainStatus))
+        LOGE("Field gravitasi pemain tidak ditemukan; Gravitasi pemain nonaktif");
+    else
+        pasangHook(target(T_AIR_GRAVITY), reinterpret_cast<void*>(hookTransformGravitasi));
+}
+
 void pasangHookPemain() {
     void* kelasManajer = kelasDari("Player__Manager");
     if (!cariField(kelasManajer, "a", fieldAktorPemain) ||
         !cariField(kelasField(fieldAktorPemain), "player", fieldPemainLokal)) {
-        LOGE("Field pemain tidak lengkap, Teleport dan No Clip nonaktif");
+        LOGE("Field pemain tidak lengkap, Teleport, Kecepatan, Gravitasi, dan No Clip nonaktif");
         return;
     }
     if (!cariFieldFisika(kelasManajer)) {
-        LOGE("Field fisika pemain tidak lengkap, Teleport dan No Clip nonaktif");
+        LOGE("Field fisika pemain tidak lengkap, Teleport, Kecepatan, dan No Clip nonaktif");
         return;
     }
     LOGI("Field pemain OK");
+
+    kelasTile = cariKelasField("_Tile", "pixel_Size");
+    if (kelasTile && cariField(kelasTile, "pixel_Size", fieldUkuranPixel))
+        LOGI("Field ukuran tile siap");
+    else
+        LOGE("Field pixel_Size tidak ditemukan; skala awal teleport memakai collider");
+
+    pasangHookKecepatanGravitasi();
 
     void* kelasDeteksi = cariKelas("Physics__Detect");
     bool siapDinding = cariField(kelasDeteksi, "a", fieldDeteksiAktor) && cariFieldMargin();
