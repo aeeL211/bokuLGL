@@ -329,8 +329,8 @@ void perbaruiKalibrasi(const Vektor2& dunia, const Vektor2& tile) {
     kalibrasi.offsetY = dunia.y - tile.y * kalibrasi.skala;
 }
 
-Vektor2 keDunia(float tileX, float tileY, const Vektor2& duniaSekarang,
-                const Vektor2& tileSekarang, bool adaTileSekarang) {
+Vektor2 keDunia(float tileX, float tileY, const Vektor2& duniaSekarang, const Vektor2& tileSekarang,
+                bool adaTileSekarang) {
     float skala = kalibrasi.siap ? kalibrasi.skala : 1.0f;
     // Titik acuan sekarang membatalkan selisih tetap antara tile dan dunia,
     // jadi rumus ini tetap benar walau titik nol sumbu Y belum pernah dihitung.
@@ -464,8 +464,8 @@ void terapkanTeleport(void* manajer) {
         LOGI("Teleport: sebelum dunia=(%.1f, %.1f), tile tidak terbaca", duniaLama.x, duniaLama.y);
     }
 
-    Vektor2 duniaBaru = keDunia(static_cast<float>(tileX), static_cast<float>(tileY), duniaLama,
-                                tileLama, adaTile);
+    Vektor2 duniaBaru =
+        keDunia(static_cast<float>(tileX), static_cast<float>(tileY), duniaLama, tileLama, adaTile);
     if (!std::isfinite(duniaBaru.x) || !std::isfinite(duniaBaru.y)) {
         LOGE("Teleport ditolak: hasil konversi bukan angka");
         return;
@@ -474,8 +474,8 @@ void terapkanTeleport(void* manajer) {
         LOGI("Teleport: skala belum terkalibrasi, satuan tile dipakai apa adanya");
     }
 
-    LOGI("Teleport: target tile=(%d, %d) dunia=(%.1f, %.1f) skala=%.2f offset=(%.2f, %.2f)",
-         tileX, tileY, duniaBaru.x, duniaBaru.y, kalibrasi.siap ? kalibrasi.skala : 1.0f,
+    LOGI("Teleport: target tile=(%d, %d) dunia=(%.1f, %.1f) skala=%.2f offset=(%.2f, %.2f)", tileX,
+         tileY, duniaBaru.x, duniaBaru.y, kalibrasi.siap ? kalibrasi.skala : 1.0f,
          kalibrasi.offsetX, kalibrasi.offsetY);
     if (!tulisPosisiFisika(posisi, static_cast<float>(tileX), static_cast<float>(tileY),
                            duniaBaru)) {
