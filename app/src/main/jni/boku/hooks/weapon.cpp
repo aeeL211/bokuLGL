@@ -84,6 +84,11 @@ void* statePemain(void* sendiri, const Field& bidangManajer) {
     return bacaPtr(manajer, fieldState);
 }
 
+// State machine senjata yang sama juga dijalankan untuk tamu di dalam room.
+// Semua hook di bawah hanya boleh mempercepat pemain lokal, jadi manajer pemain
+// diperiksa lebih dulu dan jalur bawaan dipakai untuk badan tamu.
+bool senjataLokal(void* manajer) { return pemainLokalHook(manajer); }
+
 // Update state mengulang tembakan hanya selama flag combo-nya menyala, dan flag
 // itu mengikuti tombol yang ditahan. Menulisnya sebelum update bawaan membuat
 // semua gaya berdiri maupun bergerak ikut mengulang.
@@ -106,6 +111,10 @@ void hookUpdateState(void* sendiri, void* metode) {
     }
 
     void* manajer = bacaPtr(sendiri, fieldManajerState);
+    if (!senjataLokal(manajer)) {
+        asli(sendiri, metode);
+        return;
+    }
     Irama& irama = iramaUntuk(manajer);
     bool ditahan = tombolAksiDitekan(manajer);
     if (ditahan && !irama.ditahan) {
@@ -119,10 +128,11 @@ void hookUpdateState(void* sendiri, void* metode) {
 // State akhir pistol adalah timer tetap. Mengakhirinya pada update pertama
 // menghilangkan jeda antar tembakan; fase aksi tetap memutar muzzle dan peluru.
 bool hookAkhirPistol(void* sendiri, void* metode) {
-    if (!fitur().tembakOtomatis) {
-        auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
-        return asli ? asli(sendiri, metode) : false;
-    }
+    auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
+    if (!asli)
+        return false;
+    if (!fitur().tembakOtomatis || !senjataLokal(bacaPtr(sendiri, fieldManajerCmn)))
+        return asli(sendiri, metode);
     return true;
 }
 
@@ -137,6 +147,8 @@ bool hookAkhirAksiPistol(void* sendiri, int gambar, void* metode) {
         return asli(sendiri, gambar, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
+    if (!senjataLokal(manajer))
+        return asli(sendiri, gambar, metode);
     Irama& irama = iramaUntuk(manajer);
     if (asli(sendiri, gambar, metode)) {
         if (tombolAksiDitekan(manajer))
@@ -154,8 +166,9 @@ void hookUpdatePistol(void* sendiri, void* metode) {
     if (!asli)
         return;
 
-    if (fitur().tembakOtomatis)
-        selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
+    void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
+    if (fitur().tembakOtomatis && senjataLokal(manajer))
+        selaraskanCombo(manajer);
     asli(sendiri, metode);
 }
 
@@ -165,8 +178,9 @@ void hookUpdateBuster(void* sendiri, void* metode) {
     if (!asli)
         return;
 
-    if (fitur().tembakOtomatis)
-        selaraskanCombo(bacaPtr(sendiri, fieldManajerSenjata));
+    void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
+    if (fitur().tembakOtomatis && senjataLokal(manajer))
+        selaraskanCombo(manajer);
     asli(sendiri, metode);
 }
 
@@ -181,6 +195,8 @@ bool hookAkhirAksiBuster(void* sendiri, void* metode) {
         return asli(sendiri, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
+    if (!senjataLokal(manajer))
+        return asli(sendiri, metode);
     Irama& irama = iramaUntuk(manajer);
     if (asli(sendiri, metode))
         return true;
@@ -200,6 +216,8 @@ bool hookAkhirKeAksiBuster(void* sendiri, void* metode) {
         return asli(sendiri, metode);
 
     void* manajer = bacaPtr(sendiri, fieldManajerCmn);
+    if (!senjataLokal(manajer))
+        return asli(sendiri, metode);
     Irama& irama = iramaUntuk(manajer);
     if (asli(sendiri, metode)) {
         if (tombolAksiDitekan(manajer))
@@ -227,7 +245,8 @@ void hookUpdateAkhirBuster(void* sendiri, void* metode) {
     auto aksi = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
     void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
     void* cmn = bacaPtr(sendiri, fieldSenjataCmn);
-    if (!arahAkhir || !aksi || !cmn || !tombolAksiDitekan(manajer)) {
+    if (!arahAkhir || !aksi || !cmn || !senjataLokal(manajer) ||
+        !tombolAksiDitekan(manajer)) {
         asli(sendiri, metode);
         return;
     }
@@ -247,6 +266,8 @@ int32_t hookIdBuster(void* sendiri, void* metode) {
     if (!asli)
         return 0;
     if (!fitur().busterPenuh)
+        return asli(sendiri, metode);
+    if (!senjataLokal(bacaPtr(sendiri, fieldManajerCmn)))
         return asli(sendiri, metode);
 
     void* state = statePemain(sendiri, fieldManajerCmn);

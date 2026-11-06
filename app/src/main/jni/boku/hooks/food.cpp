@@ -2,9 +2,18 @@
 
 #include "fitur.h"
 #include "hook.h"
+#include "il2cpp_api.h"
 #include "targets.h"
 
 namespace {
+
+// Setiap metode akhir makan dimiliki state pemain, dan state itu menyimpan
+// Player__Manager miliknya. Offset m berbeda per postur, jadi field dicari per
+// target dan disimpan pada instansiasi template masing-masing.
+template <TargetId id> Field& fieldPemainMakan() {
+    static Field field = {};
+    return field;
+}
 
 // Makanan hanya keluar dari tangan lewat ...__Eat__End miliknya sendiri, yang
 // meminta id tangan kosong ke Player__Manager.Hh__Change. Setiap makanan dan
@@ -20,11 +29,19 @@ namespace {
 // mesin state sudah melewati animasi makan. Tanpa itu makanannya masih di
 // tangan tetapi tidak terlihat sampai pemain bergerak dan penyegaran state
 // menyusunnya kembali.
+//
+// Tamu di dalam room menjalankan state yang sama di simulasi lokal, jadi hanya
+// pemain lokal yang tangannya ditahan.
 template <TargetId id> void hookAkhirMakan(void* self, void* method) {
     auto asli = reinterpret_cast<void (*)(void*, void*)>(target(id).orig);
     if (!asli)
         return;
     if (!fitur().makanan) {
+        asli(self, method);
+        return;
+    }
+    const Field& bidangPemain = fieldPemainMakan<id>();
+    if (bidangPemain.field && !pemainLokalHook(bacaPtr(self, bidangPemain))) {
         asli(self, method);
         return;
     }
@@ -35,6 +52,7 @@ template <TargetId id> void hookAkhirMakan(void* self, void* method) {
 }
 
 template <TargetId id> void pasangAkhirMakan() {
+    cariField(kelasDari(target(id).cls), "m", fieldPemainMakan<id>());
     pasangHook(target(id), reinterpret_cast<void*>(hookAkhirMakan<id>));
 }
 

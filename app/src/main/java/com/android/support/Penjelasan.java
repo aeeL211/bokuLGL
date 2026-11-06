@@ -86,16 +86,19 @@ public final class Penjelasan {
                         + "luar -1024..1024 ditolak.";
             case 23:
                 return "Mengalikan speed.add.x pemain lokal tepat sebelum Pos__Check menghitung "
-                        + "langkah berikutnya, lalu nilai aslinya dikembalikan. Batas jarak kamera "
-                        + "ikut diskalakan selama kamera memperbarui posisi, jadi kamera tetap "
-                        + "mengikuti pada kecepatan tinggi. Rentang 0,5x sampai 5,0x; ketuk angka "
-                        + "untuk kembali ke 1,0x.";
+                        + "langkah berikutnya, lalu nilai aslinya dikembalikan. Hasil skala dibatasi "
+                        + "ke ±_speed.limit game, yaitu pixel_Size - 1 atau 15 satuan, jadi langkah "
+                        + "tidak pernah melewati satu tile. Langkah normal sudah menyentuh batas itu "
+                        + "di sekitar 2,6x, jadi di atas angka tersebut slider tetap bisa dinaikkan "
+                        + "tetapi jarak per frame tidak bertambah. Rentang 0,5x sampai 5,0x; ketuk "
+                        + "angka untuk kembali ke 1,0x.";
             case 24:
                 return "Menskalakan komponen turun speed.add.y pemain lokal tepat sebelum "
                         + "Pos__Check, jadi berlaku untuk semua gerakan termasuk terbang, "
-                        + "berenang, dan meluncur. 0,0x membuang tarikan turun sehingga pemain "
-                        + "melayang, tetapi dorongan lompat tetap ada; naikkan lagi untuk turun. "
-                        + "Rentang 0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
+                        + "berenang, dan meluncur. Gerak turun juga dibatasi ke ±_speed.limit game "
+                        + "supaya tidak melompati satu tile. 0,0x membuang tarikan turun sehingga "
+                        + "pemain melayang, tetapi dorongan lompat tetap ada; naikkan lagi untuk "
+                        + "turun. Rentang 0,0x sampai 3,0x; ketuk angka untuk kembali ke 1,0x.";
             case 27:
                 return "Batas geser posisi skin X/Y dan potret: 5 sampai 100. Nilai 25 berarti "
                         + "-25..+25 dan 5 berarti bawaan game -5..+5. Nilai baru dipakai saat "

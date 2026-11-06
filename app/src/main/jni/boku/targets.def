@@ -101,4 +101,3 @@ T_DETECT_SET|Physics__Detect|_Set|3|
 T_POS_CHECK|Physics__Manager|Pos__Check|1|
 # Kamera pemain. Pos__Update dipanggil sekali per frame; batas jarak kamera
 # diskalakan selama panggilan supaya kamera tetap mengejar pemain cepat.
-T_CAMERA_FOLLOW|Camera__Manager|Pos__Update|1|

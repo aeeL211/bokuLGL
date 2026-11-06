@@ -111,12 +111,17 @@ void lemparSekarang(void* sendiri, bool keAtas) {
 // bidikannya tanpa menahan entri yang berulang.
 void setelArahCharge(void* sendiri, bool keAtas) {
     void* manajer = bacaPtr(sendiri, fieldManajer);
-    if (!manajer)
+    if (!manajer || !pemainLokalHook(manajer))
         return;
     Lemparan& lemparan = lemparanUntuk(manajer);
     if (lemparan.keAtas != keAtas)
         lemparan.frameCharge = 0;
     lemparan.keAtas = keAtas;
+}
+
+bool kotoranLokal(void* sendiri) {
+    void* manajer = bacaPtr(sendiri, fieldManajer);
+    return manajer && pemainLokalHook(manajer);
 }
 
 void hookChargeStd(void* sendiri, void* metode) {
@@ -150,6 +155,10 @@ void hookAksiStd(void* sendiri, float kekuatan, void* metode) {
         asli(sendiri, kekuatan, metode);
         return;
     }
+    if (!kotoranLokal(sendiri)) {
+        asli(sendiri, kekuatan, metode);
+        return;
+    }
     tandaiLemparan(sendiri, false);
     setelTahanTangan(true);
     asli(sendiri, kKekuatanPenuh, metode);
@@ -162,6 +171,10 @@ void hookAksiUp(void* sendiri, float kekuatan, void* metode) {
     if (!asli)
         return;
     if (!fitur().kotoran) {
+        asli(sendiri, kekuatan, metode);
+        return;
+    }
+    if (!kotoranLokal(sendiri)) {
         asli(sendiri, kekuatan, metode);
         return;
     }
@@ -183,7 +196,7 @@ void hookUpdateLempar(void* sendiri, void* metode) {
         return;
 
     void* manajer = bacaPtr(sendiri, fieldManajer);
-    if (!manajer || !tombolAksiDitekan(manajer))
+    if (!manajer || !pemainLokalHook(manajer) || !tombolAksiDitekan(manajer))
         return;
     Lemparan& lemparan = lemparanUntuk(manajer);
     if (iramaSiap(lemparan))
@@ -204,7 +217,7 @@ void hookUpdateCharge(void* sendiri, void* metode) {
         return;
 
     void* manajer = bacaPtr(sendiri, fieldManajer);
-    if (!manajer || !tombolAksiDitekan(manajer))
+    if (!manajer || !pemainLokalHook(manajer) || !tombolAksiDitekan(manajer))
         return;
     Lemparan& lemparan = lemparanUntuk(manajer);
     if (lemparan.frameCharge == 0) {

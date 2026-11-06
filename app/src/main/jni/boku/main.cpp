@@ -79,6 +79,7 @@ void* pekerja(void*) {
     pasangHookSandi();
     pasangHookRentangSkin();
     pasangHookTentang();
+    cariFieldPemainLokal();
     pasangHookTangan();
     pasangHookMakanan();
     pasangHookPrivasi();

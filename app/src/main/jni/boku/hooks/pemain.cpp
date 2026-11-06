@@ -25,7 +25,6 @@ struct Vektor2 {
 
 using FnDeteksi = void (*)(void*, void**, int32_t, float, float, void*);
 using FnPosCheck = void (*)(void*, void**, void*);
-using FnKamera = void (*)(void*, bool, void*);
 
 // Batas yang dipakai No Clip. Nilainya jauh di luar ukuran dunia mana pun, jadi
 // pemeriksaan tabrakan tidak pernah menyempitkannya lagi.
@@ -37,12 +36,11 @@ Field fieldPemainLokal = {};
 Field fieldAktorFisika = {};
 Field fieldDeteksiAktor = {};
 
-// Kamera membaca batas jarak dari Physics__Manager._speed.limit. Batas itu
-// juga dipakai Speed_Limit, jadi hanya diubah selama Pos__Update kamera.
-Field fieldAktorKamera = {};
-Field fieldFisikaKamera = {};
-Field fieldBatasKamera = {};
-Field fieldBatasKameraNilai = {};
+// Batas langkah yang dipakai Speed_Limit game. Nilainya sama dengan
+// _Tile.pixel_Size - 1 dan juga dibaca kamera sebagai jarak maksimum sebelum
+// bergerak, jadi hasil skala kecepatan harus tetap berada di dalamnya.
+Field fieldBatasKecepatan = {};
+Field fieldBatasKecepatanNilai = {};
 
 // Tinggi dunia dipakai untuk menerjemahkan Y menu ke Y UI game.
 // Tile__Manager.Display__Y menghitung Y UI = Y tile - h/2, jadi
@@ -535,6 +533,24 @@ float ambilKelipatan(int32_t nilai, float minimum, float maksimum) {
     return hasil;
 }
 
+// Speed_Limit game membatasi speed.add.x dan speed.add.y ke ±_speed.limit
+// sebelum Pos__Check. Hasil skala mod memakai batas yang sama supaya langkah
+// tidak pernah melewati satu tile; kalau lewat, border dan tile di antaranya
+// tidak sempat diperbarui dan render ikut rusak.
+float batasLangkah(void* manajerFisika) {
+    return bacaFloat(bacaPtr(manajerFisika, fieldBatasKecepatan), fieldBatasKecepatanNilai);
+}
+
+float batasiLangkah(float nilai, float batas) {
+    if (!std::isfinite(batas) || batas <= 0.0f)
+        return nilai;
+    if (nilai > batas)
+        return batas;
+    if (nilai < -batas)
+        return -batas;
+    return nilai;
+}
+
 // Physics__Manager.a menunjuk Manager, dan Manager.player adalah pemain lokal.
 // Pos__Check dipanggil untuk setiap badan fisika, jadi hook hanya menyentuh
 // badan yang sama dengan Player__Manager.phy milik pemain lokal.
@@ -574,46 +590,18 @@ void hookPosCheck(void* sendiri, void** fisika, void* metode) {
         return;
     }
 
+    float batas = batasLangkah(sendiri);
     if (kelipatan != 1.0f)
-        tulisFloat(tambahan, fieldKecepatanAddX, asliX * kelipatan);
+        tulisFloat(tambahan, fieldKecepatanAddX, batasiLangkah(asliX * kelipatan, batas));
     // Hanya gerak turun yang mengikuti slider gravitasi. Dorongan naik dari
     // lompatan dibiarkan, jadi 0,0x membuat pemain melayang.
     if (rasio != 1.0f && asliY < 0.0f)
-        tulisFloat(tambahan, fieldKecepatanAddY, asliY * rasio);
+        tulisFloat(tambahan, fieldKecepatanAddY, batasiLangkah(asliY * rasio, batas));
 
     asli(sendiri, fisika, metode);
 
     tulisFloat(tambahan, fieldKecepatanAddX, asliX);
     tulisFloat(tambahan, fieldKecepatanAddY, asliY);
-}
-
-// Camera__Manager.Pos__Update(bool) memakai Physics__Manager._speed.limit
-// sebagai jarak maksimum sebelum kamera bergerak. Selama panggilan itu batasnya
-// diskalakan bersama kecepatan pemain lalu dikembalikan, jadi smoothing kamera
-// tetap bekerja dan kamera tidak tertinggal saat pemain memakai 5,0x.
-void hookKamera(void* sendiri, bool batasKecepatan, void* metode) {
-    auto asli = reinterpret_cast<FnKamera>(target(T_CAMERA_FOLLOW).orig);
-    if (!asli)
-        return;
-
-    float kelipatan = ambilKelipatan(fitur().kecepatanPemain.load(), 0.5f, 5.0f);
-    void* manajer = sendiri ? bacaPtr(sendiri, fieldAktorKamera) : nullptr;
-    void* fisika = manajer ? bacaPtr(manajer, fieldFisikaKamera) : nullptr;
-    void* batas = fisika ? bacaPtr(fisika, fieldBatasKamera) : nullptr;
-    if (kelipatan == 1.0f || !batas) {
-        asli(sendiri, batasKecepatan, metode);
-        return;
-    }
-
-    float asliBatas = bacaFloat(batas, fieldBatasKameraNilai);
-    if (!std::isfinite(asliBatas) || asliBatas <= 0.0f) {
-        asli(sendiri, batasKecepatan, metode);
-        return;
-    }
-
-    tulisFloat(batas, fieldBatasKameraNilai, asliBatas * kelipatan);
-    asli(sendiri, batasKecepatan, metode);
-    tulisFloat(batas, fieldBatasKameraNilai, asliBatas);
 }
 
 // Kotak gerak dari tile dipakai pemain saat melangkah, jadi sisi kiri, kanan,
@@ -738,25 +726,6 @@ bool cariFieldMargin() {
            cariField(kelasMargin, "right", fieldMarginKanan);
 }
 
-// Kamera memakai Manager.phy._speed.limit. Bila salah satu field hilang,
-// hook kamera dilewati dan kamera kembali ke perilaku bawaan game.
-bool cariFieldKamera() {
-    void* kelasKamera = cariKelas("Camera__Manager");
-    if (!cariField(kelasKamera, "a", fieldAktorKamera) ||
-        !cariField(kelasField(fieldAktorKamera), "phy", fieldFisikaKamera) ||
-        !cariField(kelasField(fieldFisikaKamera), "_speed", fieldBatasKamera) ||
-        !cariField(kelasField(fieldBatasKamera), "limit", fieldBatasKameraNilai)) {
-        fieldAktorKamera = {};
-        fieldFisikaKamera = {};
-        fieldBatasKamera = {};
-        fieldBatasKameraNilai = {};
-        LOGE("Field kamera tidak lengkap; kamera tidak mengikuti kecepatan pemain");
-        return false;
-    }
-    LOGI("Field kamera siap");
-    return true;
-}
-
 // Manager.tile._world_Size.h adalah tinggi dunia dalam tile, sumber yang sama
 // dengan Tile__Manager.Display__Y saat daftar zona belum siap. Field ini dipakai
 // untuk menerjemahkan Y menu ke Y UI game; bila hilang, Y tile dipakai apa
@@ -776,6 +745,26 @@ bool cariFieldDunia() {
 }
 
 } // namespace
+
+// Field pembanding pemain lokal dicari sebelum hook fitur dipasang, supaya hook
+// yang berjalan untuk semua pemain sudah bisa membedakan badan tamu sejak
+// panggilan pertama. Dipanggil juga oleh pasangHookPemain.
+void cariFieldPemainLokal() {
+    void* kelasManajer = kelasDari("Player__Manager");
+    cariField(kelasManajer, "a", fieldAktorPemain);
+    cariField(kelasField(fieldAktorPemain), "player", fieldPemainLokal);
+}
+
+// Pembanding untuk hook yang berjalan pada state milik semua pemain. Selama
+// field pembanding belum siap, fitur dibiarkan berjalan seperti sebelumnya agar
+// tidak mati diam-diam ketika nama field berubah.
+bool pemainLokalHook(void* manajer) {
+    if (!manajer)
+        return false;
+    if (!fieldAktorPemain.field || !fieldPemainLokal.field)
+        return true;
+    return pemainLokal(manajer);
+}
 
 // Dipanggil di akhir update pemain lokal, di thread game, karena posisi dan
 // fisika game tidak boleh disentuh dari thread menu.
@@ -852,22 +841,30 @@ void salinPosisiPemain(char* keluaran, size_t ukuran) {
 
 void pasangHookGerak() {
     // Pos__Check dipanggil untuk semua badan fisika, jadi butuh Physics__Manager.a
-    // untuk mengenali pemain lokal. Kecepatan dan gravitasi memakai titik yang sama.
-    if (!cariField(cariKelas("Physics__Manager"), "a", fieldAktorFisika))
+    // untuk mengenali pemain lokal. Kecepatan dan gravitasi memakai titik yang sama,
+    // dan batas langkahnya dibaca dari Physics__Manager._speed.limit milik game.
+    void* kelasFisikaManajer = cariKelas("Physics__Manager");
+    if (!cariField(kelasFisikaManajer, "a", fieldAktorFisika))
         LOGE("Field fisika manajer tidak ditemukan; Kecepatan dan Gravitasi pemain nonaktif");
     else if (!fieldKecepatanAdd.field || !fieldKecepatanAddX.field || !fieldKecepatanAddY.field)
         LOGE("Field speed.add tidak lengkap; Kecepatan dan Gravitasi pemain nonaktif");
-    else
+    else {
+        if (cariField(kelasFisikaManajer, "_speed", fieldBatasKecepatan) &&
+            cariField(kelasField(fieldBatasKecepatan), "limit", fieldBatasKecepatanNilai))
+            LOGI("Field batas kecepatan siap");
+        else {
+            fieldBatasKecepatan = {};
+            fieldBatasKecepatanNilai = {};
+            LOGE("Field batas kecepatan tidak ditemukan; langkah mengikuti batas game saja");
+        }
         pasangHook(target(T_POS_CHECK), reinterpret_cast<void*>(hookPosCheck));
-
-    if (cariFieldKamera())
-        pasangHook(target(T_CAMERA_FOLLOW), reinterpret_cast<void*>(hookKamera));
+    }
 }
 
 void pasangHookPemain() {
+    cariFieldPemainLokal();
     void* kelasManajer = kelasDari("Player__Manager");
-    if (!cariField(kelasManajer, "a", fieldAktorPemain) ||
-        !cariField(kelasField(fieldAktorPemain), "player", fieldPemainLokal)) {
+    if (!fieldAktorPemain.field || !fieldPemainLokal.field) {
         LOGE("Field pemain tidak lengkap, Teleport, Kecepatan, Gravitasi, dan No Clip nonaktif");
         return;
     }

@@ -87,15 +87,20 @@ fitur untuk membaca penjelasan singkatnya.
 - **Kecepatan pemain** 0,5x sampai 5,0x dengan langkah 0,1x dan bawaan 1,0x. Nilai ini mengalikan
   `speed.add.x` pemain lokal tepat sebelum `Physics__Manager.Pos__Check` menghitung langkah
   berikutnya, lalu nilai aslinya dikembalikan. Karena yang dikali hanya tambahan langkah,
-  pengali tidak menumpuk dan badan fisika lain tidak ikut tersentuh. Batas jarak kamera
-  (`Physics__Manager._speed.limit`) ikut diskalakan selama `Camera__Manager.Pos__Update`, jadi
-  kamera tetap mengejar pemain cepat tanpa mematikan smoothing-nya.
+  pengali tidak menumpuk dan badan fisika lain tidak ikut tersentuh. Hasil skala dibatasi ke
+  `±Physics__Manager._speed.limit`, batas yang sama dengan `Speed_Limit` game dan bernilai
+  `_Tile.pixel_Size - 1` (15 satuan). Langkah normal hanya beberapa satuan per frame, jadi di
+  atas sekitar 2,6x hasilnya sudah menyentuh batas itu: slider tetap bisa dinaikkan sampai 5,0x,
+  tetapi jarak per frame tidak bertambah lagi. Batas ini wajib, karena langkah yang melewati satu
+  tile membuat tile di antaranya tidak ikut diperiksa dan render mulai rusak.
 - **Gravitasi pemain** 0,0x sampai 3,0x dengan langkah 0,1x dan bawaan 1,0x. Semua gerakan pemain
   lewat `Physics__Manager.Pos__Check`, jadi yang diskalakan adalah komponen turun `speed.add.y`
   tepat sebelum langkah dihitung, lalu nilai aslinya dikembalikan. Ini berlaku juga saat terbang,
-  berenang, memanjat turun, dan meluncur, bukan hanya saat jatuh biasa. Nilai 0,0x membuang gerak
-  turun sehingga pemain melayang di ketinggian sekarang; dorongan naik dari lompatan tetap
-  diberikan, jadi pemain bisa terus naik sampai gravitasi dinaikkan lagi.
+  berenang, memanjat turun, dan meluncur, bukan hanya saat jatuh biasa. Komponen turun memakai
+  batas `±Physics__Manager._speed.limit` yang sama seperti kecepatan, jadi jatuh yang dipercepat
+  tidak pernah melompati satu tile. Nilai 0,0x membuang gerak turun sehingga pemain melayang di
+  ketinggian sekarang; dorongan naik dari lompatan tetap diberikan, jadi pemain bisa terus naik
+  sampai gravitasi dinaikkan lagi.
 - Ketuk angka di kanan slider **Kecepatan pemain** atau **Gravitasi pemain** untuk
   mengembalikan slider ke 1,0x sekaligus mengirim nilai bawaannya ke hook.
 - **Pindahkan pemain** memindahkan pemain ke titik X/Y yang diisi di menu. X adalah koordinat tile
@@ -123,9 +128,11 @@ fitur untuk membaca penjelasan singkatnya.
   pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
   hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
-- Kecepatan, gravitasi, dan kamera hanya berlaku untuk pemain lokal. Nilai asli game tidak
-  ditimpa permanen: pengali dipasang selama satu panggilan method game lalu nilainya
-  dikembalikan.
+- Kecepatan, gravitasi, teleport, dan No Clip hanya berlaku untuk pemain lokal. Fitur yang
+  berjalan pada state yang sama untuk semua pemain di dalam room — tembak berulang, amunisi
+  buster penuh, kotoran, makanan tetap di tangan, dan tidak terpental — juga hanya menyentuh
+  pemain lokal; badan tamu memakai perilaku bawaan game. Nilai asli game tidak ditimpa permanen:
+  pengali dipasang selama satu panggilan method game lalu nilainya dikembalikan.
 - Gravitasi bekerja dengan menskalakan seluruh komponen turun `speed.add.y`, jadi gerakan turun
   yang disengaja seperti menyelam, meluncur, atau memanjat turun ikut melambat. Nilai 0,0x
   membuang semua gerak turun; dorongan naik dari lompatan tetap dipertahankan. Naikkan gravitasi
@@ -163,7 +170,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 88 dari 88 metode ditemukan
+Scan selesai: 87 dari 87 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap
@@ -171,12 +178,12 @@ Field daftar pemain siap
 Field pemain OK
 Field tinggi dunia siap
 Field ukuran tile siap
-Field kamera siap
+Field batas kecepatan siap
 Field tembus dinding siap
-Hook terpasang: 68
+Hook terpasang: 67
 ```
 
-Bila `Hook terpasang` jauh di bawah 68, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 67, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

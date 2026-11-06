@@ -25,6 +25,15 @@ void pasangHookSpoof();
 void pasangHookRoom();
 void pasangHookPemain();
 
+// Bernilai benar bila manajer pemain ini adalah pemain lokal. Dipakai hook yang
+// berjalan untuk semua pemain supaya fitur tidak menyentuh badan tamu. Selama
+// field pembanding belum siap, hasilnya benar agar fitur tidak mati diam-diam.
+bool pemainLokalHook(void* manajer);
+
+// Mencari dua field pembanding pemain lokal. Dipanggil sebelum hook fitur
+// dipasang, lalu diulang oleh pasangHookPemain.
+void cariFieldPemainLokal();
+
 // Dipanggil dari hook update pemain, di thread game. Menangani Teleport dan
 // No Clip hanya untuk pemain lokal.
 void saatUpdatePemain(void* manajer);

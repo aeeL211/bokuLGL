@@ -56,6 +56,11 @@ void hookGantiHh(void* sendiri, int32_t id, void* metode) {
         return;
     }
     asli(sendiri, id, metode);
+    // Hh__Change juga dijalankan untuk tamu di dalam room. Cache tangan hanya
+    // boleh mengikuti pemain lokal, kalau tidak akhir makan tamu bisa menyusun
+    // ulang tangan pemain sendiri.
+    if (!pemainLokalHook(sendiri))
+        return;
     pemilikTangan = sendiri;
     idTangan = id;
 }
