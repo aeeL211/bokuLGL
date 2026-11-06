@@ -33,6 +33,7 @@ void hookTerpental(void* self, int32_t a, float b, float c, int32_t d, void* met
 
 void pasangHookTerpental() {
     if (!cariField(kelasDari("Player__State__Std__Air"), "m", fieldManajer))
-        LOGE("Field pemain state udara tidak ditemukan; Terpental tetap berlaku untuk semua pemain");
+        LOGE(
+            "Field pemain state udara tidak ditemukan; Terpental tetap berlaku untuk semua pemain");
     pasangHook(target(T_TUMBLE_EXPLODE), reinterpret_cast<void*>(hookTerpental));
 }

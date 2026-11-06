@@ -245,8 +245,7 @@ void hookUpdateAkhirBuster(void* sendiri, void* metode) {
     auto aksi = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
     void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
     void* cmn = bacaPtr(sendiri, fieldSenjataCmn);
-    if (!arahAkhir || !aksi || !cmn || !senjataLokal(manajer) ||
-        !tombolAksiDitekan(manajer)) {
+    if (!arahAkhir || !aksi || !cmn || !senjataLokal(manajer) || !tombolAksiDitekan(manajer)) {
         asli(sendiri, metode);
         return;
     }
