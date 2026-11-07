@@ -66,23 +66,24 @@ Pemeriksaan tambahan:
 
 ## Status CI
 
-Run GitHub Actions `42326940382` untuk commit `47337e9` (refaktor native,
-perbaikan `kelasString`, pembaruan UI Java, dan perbaikan No Clip):
+Run GitHub Actions `42328452186` untuk commit `6440c8b` (refaktor native,
+perbaikan `kelasString`, pembaruan UI Java, perbaikan No Clip, dan tag native
+`BK_Native`):
 
-- Build `build`: **sukses** dalam 1m24s.
+- Build `build`: **sukses** dalam 1m6s.
 - `Verify native library inside the APK`: **sukses**; ELF64 AArch64, hanya
   `JNI_OnLoad` yang diekspor, tidak ada simbol ShadowHook, dan tidak bergantung
   pada `libshadowhook.so`.
-- Format `format`: **sukses** dalam 14s.
-- APK: `bokuLGL-debug.apk`, 553.325 byte,
-  SHA-256 `1da35bb944c3937cd2c221712a0d9e717b36ab16f5fd522c5ec9f23da2dfbc01`.
+- Format `format`: **sukses** dalam 15s.
+- APK: `bokuLGL-debug.apk`, 553.453 byte,
+  SHA-256 `d2c3724bf1c342a4d512c6f4b692117ffcff40b51c38777f56b403599b27aadb`.
 
 Artefak di `artifacts/bokuLGL/` sudah diperbarui dari run yang sama:
 
 | Berkas | Ukuran | SHA-256 |
 |---|---|---|
-| `bokuLGL-debug.apk` | 553.325 | `1da35bb944c3937cd2c221712a0d9e717b36ab16f5fd522c5ec9f23da2dfbc01` |
-| `lib/arm64-v8a/libboku.so` | 269.792 | `6535ca459dc95b87daa4b792e81701b8faacc977303ba4ceb832c3dd54834a83` |
+| `bokuLGL-debug.apk` | 553.453 | `d2c3724bf1c342a4d512c6f4b692117ffcff40b51c38777f56b403599b27aadb` |
+| `lib/arm64-v8a/libboku.so` | 269.920 | `cea00688b8646646fe0b4f0054e6b108fedd304f91020a22f9988676a8251463` |
 | `classes5.dex` | 2.388 | `83958a35a57363fb9ad49988ce5b91e0d1fd01a1d64ca1d10d4c2685db95c87c` |
 | `classes6.dex` | 140.912 | `29447d80fb93d8687de4a2b53b16aba1d3d5bfde9238387effb3e7e2a3e4b5eb` |
 
@@ -90,7 +91,9 @@ Artefak di `artifacts/bokuLGL/` sudah diperbarui dari run yang sama:
 `classes2.dex`, dan `lib/` diekstrak apa adanya dari APK. Tidak ada salinan
 `libboku.so` kedua di akar `artifacts/bokuLGL/`. APK ini juga memuat perubahan
 UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
-`TombolSudut`, `Transisi`) dan perbaikan No Clip pada commit `47337e9`.
+`TombolSudut`, `Transisi`), perbaikan No Clip pada commit `47337e9`, dan tag
+log native `BK_Native` pada commit `6440c8b`. Tag log Java tetap `Mod_Menu`
+dan diserahkan ke agent Java.
 
 Perbaikan No Clip: `bebaskanDinding` sekarang hanya memperlebar entri
 `margin[waktu]` yang sedang dihitung `Physics__Detect._Set`. Sebelumnya semua
@@ -101,7 +104,7 @@ sehingga sisa entri tetap terbuka setelah sakelar dimatikan.
 
 | Kriteria | Status | Bukti |
 |---|---|---|
-| Build CI bersih | Lulus | Run `42326940382` sukses; `build` 1m24s dan `format` 14s |
+| Build CI bersih | Lulus | Run `42328452186` sukses; `build` 1m6s dan `format` 15s |
 | `libboku.so` tetap satu-satunya pustaka native | Lulus | Langkah verifikasi APK CI sukses; APK hanya memuat `lib/arm64-v8a/libboku.so` |
 | Tabel JNI sama | Lulus lokal | 12 metode di 3 kelas, `verify_refactor.py` |
 | Urutan hook sama | Lulus lokal | 73 pemasangan runtime, `verify_refactor.py` |
