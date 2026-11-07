@@ -45,7 +45,11 @@ PosisiRingkas posisiRingkas = {};
 std::atomic<double> posisiDiminta{0.0};
 
 bool antrekan(pemain::Aksi::Jenis jenis, const char* kunci, const char* nama) {
-    if (!layananSiap.load() || !kunci || !*kunci || std::strlen(kunci) >= pemain::kKarakterKunci)
+    bool butuhKunci = jenis == pemain::Aksi::Jenis::Tendang ||
+                      jenis == pemain::Aksi::Jenis::TendangPermanen ||
+                      jenis == pemain::Aksi::Jenis::Salin;
+    if (!layananSiap.load() || (butuhKunci && (!kunci || !*kunci)) ||
+        (kunci && std::strlen(kunci) >= pemain::kKarakterKunci))
         return false;
 
     std::lock_guard<std::mutex> tahan(kunciAksi);
@@ -53,7 +57,7 @@ bool antrekan(pemain::Aksi::Jenis jenis, const char* kunci, const char* nama) {
     if (diterima) {
         pemain::Aksi& aksi = antrean[jumlahAntrean++];
         aksi.jenis = jenis;
-        std::snprintf(aksi.kunci, sizeof(aksi.kunci), "%s", kunci);
+        std::snprintf(aksi.kunci, sizeof(aksi.kunci), "%s", kunci ? kunci : "");
         std::snprintf(aksi.nama, sizeof(aksi.nama), "%s", nama && *nama ? nama : kunci);
     }
     return diterima;
@@ -106,8 +110,16 @@ void salinDaftar(char* keluaran, std::size_t ukuran) {
     }
 }
 
-bool antrekanTendang(const char* kunci, const char* nama) {
-    return antrekan(Aksi::Jenis::Tendang, kunci, nama);
+bool antrekanTendang(const char* kunci, const char* nama, bool permanen) {
+    return antrekan(permanen ? Aksi::Jenis::TendangPermanen : Aksi::Jenis::Tendang, kunci, nama);
+}
+
+bool antrekanTendangHost(const char* nama) {
+    return antrekan(Aksi::Jenis::TendangHost, nullptr, nama);
+}
+
+bool antrekanTendangSemua() {
+    return antrekan(Aksi::Jenis::TendangSemua, nullptr, "semua tamu");
 }
 
 bool antrekanSalin(const char* kunci, const char* nama) {

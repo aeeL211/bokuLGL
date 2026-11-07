@@ -19,8 +19,12 @@ public final class Penjelasan {
 
         if (n.contains("pemain di room"))
             return "Menampilkan host, pemain sendiri, dan tamu yang sedang ada di room. "
-                    + "Ketuk kartu untuk memilih, lalu salin skin atau tendang tamu dari sini. "
-                    + "Daftar dibaca sekali per detik selama barisnya terlihat.";
+                    + "Ketuk Kick untuk tendangan sementara; tahan tombolnya untuk tendangan "
+                    + "permanen yang juga menghapus tamu dari daftar. Kartu host punya tombol "
+                    + "Kick host yang mengirim paket berulang, bisa membuat host lag lalu keluar "
+                    + "dan menutup room. Tombol Kick semua menendang seluruh tamu secara "
+                    + "permanen tanpa menyentuh host atau pemain sendiri. Daftar dibaca sekali "
+                    + "per detik selama barisnya terlihat.";
         if (n.contains("posisi pemain"))
             return "Menampilkan tile dan koordinat dunia pemain sekali per detik selama "
                     + "barisnya terlihat. Tile Y memakai satuan UI game, jadi 0 adalah tengah "

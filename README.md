@@ -49,8 +49,15 @@ fitur untuk membaca penjelasan singkatnya.
   nama pemiliknya ke `Name.txt` slot itu. Model dicatat di memori saat tamu masuk room; bila
   tamu itu sudah ada sebelum mod dimuat, modelnya dibaca dari daftar tamu yang sedang hidup.
   Tidak ada skin yang tersimpan tanpa tombol ditekan.
-- **Tendang** hanya muncul untuk tamu, dan mengirim paket tendang serta paket penghapusan tamu
-  sebagai host, sama seperti tombol tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
+- **Kick** hanya muncul untuk tamu. Ketuk tombolnya untuk tendangan sementara: hanya paket
+  tendang yang dikirim, jadi tamu menerima pemberitahuan tanpa dihapus dari daftar. Tahan
+  tombolnya untuk tendangan permanen: paket tendang dan paket penghapusan tamu dikirim sebagai
+  host, sama seperti tombol tendang bawaan. Hasil setiap aksi dikabarkan lewat toast.
+- **Kick host** muncul di kartu host. Tombol ini mengirim paket tendang dan penghapusan tamu
+  berulang ke kunci host, sebagai host. Host bisa lag lalu keluar dari room, dan room akan
+  ditutup. Jangan dipakai di room yang masih ingin dipertahankan.
+- **Kick semua** ada di header daftar pemain. Satu tekan menendang setiap tamu secara permanen;
+  host dan pemain sendiri tidak ikut. Konfirmasi ditampilkan sebelum paket dikirim.
 - Pesan pribadi ikut tampil di chat room sebagai `[PM -> nama penerima]` dan dicatat di log.
 
 **Nama dan Profil**
@@ -135,6 +142,11 @@ fitur untuk membaca penjelasan singkatnya.
   pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
   hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
+- **Kick host** bergantung pada cara host memproses paket tendang untuk kunci dirinya sendiri.
+  Bila host menolak atau mengabaikan paket berulang, tombol hanya menambah lalu lintas paket dan
+  host tidak keluar. Burst juga bisa membuat perangkat pengirim tersendat sebentar.
+- **Kick semua** bekerja pada daftar tamu saat aksi dijalankan; tamu yang masuk sesudahnya tidak
+  ikut terkena sampai tombol ditekan lagi.
 - **Bangun dan hancurkan di room orang lain** hanya melewati izin build/destroy per-tamu.
   Kamu tetap harus sudah diterima host, tile di area yang dilindungi tetap tidak bisa dihapus,
   dan perubahan pintu yang sudah ada lewat `Tile__Modify__Door` tetap ditolak karena jalur itu

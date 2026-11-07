@@ -19,7 +19,7 @@ struct Ringkas {
 };
 
 struct Aksi {
-    enum class Jenis { Tendang, Salin };
+    enum class Jenis { Tendang, TendangPermanen, TendangHost, TendangSemua, Salin };
 
     Jenis jenis;
     char kunci[kKarakterKunci];
@@ -38,7 +38,9 @@ void simpanDaftar(const Ringkas* data, int jumlah);
 void salinDaftar(char* keluaran, std::size_t ukuran);
 
 // Antrean aksi menu. Antrean berbatas dan tidak memblokir thread UI.
-bool antrekanTendang(const char* kunci, const char* nama);
+bool antrekanTendang(const char* kunci, const char* nama, bool permanen);
+bool antrekanTendangHost(const char* nama);
+bool antrekanTendangSemua();
 bool antrekanSalin(const char* kunci, const char* nama);
 bool ambilAksi(Aksi& keluar);
 

@@ -114,7 +114,11 @@ public class Menu {
     // kosong bila game tidak menyediakan field tile.
     native String PosisiPemain();
 
-    native boolean TendangPemain(String kunci, String nama);
+    native boolean TendangPemain(String kunci, String nama, boolean permanen);
+
+    native boolean TendangHost(String nama);
+
+    native boolean TendangSemua();
 
     native boolean SalinSkinPemain(String kunci, String nama);
 
@@ -1435,7 +1439,8 @@ public class Menu {
         container.addView(judulBaris);
 
         TextView petunjuk = Theme.teks(getContext,
-                "Ketuk kartu untuk memilih. Salin skin atau tendang tamu dari sini.",
+                "Ketuk kartu untuk memilih. Ketuk Kick untuk sementara, tahan untuk permanen. "
+                        + "Kick host ada di kartu host.",
                 Theme.DESC_SP, Theme.MUTED);
         petunjuk.setPadding(dp(4), dp(2), dp(4), dp(6));
         container.addView(petunjuk);
@@ -1446,6 +1451,29 @@ public class Menu {
 
         // Daftar sudah dibaca ulang tiap detik. Tombol ini membaca seketika dan
         // memberi tanda jelas (memuat, lalu "Diperbarui") bahwa daftarnya baru.
+        Button kickSemua = tombolKecil("Kick semua", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                konfirmasi("Kick semua", "Tendang semua tamu secara permanen? Host dan kamu "
+                                + "tidak ikut.", "Kick semua", new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean diterima;
+                        try {
+                            diterima = TendangSemua();
+                        } catch (Throwable t) {
+                            diterima = false;
+                        }
+                        if (!diterima)
+                            Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                                    Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        }, false);
+        kickSemua.setContentDescription("Kick semua tamu");
+        judulBaris.addView(kickSemua);
+
         TombolMuatUlang muatUlang = new TombolMuatUlang(getContext, PolaIkon.ULANG, new Runnable() {
             @Override
             public void run() {
@@ -1616,13 +1644,20 @@ public class Menu {
                             Toast.LENGTH_SHORT).show();
             }
         }));
-        if ("tamu".equals(peran)) {
-            aksi.addView(tombolKecil("Tendang", new View.OnClickListener() {
+        if ("host".equals(peran)) {
+            aksi.addView(tombolKecil("Kick host", new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    konfirmasiKickHost(nama);
+                }
+            }));
+        } else if ("tamu".equals(peran)) {
+            Button kick = tombolKecil("Kick", new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     boolean diterima;
                     try {
-                        diterima = TendangPemain(kunci, nama);
+                        diterima = TendangPemain(kunci, nama, false);
                     } catch (Throwable t) {
                         diterima = false;
                     }
@@ -1630,10 +1665,53 @@ public class Menu {
                         Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                                 Toast.LENGTH_SHORT).show();
                 }
-            }));
+            });
+            kick.setContentDescription("Kick sementara " + nama);
+            kick.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    boolean diterima;
+                    try {
+                        diterima = TendangPemain(kunci, nama, true);
+                    } catch (Throwable t) {
+                        diterima = false;
+                    }
+                    Toast.makeText(Menu.this.getContext, diterima
+                                    ? "Kick permanen diantrekan"
+                                    : "Antrean penuh, coba lagi",
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+            });
+            aksi.addView(kick);
         }
         baris.addView(aksi);
         return baris;
+    }
+
+    private void konfirmasiKickHost(final String nama) {
+        konfirmasi("Kick host", "Paket kick akan dikirim berulang ke host. Host bisa lag lalu "
+                + "keluar dari room, dan room akan ditutup. Lanjutkan?", "Kick host",
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean diterima;
+                        try {
+                            diterima = TendangHost(nama);
+                        } catch (Throwable t) {
+                            diterima = false;
+                        }
+                        if (!diterima)
+                            Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                                    Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void konfirmasi(String judul, String pesan, String label, final Runnable aksi) {
+        dialogMenu.tampilkan(judul, pesan, null, null,
+                new DialogMenu.Tombol(label, aksi), null,
+                new DialogMenu.Tombol("Batal", null), true);
     }
 
     private void segarkanPilihan(IsiDaftar isi) {
@@ -1645,6 +1723,10 @@ public class Menu {
     }
 
     private Button tombolKecil(String teks, View.OnClickListener pendengar) {
+        return tombolKecil(teks, pendengar, true);
+    }
+
+    private Button tombolKecil(String teks, View.OnClickListener pendengar, boolean berat) {
         Button tombol = new Button(getContext);
         tombol.setText(teks);
         tombol.setTextSize(13f);
@@ -1660,8 +1742,9 @@ public class Menu {
         tombol.setPadding(dp(8), 0, dp(8), 0);
         tombol.setStateListAnimator(null);
         tombol.setElevation(0f);
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams params = berat
+                ? new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+                : new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
         params.setMargins(0, 0, dp(6), 0);
         tombol.setLayoutParams(params);
         tombol.setOnClickListener(pendengar);

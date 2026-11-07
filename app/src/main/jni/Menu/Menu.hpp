@@ -21,7 +21,12 @@ jstring DaftarPemain(JNIEnv *env, jclass clazz);
 // Baris posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY".
 jstring PosisiPemain(JNIEnv *env, jclass clazz);
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
+jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama,
+                       jboolean permanen);
+
+jboolean TendangHost(JNIEnv *env, jclass clazz, jstring nama);
+
+jboolean TendangSemua(JNIEnv *env, jclass clazz);
 
 jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
 

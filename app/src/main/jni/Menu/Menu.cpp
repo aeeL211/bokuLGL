@@ -9,16 +9,31 @@ namespace {
 
 // Antrean menyalin teksnya sendiri, jadi pinjaman string Java hanya hidup
 // selama pemanggilan ini.
-jboolean antrekanAksi(JNIEnv *env, jstring kunci, jstring nama, bool salin) {
+jboolean antrekanTendang(JNIEnv *env, jstring kunci, jstring nama, bool permanen) {
     StringUtf teksKunci(env, kunci);
     if (!teksKunci)
         return JNI_FALSE;
 
     StringUtf teksNama(env, nama);
     const char *namaPemain = teksNama ? teksNama.get() : nullptr;
-    bool diterima = salin ? pemain::antrekanSalin(teksKunci.get(), namaPemain)
-                          : pemain::antrekanTendang(teksKunci.get(), namaPemain);
+    bool diterima = pemain::antrekanTendang(teksKunci.get(), namaPemain, permanen);
     return diterima ? JNI_TRUE : JNI_FALSE;
+}
+
+jboolean antrekanTendangHost(JNIEnv *env, jstring nama) {
+    StringUtf teksNama(env, nama);
+    const char *namaHost = teksNama ? teksNama.get() : nullptr;
+    return pemain::antrekanTendangHost(namaHost) ? JNI_TRUE : JNI_FALSE;
+}
+
+jboolean antrekanSalin(JNIEnv *env, jstring kunci, jstring nama) {
+    StringUtf teksKunci(env, kunci);
+    if (!teksKunci)
+        return JNI_FALSE;
+
+    StringUtf teksNama(env, nama);
+    const char *namaPemain = teksNama ? teksNama.get() : nullptr;
+    return pemain::antrekanSalin(teksKunci.get(), namaPemain) ? JNI_TRUE : JNI_FALSE;
 }
 
 } // namespace
@@ -82,14 +97,26 @@ jstring PosisiPemain(JNIEnv *env, jclass clazz) {
     return env->NewStringUTF(teks);
 }
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
+jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama,
+                       jboolean permanen) {
     (void)clazz;
-    return antrekanAksi(env, kunci, nama, false);
+    return antrekanTendang(env, kunci, nama, permanen == JNI_TRUE);
+}
+
+jboolean TendangHost(JNIEnv *env, jclass clazz, jstring nama) {
+    (void)clazz;
+    return antrekanTendangHost(env, nama);
+}
+
+jboolean TendangSemua(JNIEnv *env, jclass clazz) {
+    (void)clazz;
+    (void)env;
+    return pemain::antrekanTendangSemua() ? JNI_TRUE : JNI_FALSE;
 }
 
 jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
     (void)clazz;
-    return antrekanAksi(env, kunci, nama, true);
+    return antrekanSalin(env, kunci, nama);
 }
 
 // Setiap sakelar hanya menulis nilai. Hook membacanya pada tiap panggilan, jadi

@@ -44,17 +44,20 @@ void* pipeDari(void* multi) {
 // Tombol tendang bawaan mengirim dua paket: tendangan membuat tamu menampilkan
 // pemberitahuan, dan penghapusan tamu mengeluarkannya dari setiap daftar.
 // Keduanya membawa kunci pengirim, jadi penggantian yang sama membuat klien
-// menerimanya sebagai paket host.
-bool tendangKunci(void* multi, void* kunci) {
+// menerimanya sebagai paket host. Tendangan sementara hanya memakai paket
+// pertama; tendangan permanen memakai keduanya.
+bool tendangKunci(void* multi, void* kunci, bool permanen, int ulang) {
     void* pipe = pipeDari(multi);
     auto tendang = reinterpret_cast<FnTendang>(target(T_KICK_SEND).addr);
     auto hapus = reinterpret_cast<FnBersihkan>(target(T_GUEST_REMOVE_SEND).addr);
-    if (!kunci || !pipe || !tendang)
+    if (!kunci || !pipe || !tendang || ulang <= 0)
         return false;
     mulaiSpoof(multi);
-    tendang(pipe, kunci, target(T_KICK_SEND).method);
-    if (hapus)
-        hapus(pipe, kunci, target(T_GUEST_REMOVE_SEND).method);
+    for (int i = 0; i < ulang; i++) {
+        tendang(pipe, kunci, target(T_KICK_SEND).method);
+        if (permanen && hapus)
+            hapus(pipe, kunci, target(T_GUEST_REMOVE_SEND).method);
+    }
     hentiSpoof();
     return true;
 }
@@ -116,10 +119,10 @@ void segarkanDaftar(void* manajerTamu) {
         if (!baru[terisi].kunci[0])
             continue;
         salinNama(tamu, baru[terisi].nama, pemain::kKarakterNama, baru[terisi].kunci);
-        if (samaString(kunci, host))
-            snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "host");
-        else if (samaString(kunci, sendiri))
+        if (samaString(kunci, sendiri))
             snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "kamu");
+        else if (samaString(kunci, host))
+            snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "host");
         else
             snprintf(baru[terisi].peran, sizeof(baru[terisi].peran), "tamu");
         terisi++;
@@ -128,24 +131,105 @@ void segarkanDaftar(void* manajerTamu) {
     pemain::simpanDaftar(baru, terisi);
 }
 
+constexpr int kBurstHost = 24;
+
+// Kick semua mengirim tendangan permanen ke setiap tamu pada satu detak. Host
+// dan pemain sendiri dilewati supaya room tidak ikut ditutup.
+int tendangSemuaTamu(void* manajerTamu) {
+    int32_t jumlah = tamuDiRoom(manajerTamu);
+    if (jumlah <= 0)
+        return 0;
+
+    void* manajer = bacaPtr(manajerTamu, fieldManajerTamu);
+    void* daftar = bacaPtr(manajer, fieldTamuManajer);
+    void* item = bacaPtr(daftar, fieldItemTamu);
+    char* data = item ? dataArray(item) : nullptr;
+    void* multi = bacaPtr(manajer, fieldMultiManajer);
+    void* host = multi ? kunciHostDari(multi) : nullptr;
+    void* sendiri = kunciPemainAman(bacaPtr(manajer, fieldPemainManajer));
+
+    int terkirim = 0;
+    for (int32_t i = 0; data && i < jumlah; i++) {
+        void* tamu = *reinterpret_cast<void**>(data + i * sizeof(void*));
+        if (!tamu)
+            continue;
+        void* kunci = bacaPtr(tamu, fieldKunciTamu);
+        if (!kunci || samaString(kunci, host) || samaString(kunci, sendiri))
+            continue;
+        if (tendangKunci(multi, kunci, true, 1))
+            terkirim++;
+    }
+    return terkirim;
+}
+
 void jalankanAksi(void* manajerTamu, const pemain::Aksi& aksi) {
     char pesan[pemain::kKarakterNama + 64];
-    if (aksi.jenis == pemain::Aksi::Jenis::Tendang) {
+    if (aksi.jenis == pemain::Aksi::Jenis::Tendang ||
+        aksi.jenis == pemain::Aksi::Jenis::TendangPermanen) {
         // Aksi sisa dari room sebelumnya tidak boleh mengirim paket: kunci host
         // hanya ada selama room berjalan.
         if (tamuDiRoom(manajerTamu) <= 0) {
             LOGE("Tendang menu dilewati: room sudah tidak ada");
             return;
         }
+        bool permanen = aksi.jenis == pemain::Aksi::Jenis::TendangPermanen;
         void* multi = bacaPtr(bacaPtr(manajerTamu, fieldManajerTamu), fieldMultiManajer);
-        bool terkirim = multi && tendangKunci(multi, stringDariUtf8(aksi.kunci));
+        bool terkirim = multi && tendangKunci(multi, stringDariUtf8(aksi.kunci), permanen, 1);
         if (terkirim) {
-            snprintf(pesan, sizeof(pesan), "Tendang terkirim: %s", aksi.nama);
-            LOGI("Tendang menu: %s", aksi.kunci);
+            snprintf(pesan, sizeof(pesan), permanen ? "Kick permanen terkirim: %s"
+                                                   : "Kick sementara terkirim: %s",
+                     aksi.nama);
+            LOGI("%s menu: %s", permanen ? "Kick permanen" : "Kick sementara", aksi.kunci);
         } else {
-            snprintf(pesan, sizeof(pesan), "Tendang gagal: %s", aksi.nama);
-            LOGE("Tendang menu gagal: %s", aksi.kunci);
+            snprintf(pesan, sizeof(pesan), "Kick gagal: %s", aksi.nama);
+            LOGE("Kick menu gagal: %s", aksi.kunci);
         }
+        tampilkanToast(pesan);
+        return;
+    }
+
+    if (aksi.jenis == pemain::Aksi::Jenis::TendangHost) {
+        if (tamuDiRoom(manajerTamu) <= 0) {
+            LOGE("Kick host dilewati: room sudah tidak ada");
+            return;
+        }
+        void* manajer = bacaPtr(manajerTamu, fieldManajerTamu);
+        void* multi = bacaPtr(manajer, fieldMultiManajer);
+        void* host = multi ? kunciHostDari(multi) : nullptr;
+        void* sendiri = kunciPemainAman(bacaPtr(manajer, fieldPemainManajer));
+        if (!multi || !host) {
+            tampilkanToast("Kick host gagal: kunci host tidak terbaca");
+            LOGE("Kick host gagal: kunci host tidak terbaca");
+            return;
+        }
+        if (samaString(host, sendiri)) {
+            tampilkanToast("Kamu host di room ini");
+            LOGI("Kick host dilewati: pemain sendiri adalah host");
+            return;
+        }
+        // Paket berulang membuat host sibuk memproses tendangan untuk dirinya
+        // sendiri; sebagian build akhirnya menutup room dari sisi host.
+        bool terkirim = tendangKunci(multi, host, true, kBurstHost);
+        snprintf(pesan, sizeof(pesan), terkirim ? "Kick host dikirim: %d paket"
+                                                : "Kick host gagal",
+                 kBurstHost);
+        if (terkirim)
+            LOGI("Kick host: %d paket", kBurstHost);
+        else
+            LOGE("Kick host gagal mengirim paket");
+        tampilkanToast(pesan);
+        return;
+    }
+
+    if (aksi.jenis == pemain::Aksi::Jenis::TendangSemua) {
+        if (tamuDiRoom(manajerTamu) <= 0) {
+            tampilkanToast("Tidak ada tamu di room ini");
+            LOGE("Kick semua dilewati: room sudah tidak ada");
+            return;
+        }
+        int jumlah = tendangSemuaTamu(manajerTamu);
+        snprintf(pesan, sizeof(pesan), "Kick semua: %d tamu", jumlah);
+        LOGI("Kick semua: %d tamu", jumlah);
         tampilkanToast(pesan);
         return;
     }
