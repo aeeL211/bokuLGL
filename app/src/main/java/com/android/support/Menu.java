@@ -75,8 +75,6 @@ public class Menu {
     private static final String KUNCI_Y = "ui_posisi_y";
     private static final String KUNCI_LIPAT = "ui_lipat_";
     // Chip angka slider: tinggi gambar 26dp di dalam area sentuh 48dp.
-    private static final float CHIP_INSET_DP = 11f;
-    private static final float SEEK_TUMPANG_DP = 10f;
     private static final float TOMBOL_KECIL_INSET_DP = 9f;
 
     RelativeLayout mCollapsed, mRootContainer;
@@ -860,31 +858,33 @@ public class Menu {
         kolom.setOrientation(LinearLayout.VERTICAL);
         kolom.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Judul di atas; di bawahnya slider dan angka sebaris. Ketuk angka untuk
+        // Baris judul: nama fitur di kiri, angka di kanan. Ketuk angka untuk
         // mengembalikan slider ke nilai bawaan.
+        LinearLayout judulBaris = new LinearLayout(getContext);
+        judulBaris.setOrientation(LinearLayout.HORIZONTAL);
+        judulBaris.setGravity(Gravity.CENTER_VERTICAL);
+
         final TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
         judul.setSingleLine(true);
         judul.setEllipsize(TextUtils.TruncateAt.END);
+        judulBaris.addView(judul, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
 
         final TextView angka = Theme.teks(getContext, nilaiTeks(nilaiAwal, desimal) + satuan,
                 Theme.DESC_SP, Theme.TITLE_TEXT);
         angka.setGravity(Gravity.CENTER);
         angka.setSingleLine(true);
-        angka.setMinWidth(dp(Theme.TARGET_DP));
-        angka.setMinHeight(dp(Theme.TARGET_DP));
-        angka.setPadding(dp(6), 0, dp(6), 0);
-        // Kotaknya digambar menyusut di atas dan bawah, jadi tampilannya tetap
-        // sama seperti chip kecil sementara area sentuhnya 48dp.
-        angka.setBackground(Theme.tombolKecil(getContext, CHIP_INSET_DP));
+        angka.setMinWidth(dp(44));
+        angka.setPadding(dp(8), dp(2), dp(8), dp(2));
+        angka.setBackground(Theme.tombolKecil(getContext));
         angka.setContentDescription(featName + ", ketuk untuk reset");
+        judulBaris.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 
         final SeekBar seekBar = new SeekBar(getContext);
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
         seekBar.setThumb(Theme.seekbarThumb(getContext));
         seekBar.setThumbOffset(0);
         // Padding mendatar setengah lebar thumb supaya thumb tidak terpotong di ujung.
-        int padThumb = dp(Theme.SLIDER_THUMB_LEBAR_DP / 2f);
-        seekBar.setPadding(padThumb, 0, padThumb, 0);
+        seekBar.setPadding(dp(5), 0, dp(5), 0);
         // Rentang digeser ke nol supaya setMin yang hanya ada di Oreo ke atas
         // tidak dibutuhkan.
         seekBar.setMax(max - min);
@@ -931,20 +931,8 @@ public class Menu {
             });
         }
 
-        kolom.addView(judul, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
-        // Area SeekBar setinggi 48dp, tetapi garis dan thumb hanya memakai bagian
-        // tengahnya. Judul ditumpangkan sedikit ke bagian atas yang kosong itu,
-        // jadi kartu lebih pendek tanpa mengecilkan area sentuh. Judul tidak
-        // menerima sentuhan, jadi geseran di area tumpang tindih tetap sampai ke slider.
-        LinearLayout barisSlider = new LinearLayout(getContext);
-        barisSlider.setOrientation(LinearLayout.HORIZONTAL);
-        barisSlider.setGravity(Gravity.CENTER_VERTICAL);
-        barisSlider.addView(seekBar, new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f));
-        barisSlider.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        LinearLayout.LayoutParams paramsSlider =
-                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
-        paramsSlider.topMargin = -dp(SEEK_TUMPANG_DP);
-        kolom.addView(barisSlider, paramsSlider);
+        kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.SLIDER_TINGGI_DP)));
         final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), kolom, null);
         pasangPenjelasan(baris, featNum, featName);
         linLayout.addView(baris);
