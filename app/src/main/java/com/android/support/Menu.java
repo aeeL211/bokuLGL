@@ -4,9 +4,7 @@ package com.android.support;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.BitmapFactory;
@@ -17,27 +15,23 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.text.Html;
-import android.text.InputFilter;
-import android.text.InputType;
 import android.text.TextUtils;
-import android.text.method.DigitsKeyListener;
 import android.text.method.LinkMovementMethod;
 import android.util.Base64;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -50,14 +44,13 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -75,6 +68,18 @@ public class Menu {
     int ICON_SIZE = 45; //Change both width and height of image
     float ICON_ALPHA = 0.7f; //Transparent
 
+    // Selang menunggu library game dimuat (ms), dan kunci setelan tampilan
+    // yang disimpan di preferensi yang sama dengan fitur.
+    private static final long TUNGGU_AWAL_MS = 500L;
+    private static final long TUNGGU_LIB_MS = 600L;
+    private static final String KUNCI_X = "ui_posisi_x";
+    private static final String KUNCI_Y = "ui_posisi_y";
+    private static final String KUNCI_LIPAT = "ui_lipat_";
+    // Chip angka slider: tinggi gambar 26dp di dalam area sentuh 48dp.
+    private static final float CHIP_INSET_DP = 11f;
+    private static final float SEEK_TUMPANG_DP = 12f;
+    private static final float TOMBOL_KECIL_INSET_DP = 9f;
+
     RelativeLayout mCollapsed, mRootContainer;
     LinearLayout mExpanded, mods, mSettings, mCollapse;
     WindowManager mWindowManager;
@@ -89,6 +94,8 @@ public class Menu {
     ScrollView scrollView;
     boolean stopChecking, overlayRequired;
     Context getContext;
+    private DialogMenu dialogMenu;
+    private boolean hancur;
 
     //initialize methods from the native library
     native void Init(Context context, TextView title, TextView subTitle);
@@ -120,7 +127,7 @@ public class Menu {
     String kunciTerpilih;
 
     // Pengembali nilai bawaan untuk setelan tampilan (ukuran, opasitas, gambar ikon).
-    private final List<Runnable> penyetelUlang = new LinkedList<Runnable>();
+    private final List<Runnable> penyetelUlang = new ArrayList<Runnable>();
 
     // Satu detak milik Menu untuk semua isi yang harus tetap segar (daftar
     // pemain, posisi). Detak berjalan selama menu terbuka, tidak bergantung
@@ -128,7 +135,7 @@ public class Menu {
     // dibuka supaya isi tidak basi.
     private static final long DETAK_MS = 1000L;
     private final Handler handlerDetak = new Handler(android.os.Looper.getMainLooper());
-    private final List<Runnable> pemantau = new LinkedList<Runnable>();
+    private final List<Runnable> pemantau = new ArrayList<Runnable>();
     private boolean detakJalan;
     private final Runnable detak = new Runnable() {
         @Override
@@ -142,10 +149,12 @@ public class Menu {
     };
 
     private void jalankanPemantau() {
-        // Salinan supaya pemantau boleh mendaftar atau berhenti saat berjalan.
-        for (Runnable r : new LinkedList<Runnable>(pemantau)) {
+        // Tanpa salinan daftar tiap detak. Pemantau hanya bertambah, dan yang
+        // mendaftar saat putaran berjalan baru ikut putaran berikutnya.
+        int jumlah = pemantau.size();
+        for (int i = 0; i < jumlah; i++) {
             try {
-                r.run();
+                pemantau.get(i).run();
             } catch (Throwable t) {
                 Log.d(TAG, "Pemantau gagal: " + t);
             }
@@ -167,6 +176,7 @@ public class Menu {
         aturAnimasiIkon(false);
         mCollapsed.setVisibility(View.GONE);
         mExpanded.setVisibility(View.VISIBLE);
+        Transisi.muncul(mExpanded, 1f);
         jalankanPemantau();
     }
 
@@ -250,6 +260,7 @@ public class Menu {
 
         getContext = context;
         Preferences.context = context;
+        dialogMenu = new DialogMenu(context);
         rootFrame = new FrameLayout(context); // Global markup
         rootFrame.setOnTouchListener(onTouchListener());
         mRootContainer = new RelativeLayout(context); // Markup on which two markups of the icon and the menu itself will be placed
@@ -271,8 +282,12 @@ public class Menu {
         startimage.getLayoutParams().height = dp(ICON_SIZE);
         startimage.getLayoutParams().width = dp(ICON_SIZE);
         startimage.setScaleType(ImageView.ScaleType.FIT_XY);
-        byte[] decode = Base64.decode(Icon(), 0);
-        startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
+        String dataIkon = Icon();
+        if (dataIkon != null && dataIkon.length() > 0) {
+            byte[] decode = Base64.decode(dataIkon, 0);
+            startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
+        }
+        startimage.setContentDescription("Buka menu");
         ((ViewGroup.MarginLayoutParams) startimage.getLayoutParams()).topMargin = dp(10);
         //Initialize event handlers for buttons, etc.
         startimage.setOnTouchListener(onTouchListener());
@@ -316,13 +331,14 @@ public class Menu {
         title.setPadding(dp(48), 0, dp(48), 0);
         title.setLayoutParams(rlTitle);
 
-        // Tombol sudut bergaya game: kotak hitam, garis putih, glyph putih.
-        Theme.Ikon minimal = new Theme.Ikon(context, Theme.Ikon.MINIMAL, Theme.BOX_SUDUT,
-                Theme.ACTIVE_BORDER, 2f, Theme.ACTIVE_BORDER, 34).siku(Theme.RADIUS_PANEL);
-        RelativeLayout.LayoutParams rlMinimal = new RelativeLayout.LayoutParams(dp(34), dp(34));
+        // Tombol sudut bergaya game: kotak hitam, garis putih, segitiga pixel
+        // menghadap kanan. Gambarnya 34dp, area sentuhnya 48dp.
+        TombolSudut minimal = new TombolSudut(context, PolaIkon.SEGITIGA_KANAN);
+        RelativeLayout.LayoutParams rlMinimal = new RelativeLayout.LayoutParams(
+                dp(Theme.TARGET_DP), dp(Theme.TARGET_DP));
         rlMinimal.addRule(ALIGN_PARENT_RIGHT);
         rlMinimal.addRule(RelativeLayout.CENTER_VERTICAL);
-        rlMinimal.rightMargin = dp(8);
+        rlMinimal.rightMargin = dp(1);
         minimal.setLayoutParams(rlMinimal);
         minimal.setContentDescription("Kecilkan menu");
         minimal.setOnClickListener(new View.OnClickListener() {
@@ -366,7 +382,7 @@ public class Menu {
         // Tombol Setelan berganti jadi Kembali selama halaman setelan terbuka.
         final Button setelanBtn = teksTombol("Setelan");
         setelanBtn.setBackground(Theme.tombolTekan(context));
-        LinearLayout.LayoutParams paramsSetelan = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        LinearLayout.LayoutParams paramsSetelan = new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f);
         paramsSetelan.setMargins(0, 0, dp(6), 0);
         setelanBtn.setLayoutParams(paramsSetelan);
         setelanBtn.setOnClickListener(new View.OnClickListener() {
@@ -383,6 +399,7 @@ public class Menu {
                         title.setText(judulAsal);
                         subTitle.setText(subJudulAsal);
                         setelanBtn.setText("Setelan");
+                        Transisi.muncul(scrollView, 1f);
                         // Posisi gulir daftar fitur dikembalikan setelah layout selesai.
                         scrollView.post(new Runnable() {
                             @Override
@@ -401,6 +418,7 @@ public class Menu {
                         // menandai halaman setelan.
                         subTitle.setText("Menu \\ Setelan");
                         setelanBtn.setText("Kembali");
+                        Transisi.muncul(scrollView, 1f);
                     }
                 } catch (IllegalStateException ignored) {
                 }
@@ -410,7 +428,7 @@ public class Menu {
 
         final Button hideBtn = teksTombol("Sembunyikan");
         hideBtn.setBackground(Theme.tombolTekan(context));
-        hideBtn.setLayoutParams(new LinearLayout.LayoutParams(0, dp(44), 1f));
+        hideBtn.setLayoutParams(new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f));
         hideBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 mCollapsed.setVisibility(View.VISIBLE);
@@ -447,14 +465,19 @@ public class Menu {
     }
 
     public void ShowMenu() {
-        rootFrame.addView(mRootContainer);
+        if (mRootContainer.getParent() == null)
+            rootFrame.addView(mRootContainer);
 
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
+        // Handler milik Menu (Looper utama) dipakai ulang, jadi onDestroy
+        // cukup membatalkan semuanya sekaligus dan tidak ada pemeriksa yang
+        // terus berulang setelah menu dihancurkan.
+        final Runnable pemuat = new Runnable() {
             boolean viewLoaded = false;
 
             @Override
             public void run() {
+                if (hancur)
+                    return;
                 //If the save preferences is enabled, it will check if game lib is loaded before starting menu
                 //Comment the if-else code out except startService if you want to run the app and test preferences
                 if (Preferences.loadPref && !IsGameLibLoaded() && !stopChecking) {
@@ -465,18 +488,22 @@ public class Menu {
                         Theme.applyFont(mods);
                         viewLoaded = true;
                     }
-                    handler.postDelayed(this, 600);
+                    handlerDetak.postDelayed(this, TUNGGU_LIB_MS);
                 } else {
                     mods.removeAllViews();
-                    featureList(GetFeatureList(), mods);
+                    String[] daftar = GetFeatureList();
+                    if (daftar != null)
+                        featureList(daftar, mods);
                     Theme.applyFont(mods);
                 }
             }
-        }, 500);
+        };
+        handlerDetak.postDelayed(pemuat, TUNGGU_AWAL_MS);
     }
 
     @SuppressLint("WrongConstant")
     public void SetWindowManagerWindowService() {
+        pulihkanPosisi();
         //Variable to check later if the phone supports Draw over other apps permission
         int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 2038 : 2002;
         vmParams = new WindowManager.LayoutParams(
@@ -494,10 +521,12 @@ public class Menu {
         mWindowManager.addView(rootFrame, vmParams);
 
         overlayRequired = true;
+        dialogMenu.setOverlay(true);
     }
 
     @SuppressLint("WrongConstant")
     public void SetWindowManagerActivity() {
+        pulihkanPosisi();
         vmParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -518,46 +547,83 @@ public class Menu {
         mWindowManager.addView(rootFrame, vmParams);
     }
 
+    /**
+     * Posisi terakhir ikon dipulihkan dan dijepit ke layar, supaya ikon tidak
+     * hilang di luar layar bila orientasi atau ukuran layar berubah.
+     */
+    private void pulihkanPosisi() {
+        try {
+            Preferences prefs = Preferences.with(getContext);
+            DisplayMetrics dm = getContext.getResources().getDisplayMetrics();
+            int maksX = Math.max(0, dm.widthPixels - dp(ICON_SIZE));
+            int maksY = Math.max(0, dm.heightPixels - dp(ICON_SIZE));
+            POS_X = Math.max(0, Math.min(maksX, prefs.readInt(KUNCI_X, POS_X)));
+            POS_Y = Math.max(0, Math.min(maksY, prefs.readInt(KUNCI_Y, POS_Y)));
+        } catch (Throwable t) {
+            Log.d(TAG, "Posisi tersimpan gagal dibaca: " + t);
+        }
+    }
+
+    private void simpanPosisi() {
+        try {
+            Preferences prefs = Preferences.with(getContext);
+            prefs.writeInt(KUNCI_X, vmParams.x);
+            prefs.writeInt(KUNCI_Y, vmParams.y);
+        } catch (Throwable t) {
+            Log.d(TAG, "Posisi gagal disimpan: " + t);
+        }
+    }
+
     private View.OnTouchListener onTouchListener() {
+        // Ambang geser mengikuti kepadatan layar, bukan 10 piksel tetap.
+        final int ambangGeser = ViewConfiguration.get(getContext).getScaledTouchSlop();
         return new View.OnTouchListener() {
-            final View collapsedView = mCollapsed;
-            final View expandedView = mExpanded;
             private float initialTouchX, initialTouchY;
             private int initialX, initialY;
+            private boolean bergeser;
 
             public boolean onTouch(View view, MotionEvent motionEvent) {
-                switch (motionEvent.getAction()) {
+                int aksi = motionEvent.getActionMasked();
+                switch (aksi) {
                     case MotionEvent.ACTION_DOWN:
                         initialX = vmParams.x;
                         initialY = vmParams.y;
                         initialTouchX = motionEvent.getRawX();
                         initialTouchY = motionEvent.getRawY();
+                        bergeser = false;
                         return true;
                     case MotionEvent.ACTION_UP:
-                        int rawX = (int) (motionEvent.getRawX() - initialTouchX);
-                        int rawY = (int) (motionEvent.getRawY() - initialTouchY);
+                    case MotionEvent.ACTION_CANCEL:
                         mExpanded.setAlpha(1f);
                         mCollapsed.setAlpha(ICON_ALPHA);
-                        //The check for Xdiff <10 && YDiff< 10 because sometime elements moves a little while clicking.
-                        //So that is click event.
-                        if (rawX < 10 && rawY < 10 && isViewCollapsed()) {
-                            //When user clicks on the image view of the collapsed layout,
-                            //visibility of the collapsed layout will be changed to "View.GONE"
-                            //and expanded view will become visible.
-                            try {
-                                bukaMenu();
-                            } catch (NullPointerException ignored) {
-                            }
+                        if (bergeser) {
+                            simpanPosisi();
+                        } else if (aksi == MotionEvent.ACTION_UP && isViewCollapsed()) {
+                            //Jari nyaris tidak bergeser, jadi ini ketukan: menu dibuka.
+                            //Versi lama membandingkan selisih bertanda (< 10), sehingga
+                            //geseran ke kiri atau ke atas ikut dihitung sebagai ketukan.
+                            bukaMenu();
                         }
                         return true;
                     case MotionEvent.ACTION_MOVE:
+                        float dx = motionEvent.getRawX() - initialTouchX;
+                        float dy = motionEvent.getRawY() - initialTouchY;
+                        if (!bergeser && Math.abs(dx) < ambangGeser && Math.abs(dy) < ambangGeser)
+                            return true;
+                        bergeser = true;
                         mExpanded.setAlpha(0.5f);
                         mCollapsed.setAlpha(0.5f);
                         //Calculate the X and Y coordinates of the view.
-                        vmParams.x = initialX + ((int) (motionEvent.getRawX() - initialTouchX));
-                        vmParams.y = initialY + ((int) (motionEvent.getRawY() - initialTouchY));
+                        vmParams.x = initialX + (int) dx;
+                        vmParams.y = initialY + (int) dy;
                         //Update the layout with new X & Y coordinate
-                        mWindowManager.updateViewLayout(rootFrame, vmParams);
+                        if (mWindowManager != null && !hancur) {
+                            try {
+                                mWindowManager.updateViewLayout(rootFrame, vmParams);
+                            } catch (IllegalArgumentException e) {
+                                Log.d(TAG, "Jendela menu sudah dilepas: " + e);
+                            }
+                        }
                         return true;
                     default:
                         return false;
@@ -585,20 +651,20 @@ public class Menu {
             ulang.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    for (Runnable r : new LinkedList<Runnable>(penyetelUlang))
+                    for (Runnable r : penyetelUlang)
                         r.run();
                     Toast.makeText(getContext, "Tampilan disetel ulang", Toast.LENGTH_SHORT).show();
                 }
             });
-            LinearLayout kotak = kotakTombol(IkonFitur.ULANG, ulang);
+            LinearLayout kotak = kotakTombol(PolaIkon.ULANG, ulang);
             ((LinearLayout.LayoutParams) kotak.getLayoutParams()).topMargin = dp(12);
             mSettings.addView(kotak);
         }
     }
 
     private String[] kelompokkanSetelan(String[] daftar) {
-        List<String> umum = new LinkedList<String>();
-        List<String> ikon = new LinkedList<String>();
+        List<String> umum = new ArrayList<String>();
+        List<String> ikon = new ArrayList<String>();
         for (String entri : daftar) {
             Integer nomor = nomorEntri(entri);
             if (nomor == null)
@@ -611,7 +677,7 @@ public class Menu {
         if (umum.isEmpty() || ikon.isEmpty())
             return daftar;
 
-        List<String> hasil = new LinkedList<String>();
+        List<String> hasil = new ArrayList<String>();
         hasil.add("Category_" + GRUP_UMUM);
         hasil.addAll(umum);
         hasil.add("Category_" + GRUP_IKON);
@@ -639,101 +705,106 @@ public class Menu {
         LinearLayout llBak = linearLayout;
 
         for (int i = 0; i < listFT.length; i++) {
-            boolean switchedOn = false;
-            //Log.i("featureList", listFT[i]);
-            String feature = listFT[i];
-            if (feature.contains("_True")) {
-                switchedOn = true;
-                feature = feature.replaceFirst("_True", "");
-            }
+            // Satu entri rusak dari native tidak boleh menjatuhkan seluruh menu.
+            try {
+                boolean switchedOn = false;
+                //Log.i("featureList", listFT[i]);
+                String feature = listFT[i];
+                if (feature.contains("_True")) {
+                    switchedOn = true;
+                    feature = feature.replaceFirst("_True", "");
+                }
 
-            linearLayout = llBak;
-            if (feature.contains("CollapseAdd_")) {
-                //if (collapse != null)
-                linearLayout = mCollapse;
-                feature = feature.replaceFirst("CollapseAdd_", "");
-            }
-            String[] str = feature.split("_");
+                linearLayout = llBak;
+                if (feature.contains("CollapseAdd_")) {
+                    //if (collapse != null)
+                    linearLayout = mCollapse;
+                    feature = feature.replaceFirst("CollapseAdd_", "");
+                }
+                String[] str = feature.split("_");
 
-            //Assign feature number
-            if (TextUtils.isDigitsOnly(str[0]) || str[0].matches("-[0-9]*")) {
-                featNum = Integer.parseInt(str[0]);
-                feature = feature.replaceFirst(str[0] + "_", "");
-                subFeat++;
-            } else {
-                //Subtract feature number. We don't want to count ButtonLink, Category, RichTextView and RichWebView
-                featNum = i - subFeat;
-            }
-            String[] strSplit = feature.split("_");
-            switch (strSplit[0]) {
-                case "Toggle":
-                    Switch(linearLayout, featNum, strSplit[1], switchedOn);
-                    break;
-                case "SeekBar":
-                    SeekBar(linearLayout, featNum, strSplit[1], Integer.parseInt(strSplit[2]),
-                            Integer.parseInt(strSplit[3]),
-                            strSplit.length > 4 ? Integer.parseInt(strSplit[4]) : Integer.parseInt(strSplit[2]),
-                            strSplit.length > 5 ? Integer.parseInt(strSplit[5]) : 0);
-                    break;
-                case "Button":
-                    Button(linearLayout, featNum, strSplit[1]);
-                    break;
-                case "ButtonOnOff":
-                    ButtonOnOff(linearLayout, featNum, strSplit[1], switchedOn);
-                    break;
-                case "Spinner":
-                    TextView(linearLayout, strSplit[1]);
-                    Spinner(linearLayout, featNum, strSplit[1], strSplit[2]);
-                    break;
-                case "InputText":
-                    InputText(linearLayout, featNum, strSplit[1]);
-                    break;
-                case "InputValue":
-                    if (strSplit.length == 3)
-                        InputNum(linearLayout, featNum, strSplit[2], Integer.parseInt(strSplit[1]));
-                    if (strSplit.length == 2)
-                        InputNum(linearLayout, featNum, strSplit[1], 0);
-                    break;
-                case "InputLValue":
-                    if (strSplit.length == 3)
-                        InputLNum(linearLayout, featNum, strSplit[2], Long.parseLong(strSplit[1]));
-                    if (strSplit.length == 2)
-                        InputLNum(linearLayout, featNum, strSplit[1], 0);
-                    break;
-                case "CheckBox":
-                    CheckBox(linearLayout, featNum, strSplit[1], switchedOn);
-                    break;
-                case "RadioButton":
-                    RadioButton(linearLayout, featNum, strSplit[1], strSplit[2]);
-                    break;
-                case "Collapse":
-                    Collapse(linearLayout, strSplit[1], switchedOn);
+                //Assign feature number
+                if (TextUtils.isDigitsOnly(str[0]) || str[0].matches("-[0-9]*")) {
+                    featNum = Integer.parseInt(str[0]);
+                    feature = feature.replaceFirst(str[0] + "_", "");
                     subFeat++;
-                    break;
-                case "ButtonLink":
-                    subFeat++;
-                    ButtonLink(linearLayout, strSplit[1], strSplit[2]);
-                    break;
-                case "Category":
-                    subFeat++;
-                    Category(linearLayout, strSplit[1]);
-                    break;
-                case "PlayerList":
-                    subFeat++;
-                    PlayerList(linearLayout, strSplit[1]);
-                    break;
-                case "LivePos":
-                    subFeat++;
-                    BarisPosisi(linearLayout, strSplit[1]);
-                    break;
-                case "RichTextView":
-                    subFeat++;
-                    TextView(linearLayout, strSplit[1]);
-                    break;
-                case "RichWebView":
-                    subFeat++;
-                    WebTextView(linearLayout, strSplit[1]);
-                    break;
+                } else {
+                    //Subtract feature number. We don't want to count ButtonLink, Category, RichTextView and RichWebView
+                    featNum = i - subFeat;
+                }
+                String[] strSplit = feature.split("_");
+                switch (strSplit[0]) {
+                    case "Toggle":
+                        Switch(linearLayout, featNum, strSplit[1], switchedOn);
+                        break;
+                    case "SeekBar":
+                        SeekBar(linearLayout, featNum, strSplit[1], Integer.parseInt(strSplit[2]),
+                                Integer.parseInt(strSplit[3]),
+                                strSplit.length > 4 ? Integer.parseInt(strSplit[4]) : Integer.parseInt(strSplit[2]),
+                                strSplit.length > 5 ? Integer.parseInt(strSplit[5]) : 0);
+                        break;
+                    case "Button":
+                        Button(linearLayout, featNum, strSplit[1]);
+                        break;
+                    case "ButtonOnOff":
+                        ButtonOnOff(linearLayout, featNum, strSplit[1], switchedOn);
+                        break;
+                    case "Spinner":
+                        TextView(linearLayout, strSplit[1]);
+                        Spinner(linearLayout, featNum, strSplit[1], strSplit[2]);
+                        break;
+                    case "InputText":
+                        InputText(linearLayout, featNum, strSplit[1]);
+                        break;
+                    case "InputValue":
+                        if (strSplit.length == 3)
+                            InputNum(linearLayout, featNum, strSplit[2], Integer.parseInt(strSplit[1]));
+                        if (strSplit.length == 2)
+                            InputNum(linearLayout, featNum, strSplit[1], 0);
+                        break;
+                    case "InputLValue":
+                        if (strSplit.length == 3)
+                            InputLNum(linearLayout, featNum, strSplit[2], Long.parseLong(strSplit[1]));
+                        if (strSplit.length == 2)
+                            InputLNum(linearLayout, featNum, strSplit[1], 0);
+                        break;
+                    case "CheckBox":
+                        CheckBox(linearLayout, featNum, strSplit[1], switchedOn);
+                        break;
+                    case "RadioButton":
+                        RadioButton(linearLayout, featNum, strSplit[1], strSplit[2]);
+                        break;
+                    case "Collapse":
+                        Collapse(linearLayout, strSplit[1], switchedOn);
+                        subFeat++;
+                        break;
+                    case "ButtonLink":
+                        subFeat++;
+                        ButtonLink(linearLayout, strSplit[1], strSplit[2]);
+                        break;
+                    case "Category":
+                        subFeat++;
+                        Category(linearLayout, strSplit[1]);
+                        break;
+                    case "PlayerList":
+                        subFeat++;
+                        PlayerList(linearLayout, strSplit[1]);
+                        break;
+                    case "LivePos":
+                        subFeat++;
+                        BarisPosisi(linearLayout, strSplit[1]);
+                        break;
+                    case "RichTextView":
+                        subFeat++;
+                        TextView(linearLayout, strSplit[1]);
+                        break;
+                    case "RichWebView":
+                        subFeat++;
+                        WebTextView(linearLayout, strSplit[1]);
+                        break;
+                }
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Entri fitur dilewati: " + listFT[i], e);
             }
         }
     }
@@ -753,7 +824,7 @@ public class Menu {
         });
 
         TextView label = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
-        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), label, switchR);
+        final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), label, switchR);
         baris.setBackground(Theme.barisTekan(getContext));
         baris.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -805,11 +876,16 @@ public class Menu {
                 Theme.DESC_SP, Theme.TITLE_TEXT);
         angka.setGravity(Gravity.CENTER);
         angka.setSingleLine(true);
-        angka.setMinWidth(dp(44));
-        angka.setPadding(dp(8), dp(2), dp(8), dp(2));
-        angka.setBackground(Theme.tombolKecil(getContext));
+        angka.setMinWidth(dp(Theme.TARGET_DP));
+        angka.setMinHeight(dp(Theme.TARGET_DP));
+        angka.setPadding(dp(8), 0, dp(8), 0);
+        // Kotaknya digambar menyusut di atas dan bawah, jadi tampilannya tetap
+        // sama seperti chip kecil sementara area sentuhnya 48dp.
+        angka.setBackground(Theme.tombolKecil(getContext, CHIP_INSET_DP));
         angka.setContentDescription(featName + ", ketuk untuk reset");
         judulBaris.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+        // Baris judul diberi prioritas sentuh di atas slider yang menimpanya sedikit.
+        judulBaris.setTranslationZ(1f);
 
         final SeekBar seekBar = new SeekBar(getContext);
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
@@ -864,8 +940,13 @@ public class Menu {
         }
 
         kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
-        kolom.addView(seekBar, new LinearLayout.LayoutParams(MATCH_PARENT, dp(28)));
-        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), kolom, null);
+        // Bagian atas SeekBar 48dp kosong (track ada di tengah), jadi sedikit
+        // ditumpangkan ke baris judul supaya baris tidak terlalu tinggi.
+        LinearLayout.LayoutParams paramsSeek =
+                new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP));
+        paramsSeek.topMargin = -dp(SEEK_TUMPANG_DP);
+        kolom.addView(seekBar, paramsSeek);
+        final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), kolom, null);
         pasangPenjelasan(baris, featNum, featName);
         linLayout.addView(baris);
     }
@@ -901,7 +982,7 @@ public class Menu {
             }
         });
 
-        LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        LinearLayout kotak = kotakTombol(PolaIkon.pola(featNum, featName), button);
         pasangPenjelasan(kotak, featNum, featName);
         pasangPenjelasan(button, featNum, featName);
         linLayout.addView(kotak);
@@ -911,13 +992,18 @@ public class Menu {
         final Button button = teksTombol(Html.fromHtml(featName));
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                intent.setData(Uri.parse(url));
-                getContext.startActivity(intent);
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.setData(Uri.parse(url));
+                    getContext.startActivity(intent);
+                } catch (RuntimeException e) {
+                    // Tidak ada aplikasi yang bisa membuka tautan.
+                    Toast.makeText(getContext, "Tautan tidak bisa dibuka", Toast.LENGTH_SHORT).show();
+                }
             }
         });
-        final LinearLayout kotak = kotakTombol(IkonFitur.TELEGRAM, button);
+        final LinearLayout kotak = kotakTombol(PolaIkon.TELEGRAM, button);
         pasangPenjelasan(kotak, -100, featName);
         pasangPenjelasan(button, -100, featName);
         linLayout.addView(kotak);
@@ -927,7 +1013,7 @@ public class Menu {
         final Button button = teksTombol("");
         final String finalfeatName = featName.replace("OnOff_", "");
         boolean isOn = Preferences.loadPrefBool(featName, featNum, switchedOn);
-        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        final LinearLayout kotak = kotakTombol(PolaIkon.pola(featNum, featName), button);
         if (isOn) {
             button.setText(Html.fromHtml(finalfeatName + ": ON"));
             kotak.setBackground(Theme.tombolAktif(getContext));
@@ -961,8 +1047,7 @@ public class Menu {
     }
 
     private void Spinner(LinearLayout linLayout, final int featNum, final String featName, final String list) {
-        Log.d(TAG, "spinner " + featNum + " " + featName + " " + list);
-        final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
+        final List<String> lists = new ArrayList<>(Arrays.asList(list.split(",")));
 
         final Spinner spinner = new Spinner(getContext, Spinner.MODE_DROPDOWN);
         ArrayAdapter<String> aa = new ArrayAdapter<String>(getContext,
@@ -989,172 +1074,76 @@ public class Menu {
         };
         aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(aa);
-        spinner.setSelection(Preferences.loadPrefInt(featName, featNum));
+        int terpilih = Preferences.loadPrefInt(featName, featNum);
+        spinner.setSelection(terpilih >= 0 && terpilih < lists.size() ? terpilih : 0);
         if (spinner.getBackground() != null)
             spinner.getBackground().setColorFilter(Theme.TEXT, PorterDuff.Mode.SRC_ATOP);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
                 Preferences.changeFeatureInt(spinner.getSelectedItem().toString(), featNum, position);
-                ((TextView) parentView.getChildAt(0)).setTextColor(Theme.TEXT);
+                View anak = parentView.getChildAt(0);
+                if (anak instanceof TextView)
+                    ((TextView) anak).setTextColor(Theme.TEXT);
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), spinner, null);
+        final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), spinner, null);
         pasangPenjelasan(baris, featNum, featName);
         pasangPenjelasan(spinner, featNum, featName);
         linLayout.addView(baris);
     }
 
-    private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
-        final Button button = teksTombol("");
-        int num = Preferences.loadPrefInt(featName, featNum);
-        button.setText(Html.fromHtml(featName + ": " + num));
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
-                final EditText editText = new EditText(getContext);
-                if (maxValue != 0)
-                    editText.setHint("Nilai maksimum: " + maxValue);
-                editText.setInputType(InputType.TYPE_CLASS_NUMBER);
-                editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
-                InputFilter[] FilterArray = new InputFilter[1];
-                FilterArray[0] = new InputFilter.LengthFilter(10);
-                editText.setFilters(FilterArray);
-                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                    @Override
-                    public void onFocusChange(View v, boolean hasFocus) {
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (hasFocus) {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
-                        } else {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                        }
-                    }
-                });
-                editText.requestFocus();
-
-                alertName.setTitle("Masukkan angka");
-                alertName.setView(editText);
-                LinearLayout layoutName = new LinearLayout(getContext);
-                layoutName.setOrientation(LinearLayout.VERTICAL);
-                layoutName.addView(editText); // displays the user input bar
-                alertName.setView(layoutName);
-
-                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        int num;
-                        try {
-                            String inp = editText.getText().toString();
-                            num = Integer.parseInt(inp.isEmpty() ? "0" : inp);
-                            if (maxValue != 0 && num >= maxValue)
-                                num = maxValue;
-                        } catch (NumberFormatException ex) {
-                            if (maxValue != 0)
-                                num = maxValue;
-                            else
-                                num = Integer.MAX_VALUE;
-                        }
-
-                        button.setText(Html.fromHtml(featName + ": " + num));
-                        Preferences.changeFeatureInt(featName, featNum, num);
-                        editText.setFocusable(false);
-                    }
-                });
-
-                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        // dialog.cancel(); // closes dialog
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                    }
-                });
-
-                tampilkanDialog(alertName);
-            }
-        });
-
-        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
-        pasangPenjelasan(kotak, featNum, featName);
-        pasangPenjelasan(button, featNum, featName);
-        linLayout.addView(kotak);
+    private void InputNum(LinearLayout linLayout, int featNum, String featName, int maxValue) {
+        InputAngka(linLayout, featNum, featName, maxValue, false);
     }
 
-    private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
+    private void InputLNum(LinearLayout linLayout, int featNum, String featName, long maxValue) {
+        InputAngka(linLayout, featNum, featName, maxValue, true);
+    }
+
+    /** Tombol angka: Int dan Long memakai satu kode, hanya batas digit dan jalur simpannya berbeda. */
+    private void InputAngka(LinearLayout linLayout, final int featNum, final String featName,
+                            final long maxValue, final boolean panjang) {
         final Button button = teksTombol("");
-        long num = Preferences.loadPrefLong(featName, featNum);
+        long num = panjang ? Preferences.loadPrefLong(featName, featNum)
+                : Preferences.loadPrefInt(featName, featNum);
         button.setText(Html.fromHtml(featName + ": " + num));
+        final String hint = maxValue != 0 ? "Nilai maksimum: " + maxValue : null;
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
-                final EditText editText = new EditText(getContext);
-                if (maxValue != 0)
-                    editText.setHint("Nilai maksimum: " + maxValue);
-                editText.setInputType(InputType.TYPE_CLASS_NUMBER);
-                editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
-                InputFilter[] FilterArray = new InputFilter[1];
-                FilterArray[0] = new InputFilter.LengthFilter(20);
-                editText.setFilters(FilterArray);
-                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                    @Override
-                    public void onFocusChange(View v, boolean hasFocus) {
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (hasFocus) {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
-                        } else {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                        }
-                    }
-                });
-                editText.requestFocus();
+                dialogMenu.input("Masukkan angka", hint, null, true, panjang ? 20 : 10,
+                        new DialogMenu.Penerima() {
+                            @Override
+                            public void diterima(String teks) {
+                                long nilai;
+                                try {
+                                    String masukan = teks.isEmpty() ? "0" : teks;
+                                    nilai = panjang ? Long.parseLong(masukan) : Integer.parseInt(masukan);
+                                    if (maxValue != 0 && nilai >= maxValue)
+                                        nilai = maxValue;
+                                } catch (NumberFormatException ex) {
+                                    if (maxValue != 0)
+                                        nilai = maxValue;
+                                    else
+                                        nilai = panjang ? Long.MAX_VALUE : Integer.MAX_VALUE;
+                                }
 
-                alertName.setTitle("Masukkan angka");
-                alertName.setView(editText);
-                LinearLayout layoutName = new LinearLayout(getContext);
-                layoutName.setOrientation(LinearLayout.VERTICAL);
-                layoutName.addView(editText); // displays the user input bar
-                alertName.setView(layoutName);
-
-                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        long num;
-                        try {
-                            String inp = editText.getText().toString();
-                            num = Long.parseLong(inp.isEmpty() ? "0" : inp);
-                            if (maxValue != 0 && num >= maxValue)
-                                num = maxValue;
-                        } catch (NumberFormatException ex) {
-                            if (maxValue != 0)
-                                num = maxValue;
-                            else
-                                num = Long.MAX_VALUE;
-                        }
-
-                        button.setText(Html.fromHtml(featName + ": " + num));
-                        Preferences.changeFeatureLong(featName, featNum, num);
-
-                        editText.setFocusable(false);
-                    }
-                });
-
-                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        // dialog.cancel(); // closes dialog
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                    }
-                });
-
-                tampilkanDialog(alertName);
+                                button.setText(Html.fromHtml(featName + ": " + nilai));
+                                if (panjang)
+                                    Preferences.changeFeatureLong(featName, featNum, nilai);
+                                else
+                                    Preferences.changeFeatureInt(featName, featNum, (int) nilai);
+                            }
+                        }, null, null);
             }
         });
 
-        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        final LinearLayout kotak = kotakTombol(PolaIkon.pola(featNum, featName), button);
         pasangPenjelasan(kotak, featNum, featName);
         pasangPenjelasan(button, featNum, featName);
         linLayout.addView(kotak);
@@ -1172,51 +1161,17 @@ public class Menu {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
-
-                final EditText editText = new EditText(getContext);
-                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                dialogMenu.input("Masukkan teks", null, null, false, 0, new DialogMenu.Penerima() {
                     @Override
-                    public void onFocusChange(View v, boolean hasFocus) {
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (hasFocus) {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
-                        } else {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                        }
-                    }
-                });
-                editText.requestFocus();
-
-                alertName.setTitle("Masukkan teks");
-                alertName.setView(editText);
-                LinearLayout layoutName = new LinearLayout(getContext);
-                layoutName.setOrientation(LinearLayout.VERTICAL);
-                layoutName.addView(editText); // displays the user input bar
-                alertName.setView(layoutName);
-
-                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        String str = editText.getText().toString();
+                    public void diterima(String str) {
                         button.setText(Html.fromHtml(featName + ": " + str));
                         Preferences.changeFeatureString(featName, featNum, str);
-                        editText.setFocusable(false);
                     }
-                });
-
-                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        //dialog.cancel(); // closes dialog
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                    }
-                });
-
-                tampilkanDialog(alertName);
+                }, null, null);
             }
         });
 
-        final LinearLayout kotak = kotakTombol(IkonFitur.pola(featNum, featName), button);
+        final LinearLayout kotak = kotakTombol(PolaIkon.pola(featNum, featName), button);
         pasangPenjelasan(kotak, featNum, featName);
         pasangPenjelasan(button, featNum, featName);
         linLayout.addView(kotak);
@@ -1245,56 +1200,24 @@ public class Menu {
         nilai.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         kolom.addView(nilai);
 
-        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), kolom, null);
+        final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), kolom, null);
         baris.setBackground(Theme.barisTekan(getContext));
         pasangPenjelasan(baris, featNum, featName);
         baris.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
-
-                final EditText editText = new EditText(getContext);
-                editText.setHint("URL gambar atau GIF, kosongkan untuk bawaan");
-                editText.setText(sumberIkon);
-                editText.setSelection(editText.length());
-                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                    @Override
-                    public void onFocusChange(View v, boolean hasFocus) {
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (hasFocus) {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
-                        } else {
-                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                        }
-                    }
-                });
-                editText.requestFocus();
-
-                alertName.setTitle("Sumber gambar ikon");
-                LinearLayout layoutName = new LinearLayout(getContext);
-                layoutName.setOrientation(LinearLayout.VERTICAL);
-                layoutName.addView(editText);
-                alertName.setView(layoutName);
-
-                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        setSumberIkon(editText.getText().toString(), featNum, featName, nilai);
-                        editText.setFocusable(false);
-                    }
-                });
-                alertName.setNeutralButton("Bawaan", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        setSumberIkon("", featNum, featName, nilai);
-                    }
-                });
-                alertName.setNegativeButton("Batal", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
-                    }
-                });
-
-                tampilkanDialog(alertName);
+                dialogMenu.input("Sumber gambar ikon", "URL gambar atau GIF, kosongkan untuk bawaan",
+                        sumberIkon, false, 0, new DialogMenu.Penerima() {
+                            @Override
+                            public void diterima(String teks) {
+                                setSumberIkon(teks, featNum, featName, nilai);
+                            }
+                        }, "Bawaan", new Runnable() {
+                            @Override
+                            public void run() {
+                                setSumberIkon("", featNum, featName, nilai);
+                            }
+                        });
             }
         });
 
@@ -1332,14 +1255,10 @@ public class Menu {
         checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (checkBox.isChecked()) {
-                    Preferences.changeFeatureBool(featName, featNum, isChecked);
-                } else {
-                    Preferences.changeFeatureBool(featName, featNum, isChecked);
-                }
+                Preferences.changeFeatureBool(featName, featNum, isChecked);
             }
         });
-        final LinearLayout baris = baris(IkonFitur.pola(featNum, featName), checkBox, null);
+        final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), checkBox, null);
         pasangPenjelasan(baris, featNum, featName);
         pasangPenjelasan(checkBox, featNum, featName);
         linLayout.addView(baris);
@@ -1348,7 +1267,7 @@ public class Menu {
     @SuppressLint("SetTextI18n")
     private void RadioButton(LinearLayout linLayout, final int featNum, String featName, final String list) {
         //Credit: LoraZalora
-        final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
+        final List<String> lists = new ArrayList<>(Arrays.asList(list.split(",")));
 
         final TextView textView = Theme.teks(getContext, featName + ":", Theme.ROW_SP, Theme.TEXT);
 
@@ -1371,7 +1290,6 @@ public class Menu {
                     Preferences.changeFeatureInt(finalfeatName, featNum, radioGroup.indexOfChild(Radioo));
                 }
             };
-            System.out.println(lists.get(i));
             Radioo.setText(lists.get(i));
             Radioo.setTextColor(Theme.TEXT);
             Radioo.setTextSize(Theme.ROW_SP);
@@ -1383,7 +1301,7 @@ public class Menu {
         }
 
         int index = Preferences.loadPrefInt(featName, featNum);
-        if (index > 0) { //Preventing it to get an index less than 1. below 1 = null = crash
+        if (index > 0 && index <= lists.size()) { //Preventing it to get an index less than 1. below 1 = null = crash
             textView.setText(Html.fromHtml(featName + ": <font color='" + Theme.warnaHex(Theme.ICON_BOX)
                     + "'>" + lists.get(index - 1)));
             ((RadioButton) radioGroup.getChildAt(index)).setChecked(true);
@@ -1392,8 +1310,31 @@ public class Menu {
         linLayout.addView(radioGroup);
     }
 
+    private boolean bacaTerbuka(String kunci, boolean bawaan) {
+        try {
+            return Preferences.with(getContext).readBoolean(kunci, bawaan);
+        } catch (Throwable t) {
+            return bawaan;
+        }
+    }
+
+    private void simpanTerbuka(String kunci, boolean terbuka) {
+        try {
+            Preferences.with(getContext).writeBoolean(kunci, terbuka);
+        } catch (Throwable t) {
+            Log.d(TAG, "Keadaan section gagal disimpan: " + t);
+        }
+    }
+
+    /**
+     * Section lipat. Buka-tutup dianimasikan dan keadaannya disimpan per judul
+     * section, jadi urutan terbuka yang terakhir dipakai kembali saat menu dibuka lagi.
+     */
     @SuppressLint("SetTextI18n")
     private void Collapse(LinearLayout linLayout, final String text, final boolean expanded) {
+        final String kunci = KUNCI_LIPAT + text;
+        final boolean awalTerbuka = bacaTerbuka(kunci, expanded);
+
         LinearLayout section = new LinearLayout(getContext);
         section.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
@@ -1403,9 +1344,9 @@ public class Menu {
         LinearLayout kepala = new LinearLayout(getContext);
         kepala.setOrientation(LinearLayout.HORIZONTAL);
         kepala.setGravity(Gravity.CENTER_VERTICAL);
-        kepala.setBackground(Theme.sectionHeader(getContext));
+        kepala.setBackground(Theme.sectionHeaderTekan(getContext));
         kepala.setPadding(dp(14), 0, dp(10), 0);
-        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(44)));
+        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP)));
 
         final TextView judul = Theme.teks(getContext, text, Theme.SECTION_SP, Theme.TITLE_TEXT);
         judul.setSingleLine(true);
@@ -1414,7 +1355,7 @@ public class Menu {
         kepala.addView(judul, judulParams);
 
         final Theme.Ikon panah = Theme.Ikon.polos(getContext,
-                expanded ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN,
+                awalTerbuka ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN,
                 Theme.TITLE_TEXT, 20);
         kepala.addView(panah, new LinearLayout.LayoutParams(dp(20), dp(20)));
 
@@ -1427,23 +1368,18 @@ public class Menu {
         final LinearLayout pembungkus = new LinearLayout(getContext);
         pembungkus.setOrientation(LinearLayout.VERTICAL);
         pembungkus.addView(isi);
+        pembungkus.setVisibility(awalTerbuka ? View.VISIBLE : View.GONE);
 
-        if (expanded) {
-            pembungkus.setVisibility(View.VISIBLE);
-            panah.setJenis(Theme.Ikon.PANAH_BAWAH);
-        } else {
-            pembungkus.setVisibility(View.GONE);
-            panah.setJenis(Theme.Ikon.PANAH_KANAN);
-        }
-
+        kepala.setContentDescription(text);
         kepala.setOnClickListener(new View.OnClickListener() {
-            boolean terbuka = expanded;
+            boolean terbuka = awalTerbuka;
 
             @Override
             public void onClick(View v) {
                 terbuka = !terbuka;
-                pembungkus.setVisibility(terbuka ? View.VISIBLE : View.GONE);
+                Transisi.lipat(pembungkus, terbuka);
                 panah.setJenis(terbuka ? Theme.Ikon.PANAH_BAWAH : Theme.Ikon.PANAH_KANAN);
+                simpanTerbuka(kunci, terbuka);
                 // Isi yang baru terlihat langsung disegarkan, tanpa menunggu detak.
                 if (terbuka)
                     jalankanPemantau();
@@ -1485,11 +1421,11 @@ public class Menu {
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
         judulBaris.setBackground(Theme.baris(getContext));
         judulBaris.setPadding(0, 0, dp(5), 0);
-        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(48));
+        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP));
         paramsJudul.setMargins(0, dp(4), 0, dp(4));
         judulBaris.setLayoutParams(paramsJudul);
 
-        judulBaris.addView(new IkonFitur(getContext, IkonFitur.PEMAIN, true),
+        judulBaris.addView(new IkonFitur(getContext, PolaIkon.PEMAIN, true),
                 new LinearLayout.LayoutParams(dp(IkonFitur.LEBAR_DP), MATCH_PARENT));
 
         TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
@@ -1501,11 +1437,11 @@ public class Menu {
         judulBaris.addView(jumlah);
         // Daftar dipantau tiap detik, jadi muat ulang cukup berupa tombol ikon
         // kecil di sudut header, sejajar dengan ikon pemain di sisi kiri.
-        final IkonFitur muatUlang = new IkonFitur(getContext, IkonFitur.ULANG, false);
+        final IkonFitur muatUlang = new IkonFitur(getContext, PolaIkon.ULANG, false);
         muatUlang.setContentDescription("Muat ulang daftar");
         muatUlang.setClickable(true);
         muatUlang.setFocusable(true);
-        LinearLayout.LayoutParams paramsMuat = new LinearLayout.LayoutParams(dp(38), dp(38));
+        LinearLayout.LayoutParams paramsMuat = new LinearLayout.LayoutParams(dp(Theme.TARGET_DP), dp(Theme.TARGET_DP));
         paramsMuat.setMargins(dp(8), 0, 0, 0);
         muatUlang.setLayoutParams(paramsMuat);
         container.addView(judulBaris);
@@ -1730,12 +1666,13 @@ public class Menu {
         tombol.setAllCaps(false);
         tombol.setTextColor(Theme.TITLE_TEXT);
         tombol.setTypeface(Theme.font(getContext));
-        tombol.setBackground(Theme.tombolKecil(getContext));
+        // Tinggi sentuh 48dp, kotak yang terlihat tetap sekecil sebelumnya.
+        tombol.setBackground(Theme.tombolKecil(getContext, TOMBOL_KECIL_INSET_DP));
         tombol.setMinWidth(0);
         tombol.setMinimumWidth(0);
-        tombol.setMinHeight(0);
-        tombol.setMinimumHeight(0);
-        tombol.setPadding(dp(8), dp(6), dp(8), dp(6));
+        tombol.setMinHeight(dp(Theme.TARGET_DP));
+        tombol.setMinimumHeight(dp(Theme.TARGET_DP));
+        tombol.setPadding(dp(8), 0, dp(8), 0);
         tombol.setStateListAnimator(null);
         tombol.setElevation(0f);
         LinearLayout.LayoutParams params =
@@ -1820,7 +1757,7 @@ public class Menu {
         baris.setOrientation(LinearLayout.HORIZONTAL);
         baris.setGravity(Gravity.CENTER_VERTICAL);
         baris.setBackground(Theme.baris(getContext));
-        baris.setMinimumHeight(dp(48));
+        baris.setMinimumHeight(dp(Theme.TARGET_DP));
         baris.setPadding(0, 0, dp(8), 0);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         params.setMargins(0, dp(4), 0, dp(4));
@@ -1835,7 +1772,7 @@ public class Menu {
         baris.addView(isi, isiParams);
 
         if (kontrol != null)
-            baris.addView(kontrol, new LinearLayout.LayoutParams(dp(52), dp(48)));
+            baris.addView(kontrol, new LinearLayout.LayoutParams(dp(52), dp(Theme.TARGET_DP)));
         return baris;
     }
 
@@ -1853,7 +1790,7 @@ public class Menu {
         kolom.addView(judul);
         kolom.addView(nilai);
 
-        final LinearLayout baris = baris(IkonFitur.POSISI, kolom, null);
+        final LinearLayout baris = baris(PolaIkon.POSISI, kolom, null);
         pasangPenjelasan(baris, 0, featName);
         linLayout.addView(baris);
 
@@ -1941,96 +1878,15 @@ public class Menu {
     }
 
     private void tampilkanPenjelasan(int featNum, String featName) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext);
-        builder.setTitle(Html.fromHtml(featName));
-        builder.setMessage(Penjelasan.untuk(featNum, featName));
-        builder.setPositiveButton("Mengerti", null);
-        tampilkanDialog(builder);
-    }
-
-    private void tampilkanDialog(AlertDialog.Builder builder) {
-        AlertDialog dialog = builder.create();
-        if (overlayRequired) {
-            Objects.requireNonNull(dialog.getWindow()).setType(
-                    Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
-        }
-        dialog.show();
-        if (dialog.getWindow() != null) {
-            gayaDialog(dialog);
-            Theme.applyFont(dialog.getWindow().getDecorView());
-        }
-    }
-
-    /**
-     * Dialog bawaan bertema putih dan tidak memakai palet kayu. Latar, judul,
-     * tombol, dan kolom isian disamakan dengan panel menu; font tetap diurus
-     * {@link Theme#applyFont(View)}.
-     */
-    private void gayaDialog(AlertDialog dialog) {
-        Window window = dialog.getWindow();
-        if (window == null)
-            return;
-        window.setBackgroundDrawable(Theme.dialogPanel(getContext));
-
-        View akar = window.getDecorView();
-        gayaIsiDialog(akar);
-
-        int idJudul = getContext.getResources().getIdentifier("alertTitle", "id", "android");
-        TextView judul = idJudul == 0 ? null : (TextView) dialog.findViewById(idJudul);
-        if (judul == null)
-            judul = (TextView) dialog.findViewById(android.R.id.title);
-        if (judul != null) {
-            judul.setTextColor(Theme.TITLE_TEXT);
-            judul.setBackground(Theme.dialogTitle(getContext));
-            judul.setPadding(dp(12), dp(8), dp(12), dp(8));
-        }
-
-        TextView pesan = (TextView) dialog.findViewById(android.R.id.message);
-        if (pesan != null)
-            pesan.setTextColor(Theme.TEXT);
-
-        int[] jenis = {AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE,
-                AlertDialog.BUTTON_NEUTRAL};
-        for (int i : jenis) {
-            Button tombol = dialog.getButton(i);
-            if (tombol == null)
-                continue;
-            tombol.setTextColor(Theme.TITLE_TEXT);
-            tombol.setAllCaps(false);
-            tombol.setBackground(Theme.tombolKecil(getContext));
-            tombol.setPadding(dp(12), dp(8), dp(12), dp(8));
-        }
-    }
-
-    private void gayaIsiDialog(View view) {
-        if (view instanceof EditText) {
-            EditText isian = (EditText) view;
-            isian.setTextColor(Theme.TEXT);
-            isian.setHintTextColor(Theme.MUTED);
-            isian.setBackground(Theme.dialogInput(getContext));
-            isian.setPadding(dp(10), dp(8), dp(10), dp(8));
-        } else if (view instanceof Button) {
-            Button tombol = (Button) view;
-            tombol.setTextColor(Theme.TITLE_TEXT);
-            tombol.setAllCaps(false);
-            tombol.setBackground(Theme.tombolKecil(getContext));
-        } else if (view instanceof TextView) {
-            ((TextView) view).setTextColor(Theme.TEXT);
-        }
-
-        if (view instanceof ViewGroup) {
-            ViewGroup grup = (ViewGroup) view;
-            for (int i = 0; i < grup.getChildCount(); i++)
-                gayaIsiDialog(grup.getChildAt(i));
-        }
+        dialogMenu.penjelasan(featNum, featName);
     }
 
     private boolean isViewCollapsed() {
         return rootFrame == null || mCollapsed.getVisibility() == View.VISIBLE;
     }
 
-    private int dp(int i) {
-        return (int) Theme.dp(getContext, i);
+    private int dp(float nilai) {
+        return (int) Theme.dp(getContext, nilai);
     }
 
     public void setVisibility(int view) {
@@ -2040,11 +1896,20 @@ public class Menu {
     }
 
     public void onDestroy() {
+        hancur = true;
         detakJalan = false;
-        aturAnimasiIkon(false);
+        sumberTerpasang = null;
         handlerDetak.removeCallbacksAndMessages(null);
-        if (rootFrame != null) {
-            mWindowManager.removeView(rootFrame);
+        dialogMenu.tutup();
+        if (ikonGambar != null)
+            lepasGambar();
+        if (rootFrame != null && mWindowManager != null) {
+            try {
+                mWindowManager.removeView(rootFrame);
+            } catch (IllegalArgumentException e) {
+                // Jendela memang belum atau sudah dilepas.
+                Log.d(TAG, "removeView dilewati: " + e);
+            }
         }
     }
 }

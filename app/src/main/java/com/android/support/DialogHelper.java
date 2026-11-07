@@ -7,6 +7,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
+import android.widget.Button;
 import android.widget.Toast;
 
 public class DialogHelper {
@@ -27,7 +29,7 @@ public class DialogHelper {
         final AlertDialog dialog = builder.create();
 
         String closeInitTitle = CloseBtnTitle;
-        if(sec > 0) {
+        if (sec > 0) {
             closeInitTitle = closeInitTitle + "(" + sec + ")";
         }
 
@@ -43,20 +45,26 @@ public class DialogHelper {
     }
 
     private static void startCountdown(final AlertDialog dialog, String CloseBtnTitle, final int seconds) {
-        final Handler handler = new Handler();
+        // Looper utama dipakai eksplisit; Handler() tanpa argumen gagal bila
+        // dipanggil dari thread tanpa Looper.
+        final Handler handler = new Handler(Looper.getMainLooper());
         final Runnable countdownRunnable = new Runnable() {
             int remainingTime = seconds;
 
             @SuppressLint("SetTextI18n")
             @Override
             public void run() {
-                if (remainingTime > 0 && dialog != null && dialog.isShowing()) {
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                            .setText(CloseBtnTitle + "(" + remainingTime + ")");
+                if (!dialog.isShowing())
+                    return;
+                Button tutup = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+                if (tutup == null)
+                    return;
+                if (remainingTime > 0) {
+                    tutup.setText(CloseBtnTitle + "(" + remainingTime + ")");
                     remainingTime--;
                     handler.postDelayed(this, 1000);
-                } else if (dialog != null && dialog.isShowing()) {
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+                } else {
+                    tutup.performClick();
                 }
             }
         };

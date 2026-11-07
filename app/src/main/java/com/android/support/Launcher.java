@@ -5,11 +5,24 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.view.View;
 
 public class Launcher extends Service {
+    /** Selang pemeriksaan apakah game masih di depan. */
+    private static final long PERIKSA_MS = 1000L;
 
     Menu menu;
+
+    private Handler handler;
+    private final Runnable pemeriksa = new Runnable() {
+        @Override
+        public void run() {
+            periksaGame();
+            if (handler != null)
+                handler.postDelayed(this, PERIKSA_MS);
+        }
+    };
 
     //When this Class is called the code in this function will be executed
     @Override
@@ -21,13 +34,8 @@ public class Launcher extends Service {
         menu.ShowMenu();
 
         //Create a handler for this Class
-        final Handler handler = new Handler();
-        handler.post(new Runnable() {
-            public void run() {
-               Thread();
-                handler.postDelayed(this, 1000);
-            }
-        });
+        handler = new Handler(Looper.getMainLooper());
+        handler.post(pemeriksa);
     }
 
     @Override
@@ -39,35 +47,40 @@ public class Launcher extends Service {
     private boolean isNotInGame() {
         ActivityManager.RunningAppProcessInfo runningAppProcessInfo = new ActivityManager.RunningAppProcessInfo();
         ActivityManager.getMyMemoryState(runningAppProcessInfo);
-        return runningAppProcessInfo.importance != 100;
+        return runningAppProcessInfo.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
     }
 
-    private void Thread() {
-        if (isNotInGame()) {
-            menu.setVisibility(View.INVISIBLE);
-        } else {
-            menu.setVisibility(View.VISIBLE);
-        }
+    private void periksaGame() {
+        if (menu == null)
+            return;
+        menu.setVisibility(isNotInGame() ? View.INVISIBLE : View.VISIBLE);
     }
 
     //Destroy our View
+    @Override
     public void onDestroy() {
+        // Pemeriksa dihentikan lebih dulu; kalau tidak, handler terus berjalan
+        // dan menahan Service ini di memori setelah dihancurkan.
+        if (handler != null) {
+            handler.removeCallbacksAndMessages(null);
+            handler = null;
+        }
         super.onDestroy();
-        menu.onDestroy();
+        if (menu != null) {
+            menu.onDestroy();
+            menu = null;
+        }
     }
 
     //Same as above so it wont crash in the background and therefore use alot of Battery life
+    @Override
     public void onTaskRemoved(Intent intent) {
         super.onTaskRemoved(intent);
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         stopSelf();
     }
 
     //Override our Start Command so the Service doesnt try to recreate itself when the App is closed
+    @Override
     public int onStartCommand(Intent intent, int i, int i2) {
         return Service.START_NOT_STICKY;
     }

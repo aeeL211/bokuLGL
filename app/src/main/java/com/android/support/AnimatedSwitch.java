@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.animation.ArgbEvaluator;
 import android.os.SystemClock;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
@@ -46,9 +45,9 @@ public class AnimatedSwitch extends CompoundButton {
     private static final float PIL_TINGGI_DP = 26f;
     private static final float GARIS_DP = 3f;
     private static final float TEKAN_MELAR_DP = 4f;
+    private static final float TARGET_TINGGI_DP = Theme.TARGET_DP;
 
     private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final ArgbEvaluator warna = new ArgbEvaluator();
     private final RectF bidang = new RectF();
     private final OvershootInterpolator memantul = new OvershootInterpolator(0.9f);
     private final DecelerateInterpolator mengerem = new DecelerateInterpolator();
@@ -69,6 +68,13 @@ public class AnimatedSwitch extends CompoundButton {
     private boolean berjalan;
     private long terakhirMs;
 
+    // Ukuran dalam piksel dihitung sekali di konstruktor, bukan tiap frame.
+    private final float pilLebarPx;
+    private final float pilTinggiPx;
+    private final float garisPx;
+    private final float melarPx;
+    private final int targetTinggiPx;
+
     private OnCheckedChangeListener pendengar;
     private boolean terakhirDikabarkan;
 
@@ -86,6 +92,11 @@ public class AnimatedSwitch extends CompoundButton {
 
     public AnimatedSwitch(Context context) {
         super(context);
+        pilLebarPx = Theme.dp(context, PIL_LEBAR_DP);
+        pilTinggiPx = Theme.dp(context, PIL_TINGGI_DP);
+        garisPx = Theme.dp(context, GARIS_DP);
+        melarPx = Theme.dp(context, TEKAN_MELAR_DP);
+        targetTinggiPx = (int) Theme.dp(context, TARGET_TINGGI_DP);
         setBackground(null);
         setButtonDrawable(null);
         setPadding(0, 0, 0, 0);
@@ -106,10 +117,8 @@ public class AnimatedSwitch extends CompoundButton {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int lebar = (int) Theme.dp(getContext(), PIL_LEBAR_DP);
-        int tinggi = (int) Theme.dp(getContext(), 48f);
-        setMeasuredDimension(resolveSize(lebar, widthMeasureSpec),
-                resolveSize(tinggi, heightMeasureSpec));
+        setMeasuredDimension(resolveSize((int) pilLebarPx, widthMeasureSpec),
+                resolveSize(targetTinggiPx, heightMeasureSpec));
     }
 
     /**
@@ -236,22 +245,21 @@ public class AnimatedSwitch extends CompoundButton {
         else
             berjalan = false;
 
-        Context ctx = getContext();
         float lebar = getWidth();
         float tinggi = getHeight();
-        float pilLebar = Math.min(lebar, Theme.dp(ctx, PIL_LEBAR_DP));
-        float pilTinggi = Theme.dp(ctx, PIL_TINGGI_DP);
-        float garis = Theme.dp(ctx, GARIS_DP);
+        float pilLebar = Math.min(lebar, pilLebarPx);
+        float pilTinggi = pilTinggiPx;
+        float garis = garisPx;
 
         float kiri = (lebar - pilLebar) / 2f;
         float atas = (tinggi - pilTinggi) / 2f;
         float radius = pilTinggi / 2f;
 
         // Warna mengikuti posisi tetapi dijepit supaya overshoot tidak membuat
-        // warna keluar dari rentang.
+        // warna keluar dari rentang. Theme.campur tidak membuat objek baru.
         float f = Math.max(0f, Math.min(1f, posisi));
-        int warnaTrack = (Integer) warna.evaluate(f, Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK);
-        int warnaKnob = (Integer) warna.evaluate(f, Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB);
+        int warnaTrack = Theme.campur(Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK, f);
+        int warnaKnob = Theme.campur(Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB, f);
 
         // Garis luar #B28950 sebagai pil penuh, lalu track di dalamnya. Saat mati
         // track memang berwarna sama dengan garis, persis seperti di game.
@@ -268,7 +276,7 @@ public class AnimatedSwitch extends CompoundButton {
         // Knob bulat mengisi penuh tinggi bagian dalam. Saat ditekan knob melar
         // ke arah tengah supaya tepi luarnya tidak lompat.
         float diameter = pilTinggi - 2f * garis;
-        float melar = Theme.dp(ctx, TEKAN_MELAR_DP) * tekan;
+        float melar = melarPx * tekan;
         float jalur = pilLebar - 2f * garis - diameter;
         float knobKiri = kiri + garis + jalur * posisi - melar * posisi;
         bidang.set(knobKiri, atas + garis, knobKiri + diameter + melar, atas + garis + diameter);
