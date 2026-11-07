@@ -36,6 +36,13 @@ jboolean enqueueCopy(JNIEnv *env, jstring key, jstring name) {
     return player::enqueueCopy(keyText.get(), playerName) ? JNI_TRUE : JNI_FALSE;
 }
 
+jboolean enqueueCopyAvatar(JNIEnv *env, jstring key) {
+    StringUtf keyText(env, key);
+    if (!keyText)
+        return JNI_FALSE;
+    return player::enqueueCopyAvatar(keyText.get()) ? JNI_TRUE : JNI_FALSE;
+}
+
 } // namespace
 
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
@@ -117,6 +124,11 @@ jboolean KickAll(JNIEnv *env, jclass clazz) {
 jboolean CopyPlayerSkin(JNIEnv *env, jclass clazz, jstring key, jstring name) {
     (void)clazz;
     return enqueueCopy(env, key, name);
+}
+
+jboolean CopyPlayerAvatar(JNIEnv *env, jclass clazz, jstring key) {
+    (void)clazz;
+    return enqueueCopyAvatar(env, key);
 }
 
 // Each switch only writes a value. The hook reads it on every call, so no hook

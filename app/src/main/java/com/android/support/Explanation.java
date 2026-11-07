@@ -19,6 +19,8 @@ public final class Explanation {
 
         if (n.contains("pemain di room"))
             return "Menampilkan host, pemain sendiri, dan tamu yang sedang ada di room. "
+                    + "Tombol Copy avatar menyimpan potret pemain ke slot potret kosong "
+                    + "pertama; Copy skin menyimpan modelnya ke slot model kosong pertama. "
                     + "Ketuk Kick untuk kick sementara; tahan tombolnya untuk kick "
                     + "permanen yang juga menghapus tamu dari daftar. Kartu host punya tombol "
                     + "Kick host yang mengirim paket berulang, bisa membuat host lag lalu keluar "

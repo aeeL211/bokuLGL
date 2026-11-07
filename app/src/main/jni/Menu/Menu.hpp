@@ -30,6 +30,8 @@ jboolean KickAll(JNIEnv *env, jclass clazz);
 
 jboolean CopyPlayerSkin(JNIEnv *env, jclass clazz, jstring key, jstring name);
 
+jboolean CopyPlayerAvatar(JNIEnv *env, jclass clazz, jstring key);
+
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value, jlong Lvalue,
              jboolean boolean, jstring str);

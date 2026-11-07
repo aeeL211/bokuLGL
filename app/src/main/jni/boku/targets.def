@@ -118,3 +118,6 @@ T_EXPLODE_APPLY|Tile__Explode|Update__Range__|3|
 # the file layout.
 T_DATA_PORTRAIT_PATH|Data__Portrait|File__Path|1|
 T_DATA_PORTRAIT_WRITE|Data__Portrait|File__Write|2|
+# The live room list keeps the parsed portrait object, so the copy button can
+# still read a guest whose packet arrived before the mod loaded.
+T_PORTRAIT_TO_STR|_Portrait|Portrait__To__Str|1|

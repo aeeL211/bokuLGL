@@ -69,6 +69,10 @@ enum class CopyResult { Failed, Saved, Exists, Missing };
 // key and the guest name. Called on the game thread.
 CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name, int& slot);
 
+// Writes the cached portrait string of one guest into the first free portrait
+// slot. Used by the avatar copy button and by auto dump.
+CopyResult copyGuestPortrait(void* managerGuest, const char* key, int& slot);
+
 // Keeps a guest portrait string from the account packet in the guest cache, and
 // writes it with the game's own portrait writer when auto dump is on. Called on
 // the game thread from the account packet hook.

@@ -19,7 +19,7 @@ struct Summary {
 };
 
 struct Action {
-    enum class Kind { Kick, KickPermanent, KickHost, KickAll, Copy };
+    enum class Kind { Kick, KickPermanent, KickHost, KickAll, Copy, CopyAvatar };
 
     Kind type;
     char key[kCharacterKey];
@@ -42,6 +42,7 @@ bool enqueueKick(const char* key, const char* name, bool permanent);
 bool enqueueKickHost(const char* name);
 bool enqueueKickAll();
 bool enqueueCopy(const char* key, const char* name);
+bool enqueueCopyAvatar(const char* key);
 bool takeAction(Action& exit);
 
 // Window for updating the local player's position.

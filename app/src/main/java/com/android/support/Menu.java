@@ -125,6 +125,8 @@ public class Menu {
 
     native boolean CopyPlayerSkin(String key, String name);
 
+    native boolean CopyPlayerAvatar(String key);
+
     // Key of the player whose card is currently selected. The choice is stored as
     // key text, not an index, so it keeps pointing at the same player when the list
     // changes order and is released automatically when that player leaves.
@@ -1647,6 +1649,20 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsAction.setMargins(0, dp(6), 0, 0);
         action.setLayoutParams(paramsAction);
+        action.addView(smallButton("Copy avatar", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean accepted;
+                try {
+                    accepted = CopyPlayerAvatar(key);
+                } catch (Throwable t) {
+                    accepted = false;
+                }
+                if (!accepted)
+                    Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
+                            Toast.LENGTH_SHORT).show();
+            }
+        }));
         action.addView(smallButton("Copy skin", new View.OnClickListener() {
             @Override
             public void onClick(View v) {

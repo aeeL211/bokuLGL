@@ -45,7 +45,11 @@ fitur untuk membaca penjelasan singkatnya.
   pembacaan terakhir, jadi daftar berhenti disegarkan saat menu ditutup atau section dilipat.
   Kartu yang isinya tidak berubah dipakai ulang, dan pilihan pemain disimpan sebagai kunci
   sehingga tetap menunjuk orang yang sama saat urutan daftar berubah.
-- **Salin skin** menulis model pemain yang dipilih ke slot model kosong pertama, lalu menulis
+- **Copy avatar** menulis potret pemain yang dipilih ke slot potret kosong pertama, memakai
+  penulis potret bawaan game. Potret dicatat dari paket akun saat tamu masuk room; bila tamu
+  itu sudah ada sebelum mod dimuat, potretnya dibaca dari data akun tamu yang sedang hidup.
+  Seperti copy skin, tidak ada avatar yang tersimpan tanpa tombol ditekan.
+- **Copy skin** menulis model pemain yang dipilih ke slot model kosong pertama, lalu menulis
   nama pemiliknya ke `Name.txt` slot itu. Model dicatat di memori saat tamu masuk room; bila
   tamu itu sudah ada sebelum mod dimuat, modelnya dibaca dari daftar tamu yang sedang hidup.
   Tidak ada skin yang tersimpan tanpa tombol ditekan.
@@ -200,10 +204,11 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook ready (shadowhook version 2.0.1, multi mode)
 dlopen monitor not used
-Scan complete: 95 of 95 methods found
+Scan complete: 96 of 96 methods found
 Skin model fields OK
 Portrait data field OK
 Guest list fields OK
+Live portrait fields OK
 Guest name field ready
 Player list field ready
 Player field OK

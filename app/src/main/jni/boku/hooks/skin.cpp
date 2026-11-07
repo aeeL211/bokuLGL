@@ -99,9 +99,12 @@ Field fieldItemGuest = {};
 Field guestSizeField = {};
 Field guestKeyField = {};
 Field fieldModelGuest = {};
+Field fieldAccountGuest = {};
+Field fieldPortraitAccount = {};
 bool fieldReady = false;
 bool fieldPortraitReady = false;
 bool fieldGuestReady = false;
+bool fieldPortraitLiveReady = false;
 bool alreadyRecordNotReady = false;
 bool alreadyPortraitNotReady = false;
 
@@ -376,6 +379,18 @@ bool getGuestModel(const char* key, ModelCopy& result) {
     return result.text != nullptr;
 }
 
+bool getGuestPortrait(const char* key, ModelCopy& result) {
+    pthread_mutex_lock(&guestKey);
+    for (int i = 0; i < countGuest; i++) {
+        if (strcmp(guestList[i].key, key) || !guestList[i].portrait)
+            continue;
+        result.text = strdup(guestList[i].portrait);
+        break;
+    }
+    pthread_mutex_unlock(&guestKey);
+    return result.text != nullptr;
+}
+
 // Guests already in the room before the mod loaded never pass through the Add
 // hook. The model in use can be read from the live list, then converted back to
 // a string by the game's own Model__To__Str.
@@ -413,6 +428,43 @@ bool guestModelAlive(void* managerGuest, const char* key, ModelCopy& result) {
     return false;
 }
 
+// The same fallback for a portrait: the live guest account holds the parsed
+// portrait object, so it is converted back to the string the writer expects.
+bool guestPortraitAlive(void* managerGuest, const char* key, ModelCopy& result) {
+    if (!fieldGuestReady || !fieldPortraitLiveReady)
+        return false;
+    void* manager = readPtr(managerGuest, fieldGuest);
+    void* list = readPtr(manager, guestListField);
+    void* item = readPtr(list, fieldItemGuest);
+    int32_t count = item ? readInt(list, guestSizeField) : 0;
+    int32_t capacity = item ? lengthArray(item) : 0;
+    if (count <= 0 || count > capacity)
+        return false;
+
+    auto toText = reinterpret_cast<void* (*)(void*, void*)>(target(T_PORTRAIT_TO_STR).addr);
+    if (!toText) {
+        LOGE("Target _Portrait.Portrait__To__Str not found, live portrait unavailable");
+        return false;
+    }
+
+    char* data = arrayData(item);
+    char keyText[kLimitByteUser];
+    for (int32_t i = 0; i < count; i++) {
+        void* guest = *reinterpret_cast<void**>(data + static_cast<size_t>(i) * sizeof(void*));
+        if (!guest || !toUtf8(readPtr(guest, guestKeyField), keyText, sizeof(keyText)))
+            continue;
+        if (strcmp(keyText, key))
+            continue;
+        void* account = readPtr(guest, fieldAccountGuest);
+        void* portrait = readPtr(account, fieldPortraitAccount);
+        if (!portrait)
+            return false;
+        result.text = copyText(toText(portrait, target(T_PORTRAIT_TO_STR).method));
+        return result.text != nullptr;
+    }
+    return false;
+}
+
 // The live guest list fields are used when the Add cache is empty. The names
 // match those used by the Room section, so both point at the same list.
 bool findFieldGuestAlive() {
@@ -426,8 +478,14 @@ bool findFieldGuestAlive() {
         !findField(klassList, "_size", guestSizeField))
         return false;
     void* klassGuest = fieldElementClass(fieldItemGuest);
-    return findField(klassGuest, "key", guestKeyField) &&
-           findField(klassGuest, "model", fieldModelGuest);
+    bool found = findField(klassGuest, "key", guestKeyField) &&
+                 findField(klassGuest, "model", fieldModelGuest);
+    if (found) {
+        fieldPortraitLiveReady = findField(klassGuest, "account", fieldAccountGuest) &&
+                                 findField(fieldClass(fieldAccountGuest), "portrait",
+                                           fieldPortraitAccount);
+    }
+    return found;
 }
 
 // The portrait holder sits next to the model holder on the same save data, so
@@ -475,14 +533,18 @@ void fillInitialPortraitSlot(void* data) {
 
 // Writes one portrait string into the first free slot. A portrait already seen
 // in this session or on disk is not written again.
-void dumpGuestPortrait(void* managerGuest, const char* text) {
+CopyResult savePortraitText(void* managerGuest, const char* text, int& slot) {
+    slot = 0;
+    if (!fieldPortraitReady || !managerGuest || !text || !*text)
+        return CopyResult::Failed;
+
     void* data = portraitDataHolder(managerGuest);
     if (!data) {
         if (!alreadyPortraitNotReady) {
             alreadyPortraitNotReady = true;
             LOGE("Portrait data not ready, portrait dump skipped");
         }
-        return;
+        return CopyResult::Failed;
     }
 
     if (!portraitSlotReady) {
@@ -491,27 +553,38 @@ void dumpGuestPortrait(void* managerGuest, const char* text) {
     }
 
     uint64_t value = hashText(text, strlen(text));
-    if (findSlot(tablePortrait, value))
-        return;
+    int saved = findSlot(tablePortrait, value);
+    if (saved) {
+        slot = saved;
+        return CopyResult::Exists;
+    }
     if (portraitNext > kLimitPortrait) {
         LOGE("Portrait slots full, %d portraits stored", countHashPortrait);
-        return;
+        return CopyResult::Failed;
     }
 
     void* portraitText = stringFromUtf8(text);
     if (!portraitText) {
         LOGE("Failed to build portrait string for slot %d", portraitNext);
-        return;
+        return CopyResult::Failed;
     }
     writePortraitSlot(data, portraitNext, portraitText);
     if (!portraitSlotHas(data, portraitNext)) {
         LOGE("Portrait write failed: slot %d", portraitNext);
-        return;
+        return CopyResult::Failed;
     }
 
-    int slot = portraitNext++;
+    slot = portraitNext++;
     recordSlot(tablePortrait, countHashPortrait, value, slot);
     LOGI("Guest portrait saved: slot %d (%zu bytes)", slot, strlen(text));
+    return CopyResult::Saved;
+}
+
+// Auto dump writes the portrait right after the guest joins. The copy button
+// calls savePortraitText directly, so both share one writer.
+void dumpGuestPortrait(void* managerGuest, const char* text) {
+    int slot = 0;
+    savePortraitText(managerGuest, text, slot);
 }
 
 } // namespace
@@ -532,6 +605,24 @@ CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name,
         LOGI("Guest model read from live list: %s", key);
     }
     return saveModelText(managerGuest, name, copied.text, slot);
+}
+
+CopyResult copyGuestPortrait(void* managerGuest, const char* key, int& slot) {
+    slot = 0;
+    if (!fieldPortraitReady || !managerGuest || !key || !*key)
+        return CopyResult::Failed;
+
+    ModelCopy copied;
+    if (!getGuestPortrait(key, copied) || !copied.text || !*copied.text) {
+        free(copied.text);
+        copied.text = nullptr;
+        if (!guestPortraitAlive(managerGuest, key, copied) || !copied.text) {
+            LOGI("Guest portrait not found: %s", key);
+            return CopyResult::Missing;
+        }
+        LOGI("Guest portrait read from live list: %s", key);
+    }
+    return savePortraitText(managerGuest, copied.text, slot);
 }
 
 // Called from the account packet hook on the game thread. The portrait string
@@ -613,6 +704,8 @@ void installSkinHook() {
 
     fieldGuestReady = findFieldGuestAlive();
     LOGI("Guest list fields %s", fieldGuestReady ? "OK" : "missing, skin copy from cache only");
+    LOGI("Live portrait fields %s",
+         fieldPortraitLiveReady ? "OK" : "missing, copy from cache only");
 
     installHook(target(T_GUEST_ADD), reinterpret_cast<void*>(hookAdd));
     installHook(target(T_GUEST_INIT_MODEL), reinterpret_cast<void*>(hookInitModel));

@@ -52,6 +52,8 @@ int RegisterMenu(JNIEnv *env) {
              reinterpret_cast<void *>(KickAll)},
             {OBFUSCATE("CopyPlayerSkin"), OBFUSCATE("(Ljava/lang/String;Ljava/lang/String;)Z"),
              reinterpret_cast<void *>(CopyPlayerSkin)},
+            {OBFUSCATE("CopyPlayerAvatar"), OBFUSCATE("(Ljava/lang/String;)Z"),
+             reinterpret_cast<void *>(CopyPlayerAvatar)},
     };
 
     return registerNative(env, OBFUSCATE("com/android/support/Menu"), methods,

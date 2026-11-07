@@ -233,11 +233,32 @@ void runAction(void* managerGuest, const player::Action& action) {
         return;
     }
 
+    if (action.type == player::Action::Kind::CopyAvatar) {
+        int slot = 0;
+        CopyResult result = copyGuestPortrait(managerGuest, action.key, slot);
+        switch (result) {
+        case CopyResult::Saved:
+            snprintf(message, sizeof(message), "Avatar %s tersimpan di slot %d", action.name, slot);
+            break;
+        case CopyResult::Exists:
+            snprintf(message, sizeof(message), "Avatar %s sudah ada di slot %d", action.name, slot);
+            break;
+        case CopyResult::Missing:
+            snprintf(message, sizeof(message), "Avatar %s belum tercatat, coba lagi", action.name);
+            break;
+        default:
+            snprintf(message, sizeof(message), "Copy avatar %s gagal", action.name);
+            break;
+        }
+        showToast(message);
+        return;
+    }
+
     int slot = 0;
     CopyResult result = copyGuestModel(managerGuest, action.key, action.name, slot);
     switch (result) {
     case CopyResult::Saved:
-        snprintf(message, sizeof(message), "Skin %s disalin ke slot %d", action.name, slot);
+        snprintf(message, sizeof(message), "Skin %s tersimpan di slot %d", action.name, slot);
         break;
     case CopyResult::Exists:
         snprintf(message, sizeof(message), "Skin %s sudah ada di slot %d", action.name, slot);
@@ -246,7 +267,7 @@ void runAction(void* managerGuest, const player::Action& action) {
         snprintf(message, sizeof(message), "Skin %s belum tercatat, coba lagi", action.name);
         break;
     default:
-        snprintf(message, sizeof(message), "Salin skin %s gagal", action.name);
+        snprintf(message, sizeof(message), "Copy skin %s gagal", action.name);
         break;
     }
     showToast(message);

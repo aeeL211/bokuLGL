@@ -121,6 +121,8 @@ bool enqueueCopy(const char* key, const char* name) {
     return enqueue(Action::Kind::Copy, key, name);
 }
 
+bool enqueueCopyAvatar(const char* key) { return enqueue(Action::Kind::CopyAvatar, key, nullptr); }
+
 bool takeAction(Action& exit) {
     double now = nowSeconds();
     if (now < nextAction)
