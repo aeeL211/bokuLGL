@@ -1,6 +1,6 @@
 #include "feature_registry.h"
 
-#include "features.h"
+#include "feature_flags.h"
 
 void applyFeatureChange(jint number, jboolean active, jint value) {
     Features& switchFlag = features();

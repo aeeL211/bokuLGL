@@ -107,7 +107,7 @@ set(MENU_SOURCES
 # hook group.
 set(MOD_SOURCES
   "${BOKU_ROOT}/main.cpp"
-  "${BOKU_ROOT}/features.cpp"
+  "${BOKU_ROOT}/feature_flags.cpp"
   "${BOKU_ROOT}/feature_registry.cpp"
   "${BOKU_ROOT}/jni_bridge.cpp"
   "${BOKU_ROOT}/jni_cache.cpp"

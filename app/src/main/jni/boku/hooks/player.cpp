@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "features.h"
+#include "feature_flags.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
