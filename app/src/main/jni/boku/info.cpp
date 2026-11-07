@@ -29,7 +29,7 @@ bool versiAplikasi(char* nama, size_t size, jint& kode) {
             env->GetStaticFieldID(kelasUnityPlayer(), "currentActivity", "Landroid/app/Activity;");
         if (fieldAktivitas)
             activity = LocalRef<jobject>(
-                    env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
+                env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
         else
             bersihkanEksepsi(env, "UnityPlayer.currentActivity");
     }
@@ -39,18 +39,16 @@ bool versiAplikasi(char* nama, size_t size, jint& kode) {
     LocalRef<jobject> manajer;
     if (activity && aktivitas && aktivitas->namaPaket && aktivitas->manajerPaket) {
         paket = LocalRef<jstring>(
-                env, static_cast<jstring>(env->CallObjectMethod(activity.get(),
-                                                                aktivitas->namaPaket)));
-        manajer = LocalRef<jobject>(
-                env, env->CallObjectMethod(activity.get(), aktivitas->manajerPaket));
+            env, static_cast<jstring>(env->CallObjectMethod(activity.get(), aktivitas->namaPaket)));
+        manajer =
+            LocalRef<jobject>(env, env->CallObjectMethod(activity.get(), aktivitas->manajerPaket));
     }
 
     const KelasManajerPaket* infoManajer = cacheManajerPaket(env);
     LocalRef<jobject> informasi;
     if (manajer && paket && infoManajer && infoManajer->infoPaket) {
-        informasi = LocalRef<jobject>(env, env->CallObjectMethod(manajer.get(),
-                                                                 infoManajer->infoPaket,
-                                                                 paket.get(), 0));
+        informasi = LocalRef<jobject>(
+            env, env->CallObjectMethod(manajer.get(), infoManajer->infoPaket, paket.get(), 0));
     }
 
     const KelasInfoPaket* info = cacheInfoPaket(env);
@@ -58,8 +56,7 @@ bool versiAplikasi(char* nama, size_t size, jint& kode) {
     if (informasi && info) {
         if (info->namaVersi)
             versi = LocalRef<jstring>(
-                    env, static_cast<jstring>(
-                             env->GetObjectField(informasi.get(), info->namaVersi)));
+                env, static_cast<jstring>(env->GetObjectField(informasi.get(), info->namaVersi)));
         if (info->kodeVersi)
             kode = env->GetIntField(informasi.get(), info->kodeVersi);
         if (versi) {

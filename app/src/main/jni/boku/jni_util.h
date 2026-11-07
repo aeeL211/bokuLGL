@@ -23,8 +23,7 @@ private:
 
 // Referensi lokal JNI selalu dibebaskan, termasuk saat ada jalur keluar lebih
 // awal atau pemanggilan Java melempar eksepsi.
-template <typename T>
-class LocalRef {
+template <typename T> class LocalRef {
 public:
     LocalRef() = default;
 

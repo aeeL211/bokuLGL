@@ -97,9 +97,9 @@ void salinDaftar(char* keluaran, std::size_t ukuran) {
 
     std::size_t posisi = 0;
     for (int i = 0; i < jumlah; i++) {
-        int ditulis = std::snprintf(keluaran + posisi, ukuran - posisi, "%s%s\t%s\t%s",
-                                    i ? "\n" : "", salinan[i].nama, salinan[i].kunci,
-                                    salinan[i].peran);
+        int ditulis =
+            std::snprintf(keluaran + posisi, ukuran - posisi, "%s%s\t%s\t%s", i ? "\n" : "",
+                          salinan[i].nama, salinan[i].kunci, salinan[i].peran);
         if (ditulis < 0 || static_cast<std::size_t>(ditulis) >= ukuran - posisi)
             break;
         posisi += static_cast<std::size_t>(ditulis);

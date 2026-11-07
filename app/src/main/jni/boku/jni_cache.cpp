@@ -125,9 +125,9 @@ const KelasDialog* cacheDialog(JNIEnv* env) {
     if (!dialogSiap.load(std::memory_order_relaxed)) {
         dialog.kelas = ambilKelas(env, OBFUSCATE("com/android/support/DialogHelper"));
         dialog.tampil = ambilMetodeStatis(
-                env, dialog.kelas, OBFUSCATE("showDialogWithLink"),
-                OBFUSCATE("(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;"
-                          "Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)V"));
+            env, dialog.kelas, OBFUSCATE("showDialogWithLink"),
+            OBFUSCATE("(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;"
+                      "Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)V"));
         dialogSiap.store(true, std::memory_order_release);
     }
     return dialog.kelas ? &dialog : nullptr;
@@ -141,10 +141,10 @@ const KelasToast* cacheToast(JNIEnv* env) {
     std::lock_guard<std::mutex> tahan(kunciCache);
     if (!toastSiap.load(std::memory_order_relaxed)) {
         toast.kelas = ambilKelas(env, OBFUSCATE("android/widget/Toast"));
-        toast.buat = ambilMetodeStatis(
-                env, toast.kelas, OBFUSCATE("makeText"),
-                OBFUSCATE("(Landroid/content/Context;Ljava/lang/CharSequence;I)"
-                          "Landroid/widget/Toast;"));
+        toast.buat =
+            ambilMetodeStatis(env, toast.kelas, OBFUSCATE("makeText"),
+                              OBFUSCATE("(Landroid/content/Context;Ljava/lang/CharSequence;I)"
+                                        "Landroid/widget/Toast;"));
         toast.tampil = ambilMetode(env, toast.kelas, OBFUSCATE("show"), OBFUSCATE("()V"));
         toastSiap.store(true, std::memory_order_release);
     }
@@ -159,9 +159,8 @@ const KelasMetode* cacheHtml(JNIEnv* env) {
     std::lock_guard<std::mutex> tahan(kunciCache);
     if (!htmlSiap.load(std::memory_order_relaxed)) {
         html.kelas = ambilKelas(env, OBFUSCATE("android/text/Html"));
-        html.metode =
-                ambilMetodeStatis(env, html.kelas, OBFUSCATE("fromHtml"),
-                                  OBFUSCATE("(Ljava/lang/String;)Landroid/text/Spanned;"));
+        html.metode = ambilMetodeStatis(env, html.kelas, OBFUSCATE("fromHtml"),
+                                        OBFUSCATE("(Ljava/lang/String;)Landroid/text/Spanned;"));
         htmlSiap.store(true, std::memory_order_release);
     }
     return html.kelas ? &html : nullptr;
@@ -191,11 +190,10 @@ const KelasIntent* cacheIntent(JNIEnv* env) {
     if (!intentSiap.load(std::memory_order_relaxed)) {
         intent.kelas = ambilKelas(env, OBFUSCATE("android/content/Intent"));
         intent.dariKonteks =
-                ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
-                            OBFUSCATE("(Landroid/content/Context;Ljava/lang/Class;)V"));
-        intent.dariUri =
-                ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
-                            OBFUSCATE("(Ljava/lang/String;Landroid/net/Uri;)V"));
+            ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
+                        OBFUSCATE("(Landroid/content/Context;Ljava/lang/Class;)V"));
+        intent.dariUri = ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
+                                     OBFUSCATE("(Ljava/lang/String;Landroid/net/Uri;)V"));
         intentSiap.store(true, std::memory_order_release);
     }
     return intent.kelas ? &intent : nullptr;
@@ -251,9 +249,8 @@ const KelasMetode* cacheSettings(JNIEnv* env) {
     std::lock_guard<std::mutex> tahan(kunciCache);
     if (!settingsSiap.load(std::memory_order_relaxed)) {
         settings.kelas = ambilKelas(env, OBFUSCATE("android/provider/Settings"));
-        settings.metode =
-                ambilMetodeStatis(env, settings.kelas, OBFUSCATE("canDrawOverlays"),
-                                  OBFUSCATE("(Landroid/content/Context;)Z"));
+        settings.metode = ambilMetodeStatis(env, settings.kelas, OBFUSCATE("canDrawOverlays"),
+                                            OBFUSCATE("(Landroid/content/Context;)Z"));
         settingsSiap.store(true, std::memory_order_release);
     }
     return settings.kelas ? &settings : nullptr;
@@ -268,11 +265,10 @@ const KelasKonteks* cacheKonteks(JNIEnv* env) {
     if (!konteksSiap.load(std::memory_order_relaxed)) {
         konteks.kelas = ambilKelas(env, OBFUSCATE("android/content/Context"));
         konteks.mulaiLayanan =
-                ambilMetode(env, konteks.kelas, OBFUSCATE("startService"),
-                            OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
-        konteks.mulaiAktivitas =
-                ambilMetode(env, konteks.kelas, OBFUSCATE("startActivity"),
-                            OBFUSCATE("(Landroid/content/Intent;)V"));
+            ambilMetode(env, konteks.kelas, OBFUSCATE("startService"),
+                        OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
+        konteks.mulaiAktivitas = ambilMetode(env, konteks.kelas, OBFUSCATE("startActivity"),
+                                             OBFUSCATE("(Landroid/content/Intent;)V"));
         konteks.namaPaket = ambilMetode(env, konteks.kelas, OBFUSCATE("getPackageName"),
                                         OBFUSCATE("()Ljava/lang/String;"));
         konteksSiap.store(true, std::memory_order_release);
@@ -288,9 +284,8 @@ const KelasAktivitas* cacheAktivitas(JNIEnv* env) {
     std::lock_guard<std::mutex> tahan(kunciCache);
     if (!aktivitasSiap.load(std::memory_order_relaxed)) {
         aktivitas.kelas = ambilKelas(env, OBFUSCATE("android/app/Activity"));
-        aktivitas.manajerPaket = ambilMetode(
-                env, aktivitas.kelas, OBFUSCATE("getPackageManager"),
-                OBFUSCATE("()Landroid/content/pm/PackageManager;"));
+        aktivitas.manajerPaket = ambilMetode(env, aktivitas.kelas, OBFUSCATE("getPackageManager"),
+                                             OBFUSCATE("()Landroid/content/pm/PackageManager;"));
         aktivitas.namaPaket = ambilMetode(env, aktivitas.kelas, OBFUSCATE("getPackageName"),
                                           OBFUSCATE("()Ljava/lang/String;"));
         aktivitasSiap.store(true, std::memory_order_release);
@@ -306,9 +301,9 @@ const KelasManajerPaket* cacheManajerPaket(JNIEnv* env) {
     std::lock_guard<std::mutex> tahan(kunciCache);
     if (!manajerPaketSiap.load(std::memory_order_relaxed)) {
         manajerPaket.kelas = ambilKelas(env, OBFUSCATE("android/content/pm/PackageManager"));
-        manajerPaket.infoPaket = ambilMetode(
-                env, manajerPaket.kelas, OBFUSCATE("getPackageInfo"),
-                OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
+        manajerPaket.infoPaket =
+            ambilMetode(env, manajerPaket.kelas, OBFUSCATE("getPackageInfo"),
+                        OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
         manajerPaketSiap.store(true, std::memory_order_release);
     }
     return manajerPaket.kelas ? &manajerPaket : nullptr;
@@ -325,7 +320,7 @@ const KelasInfoPaket* cacheInfoPaket(JNIEnv* env) {
         infoPaket.namaVersi = ambilField(env, infoPaket.kelas, OBFUSCATE("versionName"),
                                          OBFUSCATE("Ljava/lang/String;"));
         infoPaket.kodeVersi =
-                ambilField(env, infoPaket.kelas, OBFUSCATE("versionCode"), OBFUSCATE("I"));
+            ambilField(env, infoPaket.kelas, OBFUSCATE("versionCode"), OBFUSCATE("I"));
         infoPaketSiap.store(true, std::memory_order_release);
     }
     return infoPaket.kelas ? &infoPaket : nullptr;

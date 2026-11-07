@@ -35,7 +35,7 @@ void tampilkanDiLayar(JNIEnv* env, const char* teks) {
             env->GetStaticFieldID(kelasUnityPlayer(), "currentActivity", "Landroid/app/Activity;");
         if (fieldAktivitas)
             activity = LocalRef<jobject>(
-                    env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
+                env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
         else
             bersihkanEksepsi(env, "UnityPlayer.currentActivity");
     }
@@ -43,10 +43,10 @@ void tampilkanDiLayar(JNIEnv* env, const char* teks) {
     const KelasToast* toast = cacheToast(env);
     LocalRef<jstring> pesan(env, env->NewStringUTF(teks));
     LocalRef<jobject> objekToast(
-            env, (toast && toast->buat && toast->tampil && pesan && activity)
-                     ? env->CallStaticObjectMethod(toast->kelas, toast->buat, activity.get(),
-                                                   pesan.get(), 0)
-                     : nullptr);
+        env,
+        (toast && toast->buat && toast->tampil && pesan && activity)
+            ? env->CallStaticObjectMethod(toast->kelas, toast->buat, activity.get(), pesan.get(), 0)
+            : nullptr);
     if (objekToast)
         env->CallVoidMethod(objekToast.get(), toast->tampil);
     if (env->ExceptionCheck()) {
@@ -58,12 +58,10 @@ void tampilkanDiLayar(JNIEnv* env, const char* teks) {
 bool adaLooper(JNIEnv* env) {
     LocalRef<jclass> kelasLooper(env, env->FindClass("android/os/Looper"));
     jmethodID metodeLooper =
-        kelasLooper ? env->GetStaticMethodID(kelasLooper.get(), "myLooper",
-                                             "()Landroid/os/Looper;")
+        kelasLooper ? env->GetStaticMethodID(kelasLooper.get(), "myLooper", "()Landroid/os/Looper;")
                     : nullptr;
     LocalRef<jobject> looper(
-            env, metodeLooper ? env->CallStaticObjectMethod(kelasLooper.get(), metodeLooper)
-                              : nullptr);
+        env, metodeLooper ? env->CallStaticObjectMethod(kelasLooper.get(), metodeLooper) : nullptr);
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return false;

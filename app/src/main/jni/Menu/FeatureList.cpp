@@ -7,11 +7,11 @@
 namespace {
 
 jobjectArray salinDaftar(JNIEnv *env, const char *const *teks, int jumlah) {
-    jclass kelasString = kelasString(env);
-    if (!kelasString)
+    jclass kelasTeks = kelasString(env);
+    if (!kelasTeks)
         return nullptr;
 
-    LocalRef<jobjectArray> hasil(env, env->NewObjectArray(jumlah, kelasString, nullptr));
+    LocalRef<jobjectArray> hasil(env, env->NewObjectArray(jumlah, kelasTeks, nullptr));
     if (!hasil) {
         bersihkanEksepsi(env, "NewObjectArray daftar menu");
         return nullptr;
