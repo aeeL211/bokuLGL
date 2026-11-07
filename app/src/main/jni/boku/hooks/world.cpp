@@ -19,9 +19,9 @@ constexpr int32_t kMaxOption = 10;
 constexpr int32_t kRetryFrames = 120;
 
 struct Part {
-    Field component; // field on Background__Manager
-    Field id;        // current selection on the part
-    Field table;     // _id table on the part
+    Field component;          // field on Background__Manager
+    Field id;                 // current selection on the part
+    Field table;              // _id table on the part
     Field parent[kMaxOption]; // optional nested table before the option
     Field option[kMaxOption];
     int32_t count;
@@ -47,7 +47,7 @@ Field fieldZoneCurrent = {};
 bool worldReady = false;
 bool worldActive = false;
 
-const char* const kBackgroundNames[] = {"mountain", "forest", "city",
+const char* const kBackgroundNames[] = {"mountain", "forest",      "city",
                                         "desert",   "forest_Dead", "planet"};
 const char* const kPeriodNames[] = {"morning", "twilight", "night"};
 
@@ -165,7 +165,8 @@ void applyAll(void* bgManager, int32_t zone) {
     applyPart(readPtr(bgManager, partBackground.component), partBackground,
               flag.worldBackground.load(), zone);
     applyPart(readPtr(bgManager, partPeriod.component), partPeriod, flag.worldPeriod.load(), zone);
-    applyPart(readPtr(bgManager, partWeather.component), partWeather, flag.worldWeather.load(), zone);
+    applyPart(readPtr(bgManager, partWeather.component), partWeather, flag.worldWeather.load(),
+              zone);
 }
 
 bool setupPart(Part& part, void* componentClass, TargetId setTarget, const char* label,
@@ -217,8 +218,8 @@ bool setupWeather(void* componentClass) {
         return false;
     }
 
-    static const char* const plain[] = {"sunshine", "rain", "thunderstorm", "snow",
-                                        "leaf",     "sakura", "glow",        "star"};
+    static const char* const plain[] = {"sunshine", "rain",   "thunderstorm", "snow",
+                                        "leaf",     "sakura", "glow",         "star"};
     for (int32_t i = 0; i < 8; i++) {
         if (!findField(tableClass, plain[i], part.option[i])) {
             LOGE("World override: option %s for weather not found", plain[i]);
@@ -303,10 +304,10 @@ void installWorldHook() {
         return;
     }
 
-    bool ready = setupPart(partBackground, fieldClass(partBackground.component), T_BG_SET,
-                           "background", kBackgroundNames,
-                           static_cast<int32_t>(sizeof(kBackgroundNames) /
-                                                sizeof(kBackgroundNames[0])));
+    bool ready =
+        setupPart(partBackground, fieldClass(partBackground.component), T_BG_SET, "background",
+                  kBackgroundNames,
+                  static_cast<int32_t>(sizeof(kBackgroundNames) / sizeof(kBackgroundNames[0])));
     ready = setupPart(partPeriod, fieldClass(partPeriod.component), T_PERIOD_SET, "period",
                       kPeriodNames,
                       static_cast<int32_t>(sizeof(kPeriodNames) / sizeof(kPeriodNames[0]))) &&
