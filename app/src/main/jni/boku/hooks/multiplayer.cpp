@@ -48,8 +48,9 @@ void hookIzinSimpan(void* self, bool izin, void* method) {
 // diteruskan apa adanya.
 void hookKirimTileAdd(void* self, float x, float y, int id, void* str, int font, bool eff,
                       bool enforce, bool callback, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool,
-                                          void*)>(target(T_SEND_TILE_ADD).orig);
+    auto asli =
+        reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool, void*)>(
+            target(T_SEND_TILE_ADD).orig);
     if (!asli)
         return;
     asli(self, x, y, id, str, font, eff, fitur().izinRoomLain ? true : enforce, callback, method);
@@ -58,9 +59,9 @@ void hookKirimTileAdd(void* self, float x, float y, int id, void* str, int font,
 void hookKirimTileReplace(void* self, float rx, float ry, int rid, void* rstr, int rfont, float ax,
                           float ay, int aid, void* astr, int afont, bool eff, bool enforce,
                           bool callback, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, float, float, int,
-                                          void*, int, bool, bool, bool, void*)>(
-        target(T_SEND_TILE_REPLACE).orig);
+    auto asli =
+        reinterpret_cast<void (*)(void*, float, float, int, void*, int, float, float, int, void*,
+                                  int, bool, bool, bool, void*)>(target(T_SEND_TILE_REPLACE).orig);
     if (!asli)
         return;
     asli(self, rx, ry, rid, rstr, rfont, ax, ay, aid, astr, afont, eff,
@@ -69,8 +70,9 @@ void hookKirimTileReplace(void* self, float rx, float ry, int rid, void* rstr, i
 
 void hookKirimTileRemove(void* self, float x, float y, int id, void* str, int effType, bool enforce,
                          bool destroy, bool callback, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool,
-                                          void*)>(target(T_SEND_TILE_REMOVE).orig);
+    auto asli =
+        reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool, void*)>(
+            target(T_SEND_TILE_REMOVE).orig);
     if (!asli)
         return;
     asli(self, x, y, id, str, effType, fitur().izinRoomLain ? true : enforce, destroy, callback,
