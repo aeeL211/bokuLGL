@@ -75,7 +75,7 @@ balik ke pemilik proyek; pilihan di bawah diambil dari kode dan kontrak yang ada
 ## Build dan uji
 
 19. Tidak ada NDK/kompilator lokal di Termux. Kompilasi dan verifikasi ELF
-    dijalankan di GitHub Actions. Uji on-device (log `BK_Menu`, CheckJNI,
+    dijalankan di GitHub Actions. Uji on-device (log `BK_Native`, CheckJNI,
     simulasi hook gagal) disiapkan sebagai langkah manual karena hanya pengguna
     yang bisa menjalankan game dan membaca direktori lognya.
 20. Perbandingan daftar fitur dan urutan hook dilakukan dengan parser sumber

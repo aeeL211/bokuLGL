@@ -13,10 +13,8 @@ karena memperbaikinya akan mengubah kontrak Java, fitur, atau cakupan tugas.
    tetap mencetak `Hook terpasang: 73`; dokumentasi tidak diubah karena bukan
    perilaku hook dan berada di luar refaktor native.
 2. **Tag log Java masih `Mod_Menu`.** `Menu.TAG`, `IkonCache.TAG`, dan
-   `Theme.java` masih memakai tag lama. Tag native sudah `BK_Menu` sesuai
-   permintaan. Perubahan Java tidak di-commit oleh agent ini karena working tree
-   Java berisi pekerjaan agent lain dan CI hanya membangun Java yang sudah
-   di-commit. Bila tag harus seragam, agent Java perlu mengubah ketiganya.
+   `Theme.java` masih memakai tag lama. Tag native sudah `BK_Native` sesuai
+   permintaan; penyeragaman tag Java diserahkan ke agent Java.
 3. **`IconWebViewData()` mengembalikan `nullptr`.** Kontrak Java menyebut string,
    tetapi baseline juga mengembalikan `nullptr`. Java yang sekarang sudah
    menangani nilai null; perilaku ini dipertahankan.
@@ -62,16 +60,16 @@ karena memperbaikinya akan mengubah kontrak Java, fitur, atau cakupan tugas.
     `libshadowhook_nothing.so` tidak dipaketkan. Saat versi ShadowHook dinaikkan,
     patch harus dipasang ulang; baris log `Pemantau dlopen tidak dipakai` tetap
     ada.
-15. **Perubahan Java di working tree bukan milik refaktor ini.** Berkas seperti
-    `Menu.java`, `Theme.java`, dan `IkonFitur.java` tidak di-stage dan tidak
-    di-commit. Verifikasi JNI hanya memastikan nama dan signature yang sudah
-    di-commit tetap cocok.
+15. **Perubahan UI Java di-commit terpisah.** Berkas seperti `Menu.java`,
+    `Theme.java`, dan `IkonFitur.java` masuk pada commit `7fc107b`, bukan di
+    commit refaktor native. Verifikasi JNI memastikan nama dan signature Java
+    yang sudah di-commit tetap cocok.
 
 ## Keterbatasan pengujian
 
 16. **Tidak ada NDK, kompilator, `adb`, atau TSan di Termux.** Kompilasi dan
     pemeriksaan ELF harus lewat GitHub Actions. Uji on-device (CheckJNI, hook
-    gagal paksa, log `BK_Menu`) harus dijalankan pengguna karena hanya pengguna
+    gagal paksa, log `BK_Native`) harus dijalankan pengguna karena hanya pengguna
     yang bisa membuka game dan membaca direktori lognya.
 17. **`docs/` berada di dalam repo `bokuLGL/`.** Ini mengikuti struktur repo;
     workspace root tidak memiliki folder `docs/`.

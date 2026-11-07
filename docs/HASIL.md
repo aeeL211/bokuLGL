@@ -19,7 +19,7 @@ Dua perubahan yang diminta pengguna ikut masuk:
 
 1. `Icon()` memakai base64 baru dari
    `/storage/emulated/0/Download/ikon_bunga_512_v3_base64.txt`.
-2. Tag log native berubah dari `Mod_Menu` menjadi `BK_Menu`.
+2. Tag log native berubah dari `Mod_Menu` menjadi `BK_Native`.
 
 ## Peta berkas lama ke baru
 
@@ -143,7 +143,7 @@ sehingga sisa entri tetap terbuka setelah sakelar dimatikan.
 - Thread toast yang menjalankan `Looper.loop()` tetap terpasang sampai proses
   berakhir; ini perilaku lama.
 - Tag log Java masih `Mod_Menu`; hanya tag native yang berubah menjadi
-  `BK_Menu`. Lihat `docs/TEMUAN.md`.
+  `BK_Native`. Lihat `docs/TEMUAN.md`.
 - Jumlah hook di `README.md`/`AGENTS.md` masih 66, sedangkan runtime mencetak
   73. Tidak diubah karena di luar refaktor perilaku.
 - Uji on-device dan TSan belum dilakukan di sesi ini; perbaikan No Clip baru
