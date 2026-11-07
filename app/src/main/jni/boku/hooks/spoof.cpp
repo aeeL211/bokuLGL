@@ -7,74 +7,74 @@
 
 namespace {
 
-using FnKunci = void* (*)(void*, void*);
+using FnKey = void* (*)(void*, void*);
 
 // Paket khusus host lolos di penerima karena payload-nya membawa kunci pengirim,
 // dan penerima hanya membandingkan string itu. Penggantian ini hidup di thread
 // pengirim dan dibersihkan begitu paketnya pergi.
-thread_local bool spoofAktif = false;
-thread_local void* kunciSpoof = nullptr;
+thread_local bool spoofActive = false;
+thread_local void* keySpoof = nullptr;
 
-Field fieldManajerPemain = {};
-Field fieldMultiManajer = {};
+Field fieldManagerPlayer = {};
+Field fieldMultiManager = {};
 Field fieldPhoton = {};
 
-void* hookKunci(void* sendiri, void* metode) {
-    if (spoofAktif && kunciSpoof)
-        return kunciSpoof;
-    auto asli = reinterpret_cast<FnKunci>(target(T_PLAYER_KEY).orig);
-    return asli ? asli(sendiri, metode) : nullptr;
+void* hookKey(void* own, void* method) {
+    if (spoofActive && keySpoof)
+        return keySpoof;
+    auto original = reinterpret_cast<FnKey>(target(T_PLAYER_KEY).orig);
+    return original ? original(own, method) : nullptr;
 }
 
 // Kedua getter kunci melempar NullReferenceException selama room belum punya
 // objek photon, dan eksepsi yang keluar dari hook mematikan proses. Pemeriksaan
 // ini memakai field, bukan getter, jadi tidak bisa melempar apa pun.
-bool photonSiap(void* multi) { return multi && fieldPhoton.field && bacaPtr(multi, fieldPhoton); }
+bool photonReady(void* multi) { return multi && fieldPhoton.field && readPtr(multi, fieldPhoton); }
 
 } // namespace
 
 // Kunci host hanya dibaca selama objek photon room sudah ada. Pemanggil di luar
 // room menerima nullptr dan melewati paketnya.
-void* kunciHostDari(void* multi) {
-    auto kunci = reinterpret_cast<FnKunci>(target(T_HOST_KEY).addr);
-    if (!photonSiap(multi) || !kunci)
+void* hostKeyFrom(void* multi) {
+    auto key = reinterpret_cast<FnKey>(target(T_HOST_KEY).addr);
+    if (!photonReady(multi) || !key)
         return nullptr;
-    return kunci(multi, target(T_HOST_KEY).method);
+    return key(multi, target(T_HOST_KEY).method);
 }
 
 // Salinan aman dari Player__Manager.Key. Dipakai fitur yang butuh kunci pemain
 // sendiri tanpa boleh memicu eksepsi room yang belum siap.
-void* kunciPemainAman(void* pemain) {
-    auto kunci = reinterpret_cast<FnKunci>(target(T_PLAYER_KEY).orig);
-    void* manajer = pemain ? bacaPtr(pemain, fieldManajerPemain) : nullptr;
-    if (!kunci || !photonSiap(bacaPtr(manajer, fieldMultiManajer)))
+void* safePlayerKey(void* player) {
+    auto key = reinterpret_cast<FnKey>(target(T_PLAYER_KEY).orig);
+    void* manager = player ? readPtr(player, fieldManagerPlayer) : nullptr;
+    if (!key || !photonReady(readPtr(manager, fieldMultiManager)))
         return nullptr;
-    return kunci(pemain, target(T_PLAYER_KEY).method);
+    return key(player, target(T_PLAYER_KEY).method);
 }
 
 // Hanya berlaku sampai hentiSpoof(), jadi pemanggil membungkus satu panggilan
 // kirim saja dan sisa permainan tetap memakai kunci pemain sendiri.
-void mulaiSpoof(void* multi) {
-    kunciSpoof = kunciHostDari(multi);
-    spoofAktif = kunciSpoof != nullptr;
+void startSpoof(void* multi) {
+    keySpoof = hostKeyFrom(multi);
+    spoofActive = keySpoof != nullptr;
 }
 
-void hentiSpoof() {
-    spoofAktif = false;
-    kunciSpoof = nullptr;
+void stopSpoof() {
+    spoofActive = false;
+    keySpoof = nullptr;
 }
 
-void pasangHookSpoof() {
+void installSpoofHook() {
     if (!target(T_PLAYER_KEY).addr || !target(T_HOST_KEY).addr) {
         LOGE("Target spoof pengirim tidak ditemukan");
         return;
     }
-    bool lengkap = cariField(kelasDari("Player__Manager"), "a", fieldManajerPemain) &&
-                   cariField(kelasField(fieldManajerPemain), "multi", fieldMultiManajer) &&
-                   cariField(kelasField(fieldMultiManajer), "photon", fieldPhoton);
+    bool lengkap = findField(classOf("Player__Manager"), "a", fieldManagerPlayer) &&
+                   findField(fieldClass(fieldManagerPlayer), "multi", fieldMultiManager) &&
+                   findField(fieldClass(fieldMultiManager), "photon", fieldPhoton);
     if (lengkap)
         LOGI("Field kunci pemain siap");
     else
         LOGE("Field kunci pemain tidak lengkap; kunci dibaca hanya bila photon terbaca");
-    pasangHook(target(T_PLAYER_KEY), reinterpret_cast<void*>(hookKunci));
+    installHook(target(T_PLAYER_KEY), reinterpret_cast<void*>(hookKey));
 }

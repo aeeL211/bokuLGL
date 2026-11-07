@@ -5,179 +5,179 @@
 #include <cstring>
 #include <mutex>
 
-#include "waktu.h"
+#include "clock.h"
 
 namespace {
 
-constexpr double kJedaAksi = 0.25;
-constexpr double kJedaDaftar = 0.4;
+constexpr double kDelayAction = 0.25;
+constexpr double kDelayList = 0.4;
 
 // Salinan tetap hidup dua detik sesudah pembacaan terakhir. Menu membaca sekali
 // per detik, jadi menutup menu menghentikan pembaruan tanpa menghapus data yang
 // masih ditampilkan.
-constexpr double kMasaDaftar = 2.0;
-constexpr double kMasaPosisi = 2.0;
+constexpr double kPeriodList = 2.0;
+constexpr double kPeriodPosition = 2.0;
 
-std::atomic<bool> layananSiap{false};
+std::atomic<bool> serviceReady{false};
 
-std::mutex kunciDaftar;
-pemain::Ringkas daftarPemain[pemain::kMaksPemain] = {};
-int jumlahPemain = 0;
-double berikutDaftar = 0.0;
-std::atomic<double> daftarDiminta{0.0};
+std::mutex listKey;
+player::Summary playerList[player::kMaxPlayer] = {};
+int countPlayer = 0;
+double nextList = 0.0;
+std::atomic<double> listRequested{0.0};
 
-std::mutex kunciAksi;
-pemain::Aksi antrean[pemain::kBatasAksi] = {};
-int jumlahAntrean = 0;
-double berikutAksi = 0.0;
+std::mutex actionKey;
+player::Action queue[player::kLimitAction] = {};
+int countQueue = 0;
+double nextAction = 0.0;
 
-struct PosisiRingkas {
-    bool ada;
-    bool adaTile;
+struct PositionSummary {
+    bool has;
+    bool hasTile;
     float tileX;
     float tileY;
-    float duniaX;
-    float duniaY;
+    float worldX;
+    float worldY;
 };
 
-std::mutex kunciPosisi;
-PosisiRingkas posisiRingkas = {};
-std::atomic<double> posisiDiminta{0.0};
+std::mutex keyPosition;
+PositionSummary positionSummary = {};
+std::atomic<double> positionRequested{0.0};
 
-bool antrekan(pemain::Aksi::Jenis jenis, const char* kunci, const char* nama) {
-    bool butuhKunci = jenis == pemain::Aksi::Jenis::Tendang ||
-                      jenis == pemain::Aksi::Jenis::TendangPermanen ||
-                      jenis == pemain::Aksi::Jenis::Salin;
-    if (!layananSiap.load() || (butuhKunci && (!kunci || !*kunci)) ||
-        (kunci && std::strlen(kunci) >= pemain::kKarakterKunci))
+bool enqueue(player::Action::Kind jenis, const char* key, const char* name) {
+    bool needKey = jenis == player::Action::Kind::Kick ||
+                      jenis == player::Action::Kind::KickPermanent ||
+                      jenis == player::Action::Kind::Copy;
+    if (!serviceReady.load() || (needKey && (!key || !*key)) ||
+        (key && std::strlen(key) >= player::kCharacterKey))
         return false;
 
-    std::lock_guard<std::mutex> tahan(kunciAksi);
-    bool diterima = jumlahAntrean < pemain::kBatasAksi;
+    std::lock_guard<std::mutex> hold(actionKey);
+    bool diterima = countQueue < player::kLimitAction;
     if (diterima) {
-        pemain::Aksi& aksi = antrean[jumlahAntrean++];
-        aksi.jenis = jenis;
-        std::snprintf(aksi.kunci, sizeof(aksi.kunci), "%s", kunci ? kunci : "");
-        std::snprintf(aksi.nama, sizeof(aksi.nama), "%s", nama && *nama ? nama : kunci);
+        player::Action& action = queue[countQueue++];
+        action.jenis = jenis;
+        std::snprintf(action.key, sizeof(action.key), "%s", key ? key : "");
+        std::snprintf(action.name, sizeof(action.name), "%s", name && *name ? name : key);
     }
     return diterima;
 }
 
 } // namespace
 
-namespace pemain {
+namespace player {
 
-void setelSiap(bool siap) { layananSiap.store(siap); }
+void setReady(bool ready) { serviceReady.store(ready); }
 
-bool layaniDaftar() {
-    double sekarang = sekarangDetik();
-    if (sekarang < berikutDaftar || sekarang > daftarDiminta.load())
+bool serveList() {
+    double now = nowSeconds();
+    if (now < nextList || now > listRequested.load())
         return false;
-    berikutDaftar = sekarang + kJedaDaftar;
+    nextList = now + kDelayList;
     return true;
 }
 
-void simpanDaftar(const Ringkas* data, int jumlah) {
-    if (!data || jumlah < 0 || jumlah > kMaksPemain)
+void storeList(const Summary* data, int count) {
+    if (!data || count < 0 || count > kMaxPlayer)
         return;
-    std::lock_guard<std::mutex> tahan(kunciDaftar);
-    std::memcpy(daftarPemain, data, sizeof(Ringkas) * static_cast<std::size_t>(jumlah));
-    jumlahPemain = jumlah;
+    std::lock_guard<std::mutex> hold(listKey);
+    std::memcpy(playerList, data, sizeof(Summary) * static_cast<std::size_t>(count));
+    countPlayer = count;
 }
 
-void salinDaftar(char* keluaran, std::size_t ukuran) {
-    if (!keluaran || ukuran == 0)
+void copyList(char* keluaran, std::size_t size) {
+    if (!keluaran || size == 0)
         return;
     keluaran[0] = '\0';
-    daftarDiminta.store(sekarangDetik() + kMasaDaftar);
+    listRequested.store(nowSeconds() + kPeriodList);
 
-    Ringkas salinan[kMaksPemain] = {};
-    int jumlah = 0;
+    Summary salinan[kMaxPlayer] = {};
+    int count = 0;
     {
-        std::lock_guard<std::mutex> tahan(kunciDaftar);
-        jumlah = jumlahPemain;
-        std::memcpy(salinan, daftarPemain, sizeof(Ringkas) * static_cast<std::size_t>(jumlah));
+        std::lock_guard<std::mutex> hold(listKey);
+        count = countPlayer;
+        std::memcpy(salinan, playerList, sizeof(Summary) * static_cast<std::size_t>(count));
     }
 
-    std::size_t posisi = 0;
-    for (int i = 0; i < jumlah; i++) {
+    std::size_t position = 0;
+    for (int i = 0; i < count; i++) {
         int ditulis =
-            std::snprintf(keluaran + posisi, ukuran - posisi, "%s%s\t%s\t%s", i ? "\n" : "",
-                          salinan[i].nama, salinan[i].kunci, salinan[i].peran);
-        if (ditulis < 0 || static_cast<std::size_t>(ditulis) >= ukuran - posisi)
+            std::snprintf(keluaran + position, size - position, "%s%s\t%s\t%s", i ? "\n" : "",
+                          salinan[i].name, salinan[i].key, salinan[i].role);
+        if (ditulis < 0 || static_cast<std::size_t>(ditulis) >= size - position)
             break;
-        posisi += static_cast<std::size_t>(ditulis);
+        position += static_cast<std::size_t>(ditulis);
     }
 }
 
-bool antrekanTendang(const char* kunci, const char* nama, bool permanen) {
-    return antrekan(permanen ? Aksi::Jenis::TendangPermanen : Aksi::Jenis::Tendang, kunci, nama);
+bool enqueueKick(const char* key, const char* name, bool permanent) {
+    return enqueue(permanent ? Action::Kind::KickPermanent : Action::Kind::Kick, key, name);
 }
 
-bool antrekanTendangHost(const char* nama) {
-    return antrekan(Aksi::Jenis::TendangHost, nullptr, nama);
+bool enqueueKickHost(const char* name) {
+    return enqueue(Action::Kind::KickHost, nullptr, name);
 }
 
-bool antrekanTendangSemua() { return antrekan(Aksi::Jenis::TendangSemua, nullptr, "semua tamu"); }
+bool enqueueKickAll() { return enqueue(Action::Kind::KickAll, nullptr, "semua tamu"); }
 
-bool antrekanSalin(const char* kunci, const char* nama) {
-    return antrekan(Aksi::Jenis::Salin, kunci, nama);
+bool enqueueCopy(const char* key, const char* name) {
+    return enqueue(Action::Kind::Copy, key, name);
 }
 
-bool ambilAksi(Aksi& keluar) {
-    double sekarang = sekarangDetik();
-    if (sekarang < berikutAksi)
+bool takeAction(Action& exit) {
+    double now = nowSeconds();
+    if (now < nextAction)
         return false;
 
-    bool ada = false;
+    bool has = false;
     {
-        std::lock_guard<std::mutex> tahan(kunciAksi);
-        if (jumlahAntrean > 0) {
-            keluar = antrean[0];
-            for (int i = 1; i < jumlahAntrean; i++)
-                antrean[i - 1] = antrean[i];
-            jumlahAntrean--;
-            ada = true;
+        std::lock_guard<std::mutex> hold(actionKey);
+        if (countQueue > 0) {
+            exit = queue[0];
+            for (int i = 1; i < countQueue; i++)
+                queue[i - 1] = queue[i];
+            countQueue--;
+            has = true;
         }
     }
-    if (!ada)
+    if (!has)
         return false;
 
-    berikutAksi = sekarang + kJedaAksi;
+    nextAction = now + kDelayAction;
     return true;
 }
 
-bool layaniPosisi() { return sekarangDetik() < posisiDiminta.load(); }
+bool servePosition() { return nowSeconds() < positionRequested.load(); }
 
-void simpanPosisi(bool adaTile, float tileX, float tileY, float duniaX, float duniaY) {
-    std::lock_guard<std::mutex> tahan(kunciPosisi);
-    posisiRingkas.ada = true;
-    posisiRingkas.adaTile = adaTile;
-    posisiRingkas.tileX = adaTile ? tileX : 0.0f;
-    posisiRingkas.tileY = adaTile ? tileY : 0.0f;
-    posisiRingkas.duniaX = duniaX;
-    posisiRingkas.duniaY = duniaY;
+void storePosition(bool hasTile, float tileX, float tileY, float worldX, float worldY) {
+    std::lock_guard<std::mutex> hold(keyPosition);
+    positionSummary.has = true;
+    positionSummary.hasTile = hasTile;
+    positionSummary.tileX = hasTile ? tileX : 0.0f;
+    positionSummary.tileY = hasTile ? tileY : 0.0f;
+    positionSummary.worldX = worldX;
+    positionSummary.worldY = worldY;
 }
 
-void salinPosisi(char* keluaran, std::size_t ukuran) {
-    if (!keluaran || ukuran == 0)
+void copyPosition(char* keluaran, std::size_t size) {
+    if (!keluaran || size == 0)
         return;
     keluaran[0] = '\0';
-    posisiDiminta.store(sekarangDetik() + kMasaPosisi);
+    positionRequested.store(nowSeconds() + kPeriodPosition);
 
-    PosisiRingkas salinan = {};
+    PositionSummary salinan = {};
     {
-        std::lock_guard<std::mutex> tahan(kunciPosisi);
-        salinan = posisiRingkas;
+        std::lock_guard<std::mutex> hold(keyPosition);
+        salinan = positionSummary;
     }
 
-    if (!salinan.ada)
+    if (!salinan.has)
         return;
-    if (salinan.adaTile) {
-        std::snprintf(keluaran, ukuran, "%.2f\t%.2f\t%.1f\t%.1f", salinan.tileX, salinan.tileY,
-                      salinan.duniaX, salinan.duniaY);
+    if (salinan.hasTile) {
+        std::snprintf(keluaran, size, "%.2f\t%.2f\t%.1f\t%.1f", salinan.tileX, salinan.tileY,
+                      salinan.worldX, salinan.worldY);
     } else {
-        std::snprintf(keluaran, ukuran, "\t\t%.1f\t%.1f", salinan.duniaX, salinan.duniaY);
+        std::snprintf(keluaran, size, "\t\t%.1f\t%.1f", salinan.worldX, salinan.worldY);
     }
 }
 

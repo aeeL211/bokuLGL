@@ -10,12 +10,12 @@ import java.util.Locale;
  * (daftar pemain, posisi pemain, tautan) dikenali dari namanya lebih dulu
  * supaya tidak bertabrakan dengan nomor fitur 0.
  */
-public final class Penjelasan {
-    private Penjelasan() {
+public final class Explanation {
+    private Explanation() {
     }
 
-    public static String untuk(int fitur, String nama) {
-        String n = nama == null ? "" : nama.toLowerCase(Locale.ROOT);
+    public static String forTarget(int features, String name) {
+        String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
 
         if (n.contains("pemain di room"))
             return "Menampilkan host, pemain sendiri, dan tamu yang sedang ada di room. "
@@ -32,7 +32,7 @@ public final class Penjelasan {
         if (n.contains("lapor"))
             return "Membuka Telegram @aeeL2 untuk lapor bug atau saran.";
 
-        switch (fitur) {
+        switch (features) {
             case 0:
                 return "Item bisa dibeli tanpa Play Billing dan tanpa biaya. Semua tile, model, "
                         + "dan melody langsung terbuka tanpa perlu dibeli.";

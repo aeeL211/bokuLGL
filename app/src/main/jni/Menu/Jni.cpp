@@ -13,8 +13,8 @@
 
 void Dialog(JNIEnv *env, jobject context, const char *title, const char *message, const char *openBtn,
             const char *closeBtn, int sec, const char *url) {
-    const KelasDialog *dialog = cacheDialog(env);
-    if (!dialog || !dialog->tampil || !context)
+    const DialogClass *dialog = cacheDialog(env);
+    if (!dialog || !dialog->show || !context)
         return;
 
     LocalRef<jstring> jTitle(env, env->NewStringUTF(title));
@@ -23,75 +23,75 @@ void Dialog(JNIEnv *env, jobject context, const char *title, const char *message
     LocalRef<jstring> jClose(env, env->NewStringUTF(closeBtn));
     LocalRef<jstring> jUrl(env, env->NewStringUTF(url));
     if (!jTitle || !jMessage || !jOpen || !jClose || !jUrl) {
-        bersihkanEksepsi(env, "DialogHelper string");
+        clearException(env, "DialogHelper string");
         return;
     }
 
-    env->CallStaticVoidMethod(dialog->kelas, dialog->tampil, context, jTitle.get(), jMessage.get(),
+    env->CallStaticVoidMethod(dialog->klass, dialog->show, context, jTitle.get(), jMessage.get(),
                               jOpen.get(), jClose.get(), static_cast<jint>(sec), jUrl.get());
-    bersihkanEksepsi(env, "DialogHelper.showDialogWithLink");
+    clearException(env, "DialogHelper.showDialogWithLink");
 }
 
 void Toast(JNIEnv *env, jobject thiz, const char *text, int length) {
-    const KelasToast *toast = cacheToast(env);
-    if (!toast || !toast->buat || !toast->tampil || !thiz)
+    const ToastClass *toast = cacheToast(env);
+    if (!toast || !toast->create || !toast->show || !thiz)
         return;
 
-    LocalRef<jstring> pesan(env, env->NewStringUTF(text));
-    if (!pesan) {
-        bersihkanEksepsi(env, "Toast.makeText string");
+    LocalRef<jstring> message(env, env->NewStringUTF(text));
+    if (!message) {
+        clearException(env, "Toast.makeText string");
         return;
     }
-    LocalRef<jobject> objekToast(env, env->CallStaticObjectMethod(toast->kelas, toast->buat, thiz,
-                                                                  pesan.get(),
+    LocalRef<jobject> objekToast(env, env->CallStaticObjectMethod(toast->klass, toast->create, thiz,
+                                                                  message.get(),
                                                                   static_cast<jint>(length)));
     if (!objekToast) {
-        bersihkanEksepsi(env, "Toast.makeText");
+        clearException(env, "Toast.makeText");
         return;
     }
-    env->CallVoidMethod(objekToast.get(), toast->tampil);
-    bersihkanEksepsi(env, "Toast.show");
+    env->CallVoidMethod(objekToast.get(), toast->show);
+    clearException(env, "Toast.show");
 }
 
 // Big letter cause crash
 void setText(JNIEnv *env, jobject obj, const char *text) {
-    const KelasMetode *html = cacheHtml(env);
-    const KelasMetode *textView = cacheTextView(env);
-    if (!obj || !html || !html->metode || !textView || !textView->metode)
+    const ClassMethod *html = cacheHtml(env);
+    const ClassMethod *textView = cacheTextView(env);
+    if (!obj || !html || !html->method || !textView || !textView->method)
         return;
 
     LocalRef<jstring> jstr(env, env->NewStringUTF(text));
     if (!jstr) {
-        bersihkanEksepsi(env, "Html.fromHtml string");
+        clearException(env, "Html.fromHtml string");
         return;
     }
     LocalRef<jobject> spanned(env,
-                              env->CallStaticObjectMethod(html->kelas, html->metode, jstr.get()));
+                              env->CallStaticObjectMethod(html->klass, html->method, jstr.get()));
     if (!spanned) {
-        bersihkanEksepsi(env, "Html.fromHtml");
+        clearException(env, "Html.fromHtml");
         return;
     }
-    env->CallVoidMethod(obj, textView->metode, spanned.get());
-    bersihkanEksepsi(env, "TextView.setText");
+    env->CallVoidMethod(obj, textView->method, spanned.get());
+    clearException(env, "TextView.setText");
 }
 
 void startService(JNIEnv *env, jobject ctx) {
-    const KelasKonteks *konteks = cacheKonteks(env);
-    const KelasIntent *intent = cacheIntent(env);
+    const ContextClass *context = cacheContext(env);
+    const IntentClass *intent = cacheIntent(env);
     jclass launcher = cacheLauncher(env);
-    if (!ctx || !konteks || !konteks->mulaiLayanan || !intent || !intent->dariKonteks || !launcher)
+    if (!ctx || !context || !context->startService || !intent || !intent->fromContext || !launcher)
         return;
 
-    LocalRef<jobject> objekIntent(env, env->NewObject(intent->kelas, intent->dariKonteks, ctx,
+    LocalRef<jobject> objekIntent(env, env->NewObject(intent->klass, intent->fromContext, ctx,
                                                       launcher));
     if (!objekIntent) {
-        bersihkanEksepsi(env, "Intent Launcher");
+        clearException(env, "Intent Launcher");
         return;
     }
-    LocalRef<jobject> komponen(
-            env, env->CallObjectMethod(ctx, konteks->mulaiLayanan, objekIntent.get()));
-    if (!komponen)
-        bersihkanEksepsi(env, "Context.startService");
+    LocalRef<jobject> component(
+            env, env->CallObjectMethod(ctx, context->startService, objekIntent.get()));
+    if (!component)
+        clearException(env, "Context.startService");
 }
 
 void *exit_thread(void *) {
@@ -100,62 +100,62 @@ void *exit_thread(void *) {
 }
 
 int get_api_sdk(JNIEnv *env) {
-    const KelasBuild *build = cacheBuild(env);
+    const BuildClass *build = cacheBuild(env);
     if (!build || !build->sdk)
         return 0;
-    return env->GetStaticIntField(build->kelas, build->sdk);
+    return env->GetStaticIntField(build->klass, build->sdk);
 }
 
 void startActivityPermisson(JNIEnv *env, jobject ctx) {
-    const KelasKonteks *konteks = cacheKonteks(env);
-    const KelasMetode *uri = cacheUri(env);
-    const KelasIntent *intent = cacheIntent(env);
-    if (!ctx || !konteks || !konteks->namaPaket || !konteks->mulaiAktivitas || !uri ||
-        !uri->metode || !intent || !intent->dariUri)
+    const ContextClass *context = cacheContext(env);
+    const ClassMethod *uri = cacheUri(env);
+    const IntentClass *intent = cacheIntent(env);
+    if (!ctx || !context || !context->packetName || !context->startActivity || !uri ||
+        !uri->method || !intent || !intent->fromUri)
         return;
 
-    LocalRef<jstring> namaPaket(
-            env, static_cast<jstring>(env->CallObjectMethod(ctx, konteks->namaPaket)));
-    if (!namaPaket) {
-        bersihkanEksepsi(env, "Context.getPackageName");
+    LocalRef<jstring> packetName(
+            env, static_cast<jstring>(env->CallObjectMethod(ctx, context->packetName)));
+    if (!packetName) {
+        clearException(env, "Context.getPackageName");
         return;
     }
-    StringUtf paket(env, namaPaket.get());
-    if (!paket) {
-        bersihkanEksepsi(env, "getPackageName UTF-8");
+    StringUtf packet(env, packetName.get());
+    if (!packet) {
+        clearException(env, "getPackageName UTF-8");
         return;
     }
 
     const char *awalan = OBFUSCATE("package:");
-    char alamatPaket[512];
-    snprintf(alamatPaket, sizeof(alamatPaket), "%s%s", awalan, paket.get());
+    char addressPacket[512];
+    snprintf(addressPacket, sizeof(addressPacket), "%s%s", awalan, packet.get());
 
-    LocalRef<jstring> alamat(env, env->NewStringUTF(alamatPaket));
-    if (!alamat) {
-        bersihkanEksepsi(env, "Uri string");
+    LocalRef<jstring> address(env, env->NewStringUTF(addressPacket));
+    if (!address) {
+        clearException(env, "Uri string");
         return;
     }
     LocalRef<jobject> uriObjek(
-            env, env->CallStaticObjectMethod(uri->kelas, uri->metode, alamat.get()));
+            env, env->CallStaticObjectMethod(uri->klass, uri->method, address.get()));
     if (!uriObjek) {
-        bersihkanEksepsi(env, "Uri.parse");
+        clearException(env, "Uri.parse");
         return;
     }
 
-    LocalRef<jstring> aksi(
+    LocalRef<jstring> action(
             env, env->NewStringUTF(OBFUSCATE("android.settings.action.MANAGE_OVERLAY_PERMISSION")));
-    if (!aksi) {
-        bersihkanEksepsi(env, "Intent action");
+    if (!action) {
+        clearException(env, "Intent action");
         return;
     }
-    LocalRef<jobject> objekIntent(env, env->NewObject(intent->kelas, intent->dariUri, aksi.get(),
+    LocalRef<jobject> objekIntent(env, env->NewObject(intent->klass, intent->fromUri, action.get(),
                                                       uriObjek.get()));
     if (!objekIntent) {
-        bersihkanEksepsi(env, "Intent permission");
+        clearException(env, "Intent permission");
         return;
     }
-    env->CallVoidMethod(ctx, konteks->mulaiAktivitas, objekIntent.get());
-    bersihkanEksepsi(env, "Context.startActivity");
+    env->CallVoidMethod(ctx, context->startActivity, objekIntent.get());
+    clearException(env, "Context.startActivity");
 }
 
 // Needed jclass parameter because this is a static java method
@@ -168,12 +168,12 @@ void CheckOverlayPermission(JNIEnv *env, jclass thiz, jobject ctx) {
 
     int sdkVer = get_api_sdk(env);
     if (sdkVer >= 23) { // Android 6.0
-        const KelasMetode *settings = cacheSettings(env);
-        bool boleh = true;
-        if (settings && settings->metode)
-            boleh = env->CallStaticBooleanMethod(settings->kelas, settings->metode, ctx) == JNI_TRUE;
-        bersihkanEksepsi(env, "Settings.canDrawOverlays");
-        if (!boleh) {
+        const ClassMethod *settings = cacheSettings(env);
+        bool allowed = true;
+        if (settings && settings->method)
+            allowed = env->CallStaticBooleanMethod(settings->klass, settings->method, ctx) == JNI_TRUE;
+        clearException(env, "Settings.canDrawOverlays");
+        if (!allowed) {
             Toast(env, ctx, OBFUSCATE("Overlay permission is required in order to show mod menu."),
                   1);
             Toast(env, ctx, OBFUSCATE("Overlay permission is required in order to show mod menu."),

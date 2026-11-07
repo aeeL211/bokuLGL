@@ -35,62 +35,62 @@ struct Api {
 
 Api& apiIl2cpp();
 
-bool ikatApi();
+bool bindApi();
 
 // Nama sederhana yang sama bisa ada di beberapa assembly, jadi sebuah kelas baru
 // diterima setelah salah satu metodenya cocok dengan nama dan jumlah argumen
 // yang diminta.
-void* kelasDari(const char* nama);
-void ikatKelas(const char* nama, void* kelas);
+void* classOf(const char* name);
+void bindKlass(const char* name, void* klass);
 
 struct Field {
     void* field;
     size_t offset;
 };
 
-bool cariField(void* kelas, const char* nama, Field& hasil);
-void* kelasField(const Field& bidang);
+bool findField(void* klass, const char* name, Field& result);
+void* fieldClass(const Field& field);
 // Untuk field array, fungsi ini mengembalikan kelas elemennya, bukan kelas array-nya.
-void* kelasElemenField(const Field& bidang);
+void* fieldElementClass(const Field& field);
 
-void* bacaPtr(void* objek, const Field& bidang);
-int32_t bacaInt(void* objek, const Field& bidang);
-void tulisInt(void* objek, const Field& bidang, int32_t nilai);
-float bacaFloat(void* objek, const Field& bidang);
-void tulisFloat(void* objek, const Field& bidang, float nilai);
-bool bacaBool(void* objek, const Field& bidang);
-void tulisBool(void* objek, const Field& bidang, bool nilai);
-void setelRef(void* objek, const Field& bidang, void* nilai);
+void* readPtr(void* objek, const Field& field);
+int32_t readInt(void* objek, const Field& field);
+void writeInt(void* objek, const Field& field, int32_t value);
+float readFloat(void* objek, const Field& field);
+void writeFloat(void* objek, const Field& field, float value);
+bool readBool(void* objek, const Field& field);
+void writeBool(void* objek, const Field& field, bool value);
+void setRef(void* objek, const Field& field, void* value);
 
-int32_t panjangArray(void* array);
-char* dataArray(void* array);
-int32_t panjangString(void* teks);
-const uint16_t* karakterString(void* teks);
+int32_t lengthArray(void* array);
+char* arrayData(void* array);
+int32_t lengthString(void* text);
+const uint16_t* characterString(void* text);
 // Dua string IL2CPP dibandingkan berdasarkan nilai; null di salah satu sisi
 // tidak pernah dianggap sama.
-bool samaString(void* pertama, void* kedua);
-void* stringUtf16Baru(const uint16_t* karakter, int32_t panjang);
+bool sameString(void* first, void* secondary);
+void* stringUtf16New(const uint16_t* character, int32_t length);
 // Teks dari menu atau berkas datang sebagai UTF-8, sedangkan argumen game
 // bertipe string IL2CPP.
-void* stringDariUtf8(const char* teks);
+void* stringFromUtf8(const char* text);
 // Teks IL2CPP memakai UTF-16, sedangkan baris log dan path file memakai UTF-8.
-bool keUtf8(void* teks, char* keluaran, size_t ukuran);
-void* dataFieldStatis(void* kelas);
+bool toUtf8(void* text, char* keluaran, size_t size);
+void* dataFieldStatic(void* klass);
 
-bool dekatNilai(float nilai, float target);
+bool nearValue(float value, float target);
 
 // MethodInfo runtime diawali oleh pointer kode hasil pencarian.
-void* alamatMethod(void* metode);
+void* addressMethod(void* method);
 // Method yang isinya hanya "return" tidak punya badan yang layak dipasangi hook.
-bool punyaBadan(void* alamat);
+bool ownBody(void* address);
 
 // Objek System.Type untuk sebuah kelas, dipakai GetComponent(Type) milik Unity.
-void* tipeKelas(void* kelas);
+void* typeKlass(void* klass);
 
 // Mencari kelas dari namanya di seluruh assembly. Dipakai untuk kelas Unity yang
 // tidak dinamai target mana pun, jadi tidak ikut terikat oleh scan().
-void* cariKelas(const char* nama);
+void* findClass(const char* name);
 
 // Nama sederhana bisa dipakai lebih dari satu kelas (misalnya _Tile data tile
 // dan _Tile perilaku), jadi kelas hanya diterima bila punya field yang diminta.
-void* cariKelasField(const char* nama, const char* namaField);
+void* findKlassField(const char* name, const char* nameField);

@@ -32,54 +32,54 @@ import java.nio.ByteBuffer;
  * Gambar selalu didekode dengan sisi terpanjang paling besar {@link #MAKS_PX},
  * jauh di atas ukuran ikon di layar, supaya GIF besar tidak memakan memori.
  */
-public final class IkonGambar {
-    private static final int MAKS_PX = 256;
+public final class IconImage {
+    private static final int MAX_PX = 256;
 
-    private IkonGambar() {
+    private IconImage() {
     }
 
     /** Null bila bukan gambar yang bisa didekode. Aman dipanggil dari thread latar. */
-    public static Drawable buat(Resources res, byte[] isi) {
-        if (isi == null || isi.length == 0)
+    public static Drawable create(Resources res, byte[] content) {
+        if (content == null || content.length == 0)
             return null;
         try {
             if (Build.VERSION.SDK_INT >= 28)
-                return dekode28(isi);
-            return dekodeLama(res, isi);
+                return dekode28(content);
+            return decodeOld(res, content);
         } catch (Throwable t) {
             return null;
         }
     }
 
     /** Movie hanya benar bila digambar lewat software layer. */
-    public static boolean butuhSoftware(Drawable d) {
-        return d instanceof GifLama;
+    public static boolean needSoftware(Drawable d) {
+        return d instanceof GifOld;
     }
 
-    public static void jalankan(Drawable d, boolean jalan) {
+    public static void jalankan(Drawable d, boolean run) {
         if (!(d instanceof Animatable))
             return;
         Animatable anim = (Animatable) d;
-        if (jalan && !anim.isRunning())
+        if (run && !anim.isRunning())
             anim.start();
-        else if (!jalan && anim.isRunning())
+        else if (!run && anim.isRunning())
             anim.stop();
     }
 
     @TargetApi(28)
-    private static Drawable dekode28(byte[] isi) throws IOException {
-        ImageDecoder.Source sumber = ImageDecoder.createSource(ByteBuffer.wrap(isi));
-        Drawable d = ImageDecoder.decodeDrawable(sumber, new ImageDecoder.OnHeaderDecodedListener() {
+    private static Drawable dekode28(byte[] content) throws IOException {
+        ImageDecoder.Source source = ImageDecoder.createSource(ByteBuffer.wrap(content));
+        Drawable d = ImageDecoder.decodeDrawable(source, new ImageDecoder.OnHeaderDecodedListener() {
             @Override
             public void onHeaderDecoded(ImageDecoder decoder, ImageDecoder.ImageInfo info,
                                         ImageDecoder.Source source) {
                 int w = info.getSize().getWidth();
                 int h = info.getSize().getHeight();
                 int terpanjang = Math.max(w, h);
-                if (terpanjang > MAKS_PX) {
-                    float skala = (float) MAKS_PX / terpanjang;
-                    decoder.setTargetSize(Math.max(1, Math.round(w * skala)),
-                            Math.max(1, Math.round(h * skala)));
+                if (terpanjang > MAX_PX) {
+                    float scale = (float) MAX_PX / terpanjang;
+                    decoder.setTargetSize(Math.max(1, Math.round(w * scale)),
+                            Math.max(1, Math.round(h * scale)));
                 }
             }
         });
@@ -88,40 +88,40 @@ public final class IkonGambar {
         return d;
     }
 
-    private static Drawable dekodeLama(Resources res, byte[] isi) {
-        boolean gif = isi.length >= 4 && isi[0] == 'G' && isi[1] == 'I' && isi[2] == 'F';
+    private static Drawable decodeOld(Resources res, byte[] content) {
+        boolean gif = content.length >= 4 && content[0] == 'G' && content[1] == 'I' && content[2] == 'F';
         if (gif) {
-            Movie movie = Movie.decodeByteArray(isi, 0, isi.length);
+            Movie movie = Movie.decodeByteArray(content, 0, content.length);
             if (movie != null && movie.duration() > 0 && movie.width() > 0 && movie.height() > 0)
-                return new GifLama(movie);
+                return new GifOld(movie);
         }
 
-        BitmapFactory.Options batas = new BitmapFactory.Options();
-        batas.inJustDecodeBounds = true;
-        BitmapFactory.decodeByteArray(isi, 0, isi.length, batas);
-        int terpanjang = Math.max(batas.outWidth, batas.outHeight);
+        BitmapFactory.Options limit = new BitmapFactory.Options();
+        limit.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(content, 0, content.length, limit);
+        int terpanjang = Math.max(limit.outWidth, limit.outHeight);
         if (terpanjang <= 0)
             return null;
 
-        int sampel = 1;
-        while (terpanjang / (sampel * 2) >= MAKS_PX)
-            sampel *= 2;
+        int sample = 1;
+        while (terpanjang / (sample * 2) >= MAX_PX)
+            sample *= 2;
         BitmapFactory.Options opsi = new BitmapFactory.Options();
-        opsi.inSampleSize = sampel;
-        Bitmap bitmap = BitmapFactory.decodeByteArray(isi, 0, isi.length, opsi);
+        opsi.inSampleSize = sample;
+        Bitmap bitmap = BitmapFactory.decodeByteArray(content, 0, content.length, opsi);
         return bitmap == null ? null : new BitmapDrawable(res, bitmap);
     }
 
     /** GIF bergerak untuk Android 8 ke bawah. Hanya berjalan selama start() aktif. */
-    private static final class GifLama extends Drawable implements Animatable {
+    private static final class GifOld extends Drawable implements Animatable {
         private final Movie movie;
-        private final int durasi;
-        private boolean jalan;
-        private long mulai;
+        private final int duration;
+        private boolean run;
+        private long start;
 
-        GifLama(Movie movie) {
+        GifOld(Movie movie) {
             this.movie = movie;
-            this.durasi = Math.max(1, movie.duration());
+            this.duration = Math.max(1, movie.duration());
         }
 
         @Override
@@ -129,20 +129,20 @@ public final class IkonGambar {
             Rect b = getBounds();
             if (b.isEmpty())
                 return;
-            int t = jalan ? (int) ((SystemClock.uptimeMillis() - mulai) % durasi) : 0;
+            int t = run ? (int) ((SystemClock.uptimeMillis() - start) % duration) : 0;
             movie.setTime(t);
 
-            float skala = Math.min((float) b.width() / movie.width(),
+            float scale = Math.min((float) b.width() / movie.width(),
                     (float) b.height() / movie.height());
-            float dx = b.left + (b.width() - movie.width() * skala) / 2f;
-            float dy = b.top + (b.height() - movie.height() * skala) / 2f;
+            float dx = b.left + (b.width() - movie.width() * scale) / 2f;
+            float dy = b.top + (b.height() - movie.height() * scale) / 2f;
             canvas.save();
             canvas.translate(dx, dy);
-            canvas.scale(skala, skala);
+            canvas.scale(scale, scale);
             movie.draw(canvas, 0, 0);
             canvas.restore();
 
-            if (jalan)
+            if (run)
                 invalidateSelf();
         }
 
@@ -171,19 +171,19 @@ public final class IkonGambar {
 
         @Override
         public void start() {
-            mulai = SystemClock.uptimeMillis();
-            jalan = true;
+            start = SystemClock.uptimeMillis();
+            run = true;
             invalidateSelf();
         }
 
         @Override
         public void stop() {
-            jalan = false;
+            run = false;
         }
 
         @Override
         public boolean isRunning() {
-            return jalan;
+            return run;
         }
     }
 }

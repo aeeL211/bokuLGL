@@ -6,27 +6,27 @@
 namespace {
 
 Field fieldInput = {};
-Field fieldManajerInput = {};
-Field fieldAksi = {};
-Field fieldTahan = {};
+Field fieldManagerInput = {};
+Field fieldAction = {};
+Field fieldHold = {};
 
 } // namespace
 
 // Tombol interaksi sedang ditahan selama objek input-nya menyimpan aksi.
-bool tombolAksiDitekan(void* manager) {
-    void* input = bacaPtr(manager, fieldInput);
-    void* manajerInput = bacaPtr(input, fieldManajerInput);
-    void* aksi = bacaPtr(manajerInput, fieldAksi);
-    return aksi && bacaBool(aksi, fieldTahan);
+bool isActionButtonPressed(void* manager) {
+    void* input = readPtr(manager, fieldInput);
+    void* managerInput = readPtr(input, fieldManagerInput);
+    void* action = readPtr(managerInput, fieldAction);
+    return action && readBool(action, fieldHold);
 }
 
 // Dipakai bersama oleh setiap fitur yang mengulang aksinya selama tombol ditahan.
-void cariFieldAksi() {
-    void* kelasManajer = kelasDari("Player__Manager");
-    bool ok = cariField(kelasManajer, "input", fieldInput) &&
-              cariField(kelasField(fieldInput), "input", fieldManajerInput) &&
-              cariField(kelasField(fieldManajerInput), "action", fieldAksi) &&
-              cariField(kelasField(fieldAksi), "keep", fieldTahan);
+void findActionFields() {
+    void* managerClass = classOf("Player__Manager");
+    bool ok = findField(managerClass, "input", fieldInput) &&
+              findField(fieldClass(fieldInput), "input", fieldManagerInput) &&
+              findField(fieldClass(fieldManagerInput), "action", fieldAction) &&
+              findField(fieldClass(fieldAction), "keep", fieldHold);
     if (ok)
         LOGI("Field input aksi OK");
     else

@@ -18,21 +18,21 @@ constexpr char kAkhiranMod[] = " (modded)";
 
 // String versi itu pendek; yang lebih panjang berarti ada sesuatu yang tidak
 // terduga di ujungnya, jadi dibiarkan apa adanya daripada disalin mentah.
-constexpr int32_t kBatasVersi = 240;
+constexpr int32_t kLimitVersion = 240;
 
-using HookVersi = void* (*)(void*, void*);
+using HookVersion = void* (*)(void*, void*);
 
-bool adaTeks(void* str, const char* jarum) {
-    const uint16_t* karakter = karakterString(str);
-    int32_t panjang = panjangString(str);
-    size_t ukuranJarum = strlen(jarum);
-    if (!karakter || static_cast<size_t>(panjang) < ukuranJarum)
+bool hasText(void* str, const char* needle) {
+    const uint16_t* character = characterString(str);
+    int32_t length = lengthString(str);
+    size_t sizeNeedle = strlen(needle);
+    if (!character || static_cast<size_t>(length) < sizeNeedle)
         return false;
-    for (int32_t i = 0; i + static_cast<int32_t>(ukuranJarum) <= panjang; i++) {
+    for (int32_t i = 0; i + static_cast<int32_t>(sizeNeedle) <= length; i++) {
         size_t j = 0;
-        while (j < ukuranJarum && karakter[i + j] == static_cast<uint16_t>(jarum[j]))
+        while (j < sizeNeedle && character[i + j] == static_cast<uint16_t>(needle[j]))
             j++;
-        if (j == ukuranJarum)
+        if (j == sizeNeedle)
             return true;
     }
     return false;
@@ -41,52 +41,52 @@ bool adaTeks(void* str, const char* jarum) {
 // Mengembalikan teks bawaan dengan kAkhiranMod ditambahkan, atau teks bawaan itu
 // sendiri bila sudah membawa akhiran, kosong, atau terlalu panjang untuk sebuah
 // label versi.
-void* tandaiVersi(void* bawaan, const char* label) {
-    if (!bawaan || !karakterString(bawaan))
-        return bawaan;
-    if (adaTeks(bawaan, kAkhiranMod))
-        return bawaan;
+void* markVersion(void* fallback, const char* label) {
+    if (!fallback || !characterString(fallback))
+        return fallback;
+    if (hasText(fallback, kAkhiranMod))
+        return fallback;
 
-    int32_t panjang = panjangString(bawaan);
-    const uint16_t* karakter = karakterString(bawaan);
-    if (!karakter || panjang <= 0 || panjang > kBatasVersi)
-        return bawaan;
+    int32_t length = lengthString(fallback);
+    const uint16_t* character = characterString(fallback);
+    if (!character || length <= 0 || length > kLimitVersion)
+        return fallback;
 
-    uint16_t buffer[kBatasVersi + sizeof(kAkhiranMod)];
+    uint16_t buffer[kLimitVersion + sizeof(kAkhiranMod)];
     int32_t terpakai = 0;
-    for (int32_t i = 0; i < panjang; i++)
-        buffer[terpakai++] = karakter[i];
+    for (int32_t i = 0; i < length; i++)
+        buffer[terpakai++] = character[i];
     for (size_t i = 0; i + 1 < sizeof(kAkhiranMod); i++)
         buffer[terpakai++] = static_cast<uint16_t>(kAkhiranMod[i]);
 
-    void* ditandai = stringUtf16Baru(buffer, terpakai);
+    void* ditandai = stringUtf16New(buffer, terpakai);
     if (!ditandai)
-        return bawaan;
+        return fallback;
     LOGI("%s: akhiran versi ditambahkan, panjang=%d", label, terpakai);
     return ditandai;
 }
 
-HookVersi asliDari(TargetId id) { return reinterpret_cast<HookVersi>(target(id).orig); }
+HookVersion originalFrom(TargetId id) { return reinterpret_cast<HookVersion>(target(id).orig); }
 
-void* hookTentang(void* self, void* method) {
-    HookVersi asli = asliDari(T_ABOUT_VERSION);
-    return asli ? tandaiVersi(asli(self, method), "Tentang") : nullptr;
+void* hookAbout(void* self, void* method) {
+    HookVersion original = originalFrom(T_ABOUT_VERSION);
+    return original ? markVersion(original(self, method), "Tentang") : nullptr;
 }
 
-void* hookJudul(void* self, void* method) {
-    HookVersi asli = asliDari(T_TITLE_VERSION);
-    return asli ? tandaiVersi(asli(self, method), "Judul") : nullptr;
+void* hookTitle(void* self, void* method) {
+    HookVersion original = originalFrom(T_TITLE_VERSION);
+    return original ? markVersion(original(self, method), "Judul") : nullptr;
 }
 
-void* hookBantuan(void* self, void* method) {
-    HookVersi asli = asliDari(T_HELP_VERSION);
-    return asli ? tandaiVersi(asli(self, method), "Bantuan") : nullptr;
+void* hookHelp(void* self, void* method) {
+    HookVersion original = originalFrom(T_HELP_VERSION);
+    return original ? markVersion(original(self, method), "Bantuan") : nullptr;
 }
 
 } // namespace
 
-void pasangHookTentang() {
-    pasangHook(target(T_ABOUT_VERSION), reinterpret_cast<void*>(hookTentang));
-    pasangHook(target(T_TITLE_VERSION), reinterpret_cast<void*>(hookJudul));
-    pasangHook(target(T_HELP_VERSION), reinterpret_cast<void*>(hookBantuan));
+void installAboutHook() {
+    installHook(target(T_ABOUT_VERSION), reinterpret_cast<void*>(hookAbout));
+    installHook(target(T_TITLE_VERSION), reinterpret_cast<void*>(hookTitle));
+    installHook(target(T_HELP_VERSION), reinterpret_cast<void*>(hookHelp));
 }

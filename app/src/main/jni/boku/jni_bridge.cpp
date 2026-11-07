@@ -10,29 +10,29 @@
 
 namespace {
 
-std::atomic<JavaVM*> vmTersimpan{nullptr};
-std::atomic<jclass> kelasUnity{nullptr};
+std::atomic<JavaVM*> vmSaved{nullptr};
+std::atomic<jclass> klassUnity{nullptr};
 
 } // namespace
 
-JavaVM* vmJava() { return vmTersimpan.load(std::memory_order_acquire); }
+JavaVM* vmJava() { return vmSaved.load(std::memory_order_acquire); }
 
-void setelVmJava(JavaVM* vm) { vmTersimpan.store(vm, std::memory_order_release); }
+void setVmJava(JavaVM* vm) { vmSaved.store(vm, std::memory_order_release); }
 
-jclass kelasUnityPlayer() { return kelasUnity.load(std::memory_order_acquire); }
+jclass klassUnityPlayer() { return klassUnity.load(std::memory_order_acquire); }
 
-void simpanKelasUnityPlayer(JNIEnv* env) {
-    if (kelasUnity.load(std::memory_order_acquire))
+void saveKlassUnityPlayer(JNIEnv* env) {
+    if (klassUnity.load(std::memory_order_acquire))
         return;
-    jclass kelas = env->FindClass("com.unity3d.player.UnityPlayer");
-    if (kelas) {
-        auto global = static_cast<jclass>(env->NewGlobalRef(kelas));
-        env->DeleteLocalRef(kelas);
+    jclass klass = env->FindClass("com.unity3d.player.UnityPlayer");
+    if (klass) {
+        auto global = static_cast<jclass>(env->NewGlobalRef(klass));
+        env->DeleteLocalRef(klass);
         if (global) {
             jclass kosong = nullptr;
             // Dua thread bisa menyimpan kelas yang sama; yang kalah menghapus
             // referensi globalnya sendiri supaya tidak ada yang bocor.
-            if (!kelasUnity.compare_exchange_strong(kosong, global))
+            if (!klassUnity.compare_exchange_strong(kosong, global))
                 env->DeleteGlobalRef(global);
         }
     }
@@ -40,77 +40,77 @@ void simpanKelasUnityPlayer(JNIEnv* env) {
         env->ExceptionClear();
 }
 
-JavaVM* cariVmJava() {
-    JavaVM* tersimpan = vmTersimpan.load(std::memory_order_acquire);
-    if (tersimpan)
-        return tersimpan;
+JavaVM* findVmJava() {
+    JavaVM* saved = vmSaved.load(std::memory_order_acquire);
+    if (saved)
+        return saved;
     typedef jint (*GetVms)(JavaVM**, jsize, jsize*);
-    auto ambilVm = reinterpret_cast<GetVms>(dlsym(RTLD_DEFAULT, "JNI_GetCreatedJavaVMs"));
-    if (!ambilVm)
+    auto getVm = reinterpret_cast<GetVms>(dlsym(RTLD_DEFAULT, "JNI_GetCreatedJavaVMs"));
+    if (!getVm)
         return nullptr;
     JavaVM* vm = nullptr;
-    jsize jumlah = 0;
-    if (ambilVm(&vm, 1, &jumlah) != JNI_OK || jumlah < 1)
+    jsize count = 0;
+    if (getVm(&vm, 1, &count) != JNI_OK || count < 1)
         return nullptr;
-    vmTersimpan.store(vm, std::memory_order_release);
+    vmSaved.store(vm, std::memory_order_release);
     return vm;
 }
 
-bool lekatJni(JNIEnv** env, bool* lepas) {
-    JavaVM* vm = cariVmJava();
+bool lekatJni(JNIEnv** env, bool* release) {
+    JavaVM* vm = findVmJava();
     if (!vm)
         return false;
-    *lepas = false;
+    *release = false;
     if (vm->GetEnv(reinterpret_cast<void**>(env), JNI_VERSION_1_6) == JNI_OK)
         return true;
     if (vm->AttachCurrentThread(env, nullptr) != JNI_OK)
         return false;
-    *lepas = true;
+    *release = true;
     return true;
 }
 
-bool akarPenyimpananEksternal(char* out, size_t size) {
+bool rootStorageExternal(char* out, size_t size) {
     JNIEnv* env = nullptr;
-    bool lepas = false;
-    if (!lekatJni(&env, &lepas))
+    bool release = false;
+    if (!lekatJni(&env, &release))
         return false;
 
-    bool berhasil = false;
-    jclass kelasEnv = env->FindClass("android/os/Environment");
-    if (kelasEnv) {
-        jmethodID metodeAkar =
-            env->GetStaticMethodID(kelasEnv, "getExternalStorageDirectory", "()Ljava/io/File;");
-        if (metodeAkar) {
-            jobject akar = env->CallStaticObjectMethod(kelasEnv, metodeAkar);
-            if (akar) {
-                jclass kelasFile = env->FindClass("java/io/File");
-                jmethodID metodePath = kelasFile ? env->GetMethodID(kelasFile, "getAbsolutePath",
+    bool success = false;
+    jclass klassEnv = env->FindClass("android/os/Environment");
+    if (klassEnv) {
+        jmethodID methodRoot =
+            env->GetStaticMethodID(klassEnv, "getExternalStorageDirectory", "()Ljava/io/File;");
+        if (methodRoot) {
+            jobject root = env->CallStaticObjectMethod(klassEnv, methodRoot);
+            if (root) {
+                jclass klassFile = env->FindClass("java/io/File");
+                jmethodID methodPath = klassFile ? env->GetMethodID(klassFile, "getAbsolutePath",
                                                                     "()Ljava/lang/String;")
                                                  : nullptr;
-                jstring path = metodePath
-                                   ? static_cast<jstring>(env->CallObjectMethod(akar, metodePath))
+                jstring path = methodPath
+                                   ? static_cast<jstring>(env->CallObjectMethod(root, methodPath))
                                    : nullptr;
                 if (path) {
-                    const char* karakter = env->GetStringUTFChars(path, nullptr);
-                    if (karakter) {
-                        snprintf(out, size, "%s", karakter);
-                        berhasil = true;
-                        env->ReleaseStringUTFChars(path, karakter);
+                    const char* character = env->GetStringUTFChars(path, nullptr);
+                    if (character) {
+                        snprintf(out, size, "%s", character);
+                        success = true;
+                        env->ReleaseStringUTFChars(path, character);
                     }
                     env->DeleteLocalRef(path);
                 }
-                env->DeleteLocalRef(akar);
+                env->DeleteLocalRef(root);
             }
         }
     }
     if (env->ExceptionCheck())
         env->ExceptionClear();
-    if (lepas)
-        cariVmJava()->DetachCurrentThread();
-    return berhasil;
+    if (release)
+        findVmJava()->DetachCurrentThread();
+    return success;
 }
 
-bool paketAplikasi(char* out, size_t size) {
+bool packetApplication(char* out, size_t size) {
     int fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return false;
@@ -123,9 +123,9 @@ bool paketAplikasi(char* out, size_t size) {
 
     // Proses sekunder menambahkan ":name" pada nama paket, jadi hanya bagian
     // sebelum titik dua yang termasuk direktori aplikasi.
-    char* titikDua = strchr(buffer, ':');
-    if (titikDua)
-        *titikDua = '\0';
+    char* pointTwo = strchr(buffer, ':');
+    if (pointTwo)
+        *pointTwo = '\0';
     size_t len = strlen(buffer);
     if (len == 0 || len >= size)
         return false;

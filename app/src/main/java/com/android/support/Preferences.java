@@ -57,7 +57,7 @@ public class Preferences {
      * Bernilai benar bila fitur ini sudah pernah disimpan. Dipakai slider yang
      * nilai 0-nya sah (gravitasi), jadi nilai bawaan tidak bisa ditebak dari 0.
      */
-    public static boolean sudahDisimpan(String featureName, int featureNum) {
+    public static boolean alreadySaved(String featureName, int featureNum) {
         if (!loadPref)
             return false;
         return Preferences.with(context).contains(String.valueOf(featureNum));

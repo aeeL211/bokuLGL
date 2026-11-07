@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "fitur.h"
+#include "features.h"
 #include "hook_manager.h"
 #include "targets.h"
 
@@ -10,38 +10,38 @@ namespace {
 
 // Getar kamera murni visual, jadi kedua titik masuknya dibuang saat sakelar
 // getar dimatikan. Puing tile punya sakelar sendiri.
-void hookGetar(void* self, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_SHAKE).orig);
-    if (!fitur().getar && asli)
-        asli(self, metode);
+void hookShake(void* self, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_SHAKE).orig);
+    if (!features().shake && original)
+        original(self, method);
 }
 
-void hookGetarAngka(void* self, int32_t durasi, float kekuatan, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
-    if (!fitur().getar && asli)
-        asli(self, durasi, kekuatan, metode);
+void hookShakeNumber(void* self, int32_t duration, float power, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
+    if (!features().shake && original)
+        original(self, duration, power, method);
 }
 
 // Puing tile dimunculkan saat tile pecah. Membuang pemunculannya membiarkan tile
 // dan rekamannya utuh sementara serpihannya tidak ada.
-void hookPuing(void* self, int32_t jenis, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_DEBRIS).orig);
-    if (!fitur().pecahan && asli)
-        asli(self, jenis, metode);
+void hookDebris(void* self, int32_t jenis, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_DEBRIS).orig);
+    if (!features().pecahan && original)
+        original(self, jenis, method);
 }
 
-void hookPuingTile(void* self, float x, float y, int32_t jenis, void* data, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, float, float, int32_t, void*, void*)>(
+void hookDebrisTile(void* self, float x, float y, int32_t jenis, void* data, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, float, float, int32_t, void*, void*)>(
         target(T_DEBRIS_TILE).orig);
-    if (!fitur().pecahan && asli)
-        asli(self, x, y, jenis, data, metode);
+    if (!features().pecahan && original)
+        original(self, x, y, jenis, data, method);
 }
 
 } // namespace
 
-void pasangHookEfek() {
-    pasangHook(target(T_SHAKE), reinterpret_cast<void*>(hookGetar));
-    pasangHook(target(T_SHAKE_NUM), reinterpret_cast<void*>(hookGetarAngka));
-    pasangHook(target(T_DEBRIS), reinterpret_cast<void*>(hookPuing));
-    pasangHook(target(T_DEBRIS_TILE), reinterpret_cast<void*>(hookPuingTile));
+void installEffectsHook() {
+    installHook(target(T_SHAKE), reinterpret_cast<void*>(hookShake));
+    installHook(target(T_SHAKE_NUM), reinterpret_cast<void*>(hookShakeNumber));
+    installHook(target(T_DEBRIS), reinterpret_cast<void*>(hookDebris));
+    installHook(target(T_DEBRIS_TILE), reinterpret_cast<void*>(hookDebrisTile));
 }

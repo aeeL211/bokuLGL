@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "fitur.h"
+#include "features.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -10,37 +10,37 @@
 
 namespace {
 
-using FnTerima = void (*)(void*, void*, void*, void*, void*);
+using FnReceive = void (*)(void*, void*, void*, void*, void*);
 using FnChatRoom = void (*)(void*, void*, void*, void*);
 
 // Setiap baris chat digambar ulang pada tiap pesan, jadi isi yang panjang
 // dipotong pada sekian unit UTF-16 ini daripada disalin utuh.
-constexpr size_t kBatasKarakterBaris = 512;
-constexpr size_t kBatasByteNama = 64;
-constexpr size_t kBatasByteLog = 160;
+constexpr size_t kLimitCharacterRow = 512;
+constexpr size_t kLimitByteName = 64;
+constexpr size_t kLimitByteLog = 160;
 
-Field fieldManajer = {};
+Field fieldManager = {};
 Field fieldChat = {};
-Field fieldPemain = {};
-Field fieldDaftarTamu = {};
-Field fieldItemTamu = {};
-Field fieldUkuranTamu = {};
-Field fieldKunciTamu = {};
-Field fieldAkunTamu = {};
-Field fieldNamaPengguna = {};
-bool chatSiap = false;
+Field fieldPlayer = {};
+Field guestListField = {};
+Field fieldItemGuest = {};
+Field guestSizeField = {};
+Field guestKeyField = {};
+Field fieldAccountGuest = {};
+Field fieldNameUser = {};
+bool chatReady = false;
 
 // Payload bisa membawa byte kontrol, yang akan membelah satu baris log menjadi
 // dua, jadi byte itu diratakan menjadi spasi.
-void ratakan(char* teks) {
-    for (; *teks; teks++) {
-        if (static_cast<unsigned char>(*teks) < 0x20)
-            *teks = ' ';
+void ratakan(char* text) {
+    for (; *text; text++) {
+        if (static_cast<unsigned char>(*text) < 0x20)
+            *text = ' ';
     }
 }
 
-const char* utf8Dari(void* teks, char* keluaran, size_t ukuran) {
-    if (!keUtf8(teks, keluaran, ukuran)) {
+const char* utf8From(void* text, char* keluaran, size_t size) {
+    if (!toUtf8(text, keluaran, size)) {
         keluaran[0] = '\0';
         return keluaran;
     }
@@ -48,78 +48,78 @@ const char* utf8Dari(void* teks, char* keluaran, size_t ukuran) {
     return keluaran;
 }
 
-void catatPesanPribadi(void* pengguna, void* penerima, void* isi) {
-    char teksPengguna[kBatasByteNama];
-    char teksPenerima[kBatasByteNama];
-    char teksIsi[kBatasByteLog];
-    LOGI("Pesan pribadi: %s -> %s: %s", utf8Dari(pengguna, teksPengguna, sizeof(teksPengguna)),
-         utf8Dari(penerima, teksPenerima, sizeof(teksPenerima)),
-         utf8Dari(isi, teksIsi, sizeof(teksIsi)));
+void recordMessagePrivate(void* user, void* receiver, void* content) {
+    char textUser[kLimitByteName];
+    char textReceiver[kLimitByteName];
+    char contentText[kLimitByteLog];
+    LOGI("Pesan pribadi: %s -> %s: %s", utf8From(user, textUser, sizeof(textUser)),
+         utf8From(receiver, textReceiver, sizeof(textReceiver)),
+         utf8From(content, contentText, sizeof(contentText)));
 }
 
 // Pesan pribadi membawa kunci, bukan nama tampilan. Daftar tamu memakai kunci
 // yang sama, jadi namanya dicari di sana; kunci yang tidak dikenal berarti pesan
 // itu datang dari luar room ini dan tidak bisa diberi label.
-void* namaTamu(void* sendiri, void* kunci) {
-    void* manajer = bacaPtr(sendiri, fieldManajer);
-    void* daftarTamu = bacaPtr(manajer, fieldDaftarTamu);
-    void* item = bacaPtr(daftarTamu, fieldItemTamu);
+void* guestName(void* own, void* key) {
+    void* manager = readPtr(own, fieldManager);
+    void* guestList = readPtr(manager, guestListField);
+    void* item = readPtr(guestList, fieldItemGuest);
     if (!item)
         return nullptr;
 
-    int32_t jumlah = bacaInt(daftarTamu, fieldUkuranTamu);
-    int32_t kapasitas = panjangArray(item);
-    if (jumlah > kapasitas)
-        jumlah = kapasitas;
+    int32_t count = readInt(guestList, guestSizeField);
+    int32_t kapasitas = lengthArray(item);
+    if (count > kapasitas)
+        count = kapasitas;
 
-    char* data = dataArray(item);
-    for (int32_t i = 0; i < jumlah; i++) {
-        void* tamu = *reinterpret_cast<void**>(data + i * sizeof(void*));
-        if (!tamu || !samaString(bacaPtr(tamu, fieldKunciTamu), kunci))
+    char* data = arrayData(item);
+    for (int32_t i = 0; i < count; i++) {
+        void* guest = *reinterpret_cast<void**>(data + i * sizeof(void*));
+        if (!guest || !sameString(readPtr(guest, guestKeyField), key))
             continue;
 
-        void* akun = bacaPtr(tamu, fieldAkunTamu);
-        void* nama = bacaPtr(akun, fieldNamaPengguna);
-        if (nama && panjangString(nama) > 0)
-            return nama;
+        void* account = readPtr(guest, fieldAccountGuest);
+        void* name = readPtr(account, fieldNameUser);
+        if (name && lengthString(name) > 0)
+            return name;
     }
     return nullptr;
 }
 
 // Room chat sudah memberi label pengirim, jadi hanya penerima yang ditaruh di
 // depan isi. Prefiksnya ASCII dan sisanya tetap UTF-16.
-void* barisPribadi(void* nama, void* teks) {
-    const uint16_t* isi = karakterString(teks);
-    int32_t panjangIsi = panjangString(teks);
-    if (!isi || panjangIsi <= 0)
+void* privateRow(void* name, void* text) {
+    const uint16_t* content = characterString(text);
+    int32_t lengthContent = lengthString(text);
+    if (!content || lengthContent <= 0)
         return nullptr;
 
-    const uint16_t* karakterNama = nama ? karakterString(nama) : nullptr;
-    int32_t panjangNama = karakterNama ? panjangString(nama) : 0;
-    bool bernama = panjangNama > 0;
+    const uint16_t* characterName = name ? characterString(name) : nullptr;
+    int32_t lengthName = characterName ? lengthString(name) : 0;
+    bool bernama = lengthName > 0;
 
-    uint16_t baris[kBatasKarakterBaris];
+    uint16_t row[kLimitCharacterRow];
     size_t terpakai = 0;
-    for (const char* p = bernama ? "[PM -> " : "[PM] "; *p && terpakai < kBatasKarakterBaris; p++)
-        baris[terpakai++] = static_cast<uint16_t>(*p);
-    for (int32_t i = 0; bernama && i < panjangNama && terpakai < kBatasKarakterBaris; i++)
-        baris[terpakai++] = karakterNama[i];
+    for (const char* p = bernama ? "[PM -> " : "[PM] "; *p && terpakai < kLimitCharacterRow; p++)
+        row[terpakai++] = static_cast<uint16_t>(*p);
+    for (int32_t i = 0; bernama && i < lengthName && terpakai < kLimitCharacterRow; i++)
+        row[terpakai++] = characterName[i];
     if (bernama) {
-        for (const char* p = "] "; *p && terpakai < kBatasKarakterBaris; p++)
-            baris[terpakai++] = static_cast<uint16_t>(*p);
+        for (const char* p = "] "; *p && terpakai < kLimitCharacterRow; p++)
+            row[terpakai++] = static_cast<uint16_t>(*p);
     }
-    for (int32_t i = 0; i < panjangIsi && terpakai < kBatasKarakterBaris; i++)
-        baris[terpakai++] = isi[i];
-    return stringUtf16Baru(baris, static_cast<int32_t>(terpakai));
+    for (int32_t i = 0; i < lengthContent && terpakai < kLimitCharacterRow; i++)
+        row[terpakai++] = content[i];
+    return stringUtf16New(row, static_cast<int32_t>(terpakai));
 }
 
 // Pengecekan penerima di dalam game membandingkan nilai persis ini, jadi
 // panggilan yang sama memutuskan apakah sebuah pesan sudah punya jendela
 // sendiri. Getter game melempar NullReferenceException saat photon room belum
 // ada, jadi kunci hanya dibaca lewat jalur aman.
-void* namaLokal(void* sendiri) {
-    void* manajer = bacaPtr(sendiri, fieldManajer);
-    return kunciPemainAman(bacaPtr(manajer, fieldPemain));
+void* nameLocal(void* own) {
+    void* manager = readPtr(own, fieldManager);
+    return safePlayerKey(readPtr(manager, fieldPlayer));
 }
 
 // Pesan pribadi disiarkan ke setiap klien dan hanya pengecekan penerima yang
@@ -127,68 +127,68 @@ void* namaLokal(void* sendiri) {
 // ulang ke room chat atas nama pengirim dengan penerima di prefiks dan tanpa
 // paket sendiri. Room chat menyelesaikan nama itu dari daftar tamu, jadi
 // pengirim yang tidak ada di room ini dilewati daripada diserahkan ke game.
-void hookTerima(void* sendiri, void* penerima, void* pengguna, void* teks, void* metode) {
-    auto asli = reinterpret_cast<FnTerima>(target(T_GUEST_MSG_RECEIVE).orig);
-    if (!fitur().chatPribadi) {
-        if (asli)
-            asli(sendiri, penerima, pengguna, teks, metode);
+void hookReceive(void* own, void* receiver, void* user, void* text, void* method) {
+    auto original = reinterpret_cast<FnReceive>(target(T_GUEST_MSG_RECEIVE).orig);
+    if (!features().privateChat) {
+        if (original)
+            original(own, receiver, user, text, method);
         return;
     }
-    catatPesanPribadi(pengguna, penerima, teks);
+    recordMessagePrivate(user, receiver, text);
 
-    if (asli)
-        asli(sendiri, penerima, pengguna, teks, metode);
+    if (original)
+        original(own, receiver, user, text, method);
 
     auto chatRoom = reinterpret_cast<FnChatRoom>(target(T_CHAT_MSG_RECEIVE).addr);
-    if (!chatSiap || !chatRoom)
+    if (!chatReady || !chatRoom)
         return;
 
-    void* milik = namaLokal(sendiri);
-    if (milik && samaString(milik, penerima))
+    void* owned = nameLocal(own);
+    if (owned && sameString(owned, receiver))
         return;
 
-    void* pengirim = namaTamu(sendiri, pengguna);
+    void* pengirim = guestName(own, user);
     if (!pengirim) {
-        char teksKunci[kBatasByteNama];
+        char keyText[kLimitByteName];
         LOGI("Pesan pribadi dilewati, pengirim tidak ada di room: %s",
-             utf8Dari(pengguna, teksKunci, sizeof(teksKunci)));
+             utf8From(user, keyText, sizeof(keyText)));
         return;
     }
 
-    void* chat = bacaPtr(sendiri, fieldChat);
-    void* baris = barisPribadi(namaTamu(sendiri, penerima), teks);
-    if (chat && baris)
-        chatRoom(chat, pengguna, baris, target(T_CHAT_MSG_RECEIVE).method);
+    void* chat = readPtr(own, fieldChat);
+    void* row = privateRow(guestName(own, receiver), text);
+    if (chat && row)
+        chatRoom(chat, user, row, target(T_CHAT_MSG_RECEIVE).method);
 }
 
-bool cariFieldTamu() {
-    return cariField(kelasField(fieldManajer), "guests", fieldDaftarTamu) &&
-           cariField(kelasField(fieldDaftarTamu), "_items", fieldItemTamu) &&
-           cariField(kelasField(fieldDaftarTamu), "_size", fieldUkuranTamu) &&
-           cariField(kelasElemenField(fieldItemTamu), "key", fieldKunciTamu) &&
-           cariField(kelasElemenField(fieldItemTamu), "account", fieldAkunTamu) &&
-           cariField(kelasField(fieldAkunTamu), "user_Name", fieldNamaPengguna);
+bool findFieldGuest() {
+    return findField(fieldClass(fieldManager), "guests", guestListField) &&
+           findField(fieldClass(guestListField), "_items", fieldItemGuest) &&
+           findField(fieldClass(guestListField), "_size", guestSizeField) &&
+           findField(fieldElementClass(fieldItemGuest), "key", guestKeyField) &&
+           findField(fieldElementClass(fieldItemGuest), "account", fieldAccountGuest) &&
+           findField(fieldClass(fieldAccountGuest), "user_Name", fieldNameUser);
 }
 
 } // namespace
 
-void pasangHookChat() {
-    void* kelasChat = kelasDari("Net__Multi__Guest__Chat");
-    chatSiap = cariField(kelasChat, "chat", fieldChat);
-    bool siapNamaSendiri = cariField(kelasChat, "a", fieldManajer) &&
-                           cariField(kelasField(fieldManajer), "player", fieldPemain) &&
+void installChatHook() {
+    void* klassChat = classOf("Net__Multi__Guest__Chat");
+    chatReady = findField(klassChat, "chat", fieldChat);
+    bool readyNameOwn = findField(klassChat, "a", fieldManager) &&
+                           findField(fieldClass(fieldManager), "player", fieldPlayer) &&
                            target(T_PLAYER_KEY).addr;
-    bool siapTamu = cariFieldTamu();
+    bool readyGuest = findFieldGuest();
 
-    if (chatSiap && siapNamaSendiri)
+    if (chatReady && readyNameOwn)
         LOGI("Field chat siap");
-    else if (!chatSiap)
+    else if (!chatReady)
         LOGE("Field chat tidak ditemukan; pesan pribadi hanya masuk log");
     else
         LOGE("Nama sendiri tidak ditemukan; pesan untuk pemain ini muncul dua kali");
 
-    if (!siapTamu)
+    if (!readyGuest)
         LOGE("Nama tamu tidak ditemukan; pesan pribadi tampil tanpa nama penerima");
 
-    pasangHook(target(T_GUEST_MSG_RECEIVE), reinterpret_cast<void*>(hookTerima));
+    installHook(target(T_GUEST_MSG_RECEIVE), reinterpret_cast<void*>(hookReceive));
 }

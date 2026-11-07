@@ -9,31 +9,31 @@ namespace {
 
 // Antrean menyalin teksnya sendiri, jadi pinjaman string Java hanya hidup
 // selama pemanggilan ini.
-jboolean antrekanTendang(JNIEnv *env, jstring kunci, jstring nama, bool permanen) {
-    StringUtf teksKunci(env, kunci);
-    if (!teksKunci)
+jboolean enqueueKick(JNIEnv *env, jstring key, jstring name, bool permanent) {
+    StringUtf keyText(env, key);
+    if (!keyText)
         return JNI_FALSE;
 
-    StringUtf teksNama(env, nama);
-    const char *namaPemain = teksNama ? teksNama.get() : nullptr;
-    bool diterima = pemain::antrekanTendang(teksKunci.get(), namaPemain, permanen);
+    StringUtf nameText(env, name);
+    const char *playerName = nameText ? nameText.get() : nullptr;
+    bool diterima = player::enqueueKick(keyText.get(), playerName, permanent);
     return diterima ? JNI_TRUE : JNI_FALSE;
 }
 
-jboolean antrekanTendangHost(JNIEnv *env, jstring nama) {
-    StringUtf teksNama(env, nama);
-    const char *namaHost = teksNama ? teksNama.get() : nullptr;
-    return pemain::antrekanTendangHost(namaHost) ? JNI_TRUE : JNI_FALSE;
+jboolean enqueueKickHost(JNIEnv *env, jstring name) {
+    StringUtf nameText(env, name);
+    const char *hostName = nameText ? nameText.get() : nullptr;
+    return player::enqueueKickHost(hostName) ? JNI_TRUE : JNI_FALSE;
 }
 
-jboolean antrekanSalin(JNIEnv *env, jstring kunci, jstring nama) {
-    StringUtf teksKunci(env, kunci);
-    if (!teksKunci)
+jboolean enqueueCopy(JNIEnv *env, jstring key, jstring name) {
+    StringUtf keyText(env, key);
+    if (!keyText)
         return JNI_FALSE;
 
-    StringUtf teksNama(env, nama);
-    const char *namaPemain = teksNama ? teksNama.get() : nullptr;
-    return pemain::antrekanSalin(teksKunci.get(), namaPemain) ? JNI_TRUE : JNI_FALSE;
+    StringUtf nameText(env, name);
+    const char *playerName = nameText ? nameText.get() : nullptr;
+    return player::enqueueCopy(keyText.get(), playerName) ? JNI_TRUE : JNI_FALSE;
 }
 
 } // namespace
@@ -73,50 +73,50 @@ jstring IconWebViewData(JNIEnv *env, jobject thiz) {
 
 jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
     (void)activityObject;
-    return daftarSetelan(env);
+    return settingList(env);
 }
 
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     (void)context;
-    return daftarFitur(env);
+    return featureList(env);
 }
 
 // Menu hanya meneruskan salinan yang sudah disiapkan thread game, jadi tidak
 // ada objek IL2CPP yang disentuh dari thread UI.
-jstring DaftarPemain(JNIEnv *env, jclass clazz) {
+jstring PlayerList(JNIEnv *env, jclass clazz) {
     (void)clazz;
-    char teks[4096] = {};
-    pemain::salinDaftar(teks, sizeof(teks));
-    return env->NewStringUTF(teks);
+    char text[4096] = {};
+    player::copyList(text, sizeof(text));
+    return env->NewStringUTF(text);
 }
 
-jstring PosisiPemain(JNIEnv *env, jclass clazz) {
+jstring PlayerPosition(JNIEnv *env, jclass clazz) {
     (void)clazz;
-    char teks[128] = {};
-    pemain::salinPosisi(teks, sizeof(teks));
-    return env->NewStringUTF(teks);
+    char text[128] = {};
+    player::copyPosition(text, sizeof(text));
+    return env->NewStringUTF(text);
 }
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama,
-                       jboolean permanen) {
+jboolean KickPlayer(JNIEnv *env, jclass clazz, jstring key, jstring name,
+                       jboolean permanent) {
     (void)clazz;
-    return antrekanTendang(env, kunci, nama, permanen == JNI_TRUE);
+    return enqueueKick(env, key, name, permanent == JNI_TRUE);
 }
 
-jboolean TendangHost(JNIEnv *env, jclass clazz, jstring nama) {
+jboolean KickHost(JNIEnv *env, jclass clazz, jstring name) {
     (void)clazz;
-    return antrekanTendangHost(env, nama);
+    return enqueueKickHost(env, name);
 }
 
-jboolean TendangSemua(JNIEnv *env, jclass clazz) {
+jboolean KickAll(JNIEnv *env, jclass clazz) {
     (void)clazz;
     (void)env;
-    return pemain::antrekanTendangSemua() ? JNI_TRUE : JNI_FALSE;
+    return player::enqueueKickAll() ? JNI_TRUE : JNI_FALSE;
 }
 
-jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama) {
+jboolean CopyPlayerSkin(JNIEnv *env, jclass clazz, jstring key, jstring name) {
     (void)clazz;
-    return antrekanSalin(env, kunci, nama);
+    return enqueueCopy(env, key, name);
 }
 
 // Setiap sakelar hanya menulis nilai. Hook membacanya pada tiap panggilan, jadi
@@ -129,5 +129,5 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
     (void)featName;
     (void)Lvalue;
     (void)text;
-    terapkanPerubahanFitur(featNum, boolean, value);
+    applyFeatureChange(featNum, boolean, value);
 }

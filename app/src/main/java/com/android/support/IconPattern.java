@@ -9,8 +9,8 @@ import java.util.Locale;
  * Kelas ini hanya berisi data dan pemetaan nomor fitur ke pola. Penggambaran
  * ada di {@link Piksel} dan {@link IkonFitur}.
  */
-public final class PolaIkon {
-    private PolaIkon() {
+public final class IconPattern {
+    private IconPattern() {
     }
 
     public static final String[] BELI = {
@@ -51,7 +51,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] NAMA = {
+    public static final String[] NAME = {
             "................",
             "......2222......",
             "......2332......",
@@ -108,7 +108,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] DUNIA = {
+    public static final String[] WORLD = {
             "................",
             ".......11.......",
             "....11111111....",
@@ -127,7 +127,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] SANDI = {
+    public static final String[] PASSWORD = {
             "................",
             "......1111......",
             ".....111111.....",
@@ -336,7 +336,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] TITIK_X = {
+    public static final String[] POINT_X = {
             "................",
             "................",
             "................",
@@ -355,7 +355,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] TITIK_Y = {
+    public static final String[] POINT_Y = {
             "................",
             ".......11.......",
             "......1111......",
@@ -450,7 +450,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] UKURAN = {
+    public static final String[] SIZE = {
             "................",
             ".111111..111111.",
             ".111111..111111.",
@@ -469,7 +469,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] GAMBAR = {
+    public static final String[] IMAGE = {
             "................",
             "................",
             ".11111111111111.",
@@ -507,7 +507,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] PEMAIN = {
+    public static final String[] PLAYER = {
             "................",
             "......1111......",
             ".....111111.....",
@@ -526,7 +526,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] POSISI = {
+    public static final String[] POSITION = {
             "................",
             "..11............",
             ".1111...........",
@@ -545,7 +545,7 @@ public final class PolaIkon {
             "................",
     };
 
-    public static final String[] SIMPAN = {
+    public static final String[] SAVE = {
             "................",
             "................",
             "..1112222221....",
@@ -565,7 +565,7 @@ public final class PolaIkon {
     };
 
     /** Muat ulang: dua busur berpanah, simetris terhadap putaran 180 derajat. */
-    public static final String[] ULANG = {
+    public static final String[] RELOAD = {
             "................",
             "................",
             ".....111111.....",
@@ -604,7 +604,7 @@ public final class PolaIkon {
     };
 
     /** Glyph tombol minimize: segitiga menghadap kiri, simetris terhadap garis tengah horizontal. */
-    public static final String[] SEGITIGA_KIRI = {
+    public static final String[] TRIANGLE_LEFT = {
             "................",
             "................",
             "............1...",
@@ -644,14 +644,14 @@ public final class PolaIkon {
     };
 
     /** Pola untuk satu nomor fitur. Nomor yang tidak punya ikon memakai roda gigi. */
-    public static String[] pola(int fitur) {
-        switch (fitur) {
+    public static String[] pattern(int features) {
+        switch (features) {
             case -1:
-                return SIMPAN;
+                return SAVE;
             case -6:
-                return GAMBAR;
+                return IMAGE;
             case -5:
-                return UKURAN;
+                return SIZE;
             case -4:
                 return OPASITAS;
             case 0:
@@ -659,15 +659,15 @@ public final class PolaIkon {
             case 1:
                 return SLOT;
             case 2:
-                return NAMA;
+                return NAME;
             case 3:
                 return SKIN;
             case 4:
                 return SENSOR;
             case 5:
-                return DUNIA;
+                return WORLD;
             case 6:
-                return SANDI;
+                return PASSWORD;
             case 7:
                 return DETAIL;
             case 9:
@@ -693,9 +693,9 @@ public final class PolaIkon {
             case 19:
                 return DINDING;
             case 20:
-                return TITIK_X;
+                return POINT_X;
             case 21:
-                return TITIK_Y;
+                return POINT_Y;
             case 22:
                 return PINDAH;
             case 23:
@@ -713,9 +713,9 @@ public final class PolaIkon {
      * jadi ikon tetap benar walau nomor fitur di native berubah. Bila tidak ada
      * yang cocok, dipakai pola berdasarkan nomor.
      */
-    public static String[] pola(int fitur, String nama) {
-        if (nama != null) {
-            String n = nama.toLowerCase(Locale.ROOT);
+    public static String[] pattern(int features, String name) {
+        if (name != null) {
+            String n = name.toLowerCase(Locale.ROOT);
             if (n.contains("ledak") || n.contains("bom") || n.contains("explo"))
                 return LEDAKAN;
             if (n.contains("getar"))
@@ -732,18 +732,18 @@ public final class PolaIkon {
                 return SKIN;
             // Setelan memakai nomor negatif. Nama dicek supaya ikonnya benar walau
             // nomornya berbeda, dan fitur game tidak ikut terpengaruh.
-            if (fitur < 0) {
+            if (features < 0) {
                 if (n.contains("simpan") || n.contains("save") || n.contains("preferen"))
-                    return SIMPAN;
+                    return SAVE;
                 if (n.contains("opasitas") || n.contains("opacity") || n.contains("transparan"))
                     return OPASITAS;
                 if (n.contains("ukuran") || n.contains("size"))
-                    return UKURAN;
+                    return SIZE;
                 if (n.contains("gambar") || n.contains("image") || n.contains("url")
                         || n.contains("ikon") || n.contains("icon"))
-                    return GAMBAR;
+                    return IMAGE;
             }
         }
-        return pola(fitur);
+        return pattern(features);
     }
 }

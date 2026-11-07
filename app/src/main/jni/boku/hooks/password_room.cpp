@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "fitur.h"
+#include "features.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -11,31 +11,31 @@
 namespace {
 
 Field fieldDetail = {};
-Field fieldSandi = {};
+Field fieldPassword = {};
 Field fieldStr = {};
 Field fieldDataRoom = {};
-Field fieldSandiRoom = {};
+Field fieldPasswordRoom = {};
 
 // Sandi room hanya beberapa karakter. Yang lebih panjang dari ini adalah objek
 // basi yang header-nya dipakai ulang, bukan string sungguhan, dan meneruskannya
 // ke keyboard membuat Unity memindai melewati ujung heap.
-constexpr int32_t kBatasSandi = 4096;
+constexpr int32_t kLimitPassword = 4096;
 
 bool stringLayak(void* str) {
     if (!str)
         return false;
-    int32_t panjang = panjangString(str);
-    return panjang >= 0 && panjang <= kBatasSandi;
+    int32_t length = lengthString(str);
+    return length >= 0 && length <= kLimitPassword;
 }
 
-void* stringKosong() { return stringUtf16Baru(reinterpret_cast<const uint16_t*>(u""), 0); }
+void* stringKosong() { return stringUtf16New(reinterpret_cast<const uint16_t*>(u""), 0); }
 
 // Data room memiliki sandi room, jadi membacanya saat dibutuhkan menjaga setiap
 // pemakai nilai itu pada objek hidup yang sama.
-void* sandiRoom(void* self) {
-    void* detail = bacaPtr(self, fieldDetail);
-    void* dataRoom = bacaPtr(detail, fieldDataRoom);
-    return bacaPtr(dataRoom, fieldSandiRoom);
+void* roomPassword(void* self) {
+    void* detail = readPtr(self, fieldDetail);
+    void* dataRoom = readPtr(detail, fieldDataRoom);
+    return readPtr(dataRoom, fieldPasswordRoom);
 }
 
 // Term__Bottom_Button() adalah status aktif tombol OK: fungsi itu melaporkan
@@ -44,10 +44,10 @@ void* sandiRoom(void* self) {
 // tidak pernah bisa dikirim dan perbandingannya tidak pernah tercapai. Dengan
 // hook ini tombolnya selalu bisa dipakai; sandi room tetap diperiksa kode asli,
 // yang dipenuhi okHook tepat sebelum perbandingan.
-bool hookTombol(void* self, void* method) {
-    if (!fitur().sandiRoom) {
-        auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_PASSWORD_BUTTON).orig);
-        return asli ? asli(self, method) : false;
+bool hookButton(void* self, void* method) {
+    if (!features().roomPassword) {
+        auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_PASSWORD_BUTTON).orig);
+        return original ? original(self, method) : false;
     }
     return true;
 }
@@ -58,31 +58,31 @@ bool hookTombol(void* self, void* method) {
 // String.Equals mengembalikan true pada referensi yang sama sebelum membaca satu
 // karakter pun, dan data room menjaga objeknya tetap hidup.
 void hookOk(void* self, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_PASSWORD_OK).orig);
-    if (!asli)
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_PASSWORD_OK).orig);
+    if (!original)
         return;
-    if (!fitur().sandiRoom) {
-        asli(self, method);
+    if (!features().roomPassword) {
+        original(self, method);
         return;
     }
-    void* nilai = bacaPtr(self, fieldSandi);
-    void* sandi = sandiRoom(self);
-    if (nilai && stringLayak(sandi)) {
-        setelRef(nilai, fieldStr, sandi);
+    void* value = readPtr(self, fieldPassword);
+    void* password = roomPassword(self);
+    if (value && stringLayak(password)) {
+        setRef(value, fieldStr, password);
         // Perbandingan membaca field ini setelah fungsi asli berjalan, jadi
         // penulisan yang tidak mendarat adalah satu-satunya kegagalan yang harus
         // terlihat jelas di log berikutnya.
-        void* tersimpan = bacaPtr(nilai, fieldStr);
-        if (tersimpan == sandi)
-            LOGI("Sandi: sandi room terpasang, panjang=%d", panjangString(sandi));
+        void* saved = readPtr(value, fieldStr);
+        if (saved == password)
+            LOGI("Sandi: sandi room terpasang, panjang=%d", lengthString(password));
         else
-            LOGE("Sandi: sandi room gagal ditulis, ada=%p seharusnya=%p", tersimpan, sandi);
+            LOGE("Sandi: sandi room gagal ditulis, ada=%p seharusnya=%p", saved, password);
     } else {
         LOGE("Sandi: sandi room tidak ada, perbandingan berjalan apa adanya");
     }
     // Mencapai baris ini berarti perbandingannya gagal: jalur yang lolos
     // memanggil Join__Start sebagai tail call dan tidak pernah kembali.
-    asli(self, method);
+    original(self, method);
     LOGI("Sandi: perbandingan gerbang gagal, hookOk kembali");
 }
 
@@ -93,44 +93,44 @@ void hookOk(void* self, void* method) {
 // hidup selama keyboard membacanya, sedangkan alokasi baru bisa dikumpulkan
 // terlalu cepat.
 void hookField(void* self, bool touch, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, bool, void*)>(target(T_PASSWORD_FIELD).orig);
-    if (!asli)
+    auto original = reinterpret_cast<void (*)(void*, bool, void*)>(target(T_PASSWORD_FIELD).orig);
+    if (!original)
         return;
-    if (!fitur().sandiRoom) {
-        asli(self, touch, method);
+    if (!features().roomPassword) {
+        original(self, touch, method);
         return;
     }
-    void* nilai = bacaPtr(self, fieldSandi);
-    void* str = nilai ? bacaPtr(nilai, fieldStr) : nullptr;
+    void* value = readPtr(self, fieldPassword);
+    void* str = value ? readPtr(value, fieldStr) : nullptr;
     // Panel menyerahkan string ini ke keyboard, jadi catat sebelum fungsi asli
     // berjalan: pointer basi di sini yang kemudian membuat engine tersedak.
-    LOGI("Field sandi: nilai=%p str=%p panjang=%d", nilai, str, panjangString(str));
-    if (nilai && !stringLayak(str)) {
-        void* sandi = sandiRoom(self);
-        void* awal = stringLayak(sandi) ? sandi : stringKosong();
-        if (awal)
-            setelRef(nilai, fieldStr, awal);
+    LOGI("Field sandi: nilai=%p str=%p panjang=%d", value, str, lengthString(str));
+    if (value && !stringLayak(str)) {
+        void* password = roomPassword(self);
+        void* initial = stringLayak(password) ? password : stringKosong();
+        if (initial)
+            setRef(value, fieldStr, initial);
     }
-    asli(self, touch, method);
+    original(self, touch, method);
 }
 
 } // namespace
 
-void pasangHookSandi() {
-    void* kelasSandi = kelasDari("UI__Menu__Net__Multi__Join__Room_List__Detail__Password");
-    if (kelasSandi && cariField(kelasSandi, "detail", fieldDetail) &&
-        cariField(kelasSandi, "_password", fieldSandi) &&
-        cariField(kelasField(fieldSandi), "str", fieldStr) &&
-        cariField(kelasField(fieldDetail), "_room_Data", fieldDataRoom) &&
-        cariField(kelasField(fieldDataRoom), "password", fieldSandiRoom)) {
+void installPasswordHook() {
+    void* klassPassword = classOf("UI__Menu__Net__Multi__Join__Room_List__Detail__Password");
+    if (klassPassword && findField(klassPassword, "detail", fieldDetail) &&
+        findField(klassPassword, "_password", fieldPassword) &&
+        findField(fieldClass(fieldPassword), "str", fieldStr) &&
+        findField(fieldClass(fieldDetail), "_room_Data", fieldDataRoom) &&
+        findField(fieldClass(fieldDataRoom), "password", fieldPasswordRoom)) {
         LOGI("Field sandi room OK");
         LOGI("Offset sandi: _password=%zu str=%zu room_Data=%zu room_password=%zu",
-             fieldSandi.offset, fieldStr.offset, fieldDataRoom.offset, fieldSandiRoom.offset);
+             fieldPassword.offset, fieldStr.offset, fieldDataRoom.offset, fieldPasswordRoom.offset);
     } else {
         LOGE("Field sandi room tidak ditemukan; room bersandi tetap manual");
     }
 
-    pasangHook(target(T_PASSWORD_OK), reinterpret_cast<void*>(hookOk));
-    pasangHook(target(T_PASSWORD_FIELD), reinterpret_cast<void*>(hookField));
-    pasangHook(target(T_PASSWORD_BUTTON), reinterpret_cast<void*>(hookTombol));
+    installHook(target(T_PASSWORD_OK), reinterpret_cast<void*>(hookOk));
+    installHook(target(T_PASSWORD_FIELD), reinterpret_cast<void*>(hookField));
+    installHook(target(T_PASSWORD_BUTTON), reinterpret_cast<void*>(hookButton));
 }

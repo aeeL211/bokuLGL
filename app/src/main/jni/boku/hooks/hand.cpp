@@ -12,88 +12,88 @@ namespace {
 // sprite tangan. Fitur yang menahan itemnya menaikkan flag ini di sekitar
 // panggilan bawaan yang akan mengosongkan tangan, jadi perubahan itu menjadi
 // tanpa efek.
-thread_local bool menahanTangan = false;
+thread_local bool holdHand = false;
 // Id yang terakhir diketahui ada di tangan, disimpan supaya akhir makan bisa
 // mengembalikan item yang sama setelah animasinya menyembunyikan sprite.
-void* pemilikTangan = nullptr;
-int32_t idTangan = 0;
+void* ownerHand = nullptr;
+int32_t idHand = 0;
 // Akhir makan meminta tangan kembali, tapi pembangunan ulang saat state makan
 // masih aktif membangun pose makan yang tersembunyi. Pembangunan ulang menunggu
 // akhir update pemain itu, saat state machine sudah melewati animasi makan.
-bool segarkanTertunda = false;
-int sisaLogSegarkan = 12;
+bool refreshPending = false;
+int remainingLogRefresh = 12;
 
-void bangunUlangTangan(void* sendiri) {
+void buildReloadHand(void* own) {
     auto hh = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_HH_CHANGE).orig);
     if (!hh)
         return;
-    hh(sendiri, idTangan, target(T_HH_CHANGE).method);
-    if (sisaLogSegarkan > 0) {
-        sisaLogSegarkan--;
-        LOGI("Tangan disegarkan: id=%d", idTangan);
+    hh(own, idHand, target(T_HH_CHANGE).method);
+    if (remainingLogRefresh > 0) {
+        remainingLogRefresh--;
+        LOGI("Tangan disegarkan: id=%d", idHand);
     }
 }
 
 // Membaca id yang benar-benar masih di tangan dari model pemain. Cache idTangan
 // bisa sudah 0 bila fitur makanan sempat dimatikan dan game mengosongkan tangan,
 // jadi nilai hidup ini yang dipakai saat perubahan tangan berikutnya ditahan.
-int32_t idTanganDariGame(void* sendiri) {
-    auto baca = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_HH_ID).addr);
-    if (!baca)
-        return idTangan;
-    return baca(sendiri, target(T_HH_ID).method);
+int32_t idHandFromGame(void* own) {
+    auto read = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_HH_ID).addr);
+    if (!read)
+        return idHand;
+    return read(own, target(T_HH_ID).method);
 }
 
-void hookGantiHh(void* sendiri, int32_t id, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_HH_CHANGE).orig);
-    if (!asli)
+void hookChangeHh(void* own, int32_t id, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_HH_CHANGE).orig);
+    if (!original)
         return;
-    if (menahanTangan) {
+    if (holdHand) {
         // Game hendak mengosongkan tangan. Id yang sekarang dipakai dibaca
         // sebelum perubahan itu hilang, lalu dipakai lagi oleh segarkanTangan.
-        pemilikTangan = sendiri;
-        idTangan = idTanganDariGame(sendiri);
+        ownerHand = own;
+        idHand = idHandFromGame(own);
         return;
     }
-    asli(sendiri, id, metode);
+    original(own, id, method);
     // Hh__Change juga dijalankan untuk tamu di dalam room. Cache tangan hanya
     // boleh mengikuti pemain lokal, kalau tidak akhir makan tamu bisa menyusun
     // ulang tangan pemain sendiri.
-    if (!pemainLokalHook(sendiri))
+    if (!isLocalPlayerHook(own))
         return;
-    pemilikTangan = sendiri;
-    idTangan = id;
+    ownerHand = own;
+    idHand = id;
 }
 
-void hookUpdate(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_PLAYER_UPDATE).orig);
-    if (!asli)
+void hookUpdate(void* own, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_PLAYER_UPDATE).orig);
+    if (!original)
         return;
-    asli(sendiri, metode);
-    saatUpdatePemain(sendiri);
-    if (!segarkanTertunda || sendiri != pemilikTangan)
+    original(own, method);
+    onPlayerUpdate(own);
+    if (!refreshPending || own != ownerHand)
         return;
-    segarkanTertunda = false;
-    bangunUlangTangan(sendiri);
+    refreshPending = false;
+    buildReloadHand(own);
 }
 
 } // namespace
 
-void setelTahanTangan(bool tahan) { menahanTangan = tahan; }
+void setHoldHand(bool hold) { holdHand = hold; }
 
-void segarkanTangan() {
-    if (!pemilikTangan)
+void refreshHand() {
+    if (!ownerHand)
         return;
     // Tanpa hook update tidak ada tempat aman untuk membangun ulang nanti, jadi
     // kembali ke saat akhir makan selesai.
     if (!target(T_PLAYER_UPDATE).orig) {
-        bangunUlangTangan(pemilikTangan);
+        buildReloadHand(ownerHand);
         return;
     }
-    segarkanTertunda = true;
+    refreshPending = true;
 }
 
-void pasangHookTangan() {
-    pasangHook(target(T_HH_CHANGE), reinterpret_cast<void*>(hookGantiHh));
-    pasangHook(target(T_PLAYER_UPDATE), reinterpret_cast<void*>(hookUpdate));
+void installHandHook() {
+    installHook(target(T_HH_CHANGE), reinterpret_cast<void*>(hookChangeHh));
+    installHook(target(T_PLAYER_UPDATE), reinterpret_cast<void*>(hookUpdate));
 }

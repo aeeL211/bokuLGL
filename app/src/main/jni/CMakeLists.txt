@@ -107,7 +107,7 @@ set(MENU_SOURCES
 # hook group.
 set(MOD_SOURCES
   "${BOKU_ROOT}/main.cpp"
-  "${BOKU_ROOT}/fitur.cpp"
+  "${BOKU_ROOT}/features.cpp"
   "${BOKU_ROOT}/feature_registry.cpp"
   "${BOKU_ROOT}/jni_bridge.cpp"
   "${BOKU_ROOT}/jni_cache.cpp"
@@ -140,7 +140,7 @@ set(MOD_SOURCES
   "${BOKU_ROOT}/hooks/slots.cpp"
   "${BOKU_ROOT}/hooks/spoof.cpp"
   "${BOKU_ROOT}/hooks/room.cpp"
-  "${BOKU_ROOT}/hooks/pemain.cpp"
+  "${BOKU_ROOT}/hooks/player.cpp"
 )
 
 add_library(boku SHARED

@@ -8,14 +8,14 @@
 
 namespace {
 
-int daftarkan(JNIEnv *env, const char *nama, JNINativeMethod *methods, int jumlah) {
-    LocalRef<jclass> clazz(env, env->FindClass(nama));
+int daftarkan(JNIEnv *env, const char *name, JNINativeMethod *methods, int count) {
+    LocalRef<jclass> clazz(env, env->FindClass(name));
     if (!clazz) {
-        bersihkanEksepsi(env, "FindClass menu");
+        clearException(env, "FindClass menu");
         return JNI_ERR;
     }
-    if (env->RegisterNatives(clazz.get(), methods, jumlah) != 0) {
-        bersihkanEksepsi(env, "RegisterNatives menu");
+    if (env->RegisterNatives(clazz.get(), methods, count) != 0) {
+        clearException(env, "RegisterNatives menu");
         return JNI_ERR;
     }
     return JNI_OK;
@@ -39,19 +39,19 @@ int RegisterMenu(JNIEnv *env) {
              reinterpret_cast<void *>(SettingsList)},
             {OBFUSCATE("GetFeatureList"), OBFUSCATE("()[Ljava/lang/String;"),
              reinterpret_cast<void *>(GetFeatureList)},
-            {OBFUSCATE("DaftarPemain"), OBFUSCATE("()Ljava/lang/String;"),
-             reinterpret_cast<void *>(DaftarPemain)},
-            {OBFUSCATE("PosisiPemain"), OBFUSCATE("()Ljava/lang/String;"),
-             reinterpret_cast<void *>(PosisiPemain)},
-            {OBFUSCATE("TendangPemain"),
+            {OBFUSCATE("PlayerList"), OBFUSCATE("()Ljava/lang/String;"),
+             reinterpret_cast<void *>(PlayerList)},
+            {OBFUSCATE("PlayerPosition"), OBFUSCATE("()Ljava/lang/String;"),
+             reinterpret_cast<void *>(PlayerPosition)},
+            {OBFUSCATE("KickPlayer"),
              OBFUSCATE("(Ljava/lang/String;Ljava/lang/String;Z)Z"),
-             reinterpret_cast<void *>(TendangPemain)},
-            {OBFUSCATE("TendangHost"), OBFUSCATE("(Ljava/lang/String;)Z"),
-             reinterpret_cast<void *>(TendangHost)},
-            {OBFUSCATE("TendangSemua"), OBFUSCATE("()Z"),
-             reinterpret_cast<void *>(TendangSemua)},
-            {OBFUSCATE("SalinSkinPemain"), OBFUSCATE("(Ljava/lang/String;Ljava/lang/String;)Z"),
-             reinterpret_cast<void *>(SalinSkinPemain)},
+             reinterpret_cast<void *>(KickPlayer)},
+            {OBFUSCATE("KickHost"), OBFUSCATE("(Ljava/lang/String;)Z"),
+             reinterpret_cast<void *>(KickHost)},
+            {OBFUSCATE("KickAll"), OBFUSCATE("()Z"),
+             reinterpret_cast<void *>(KickAll)},
+            {OBFUSCATE("CopyPlayerSkin"), OBFUSCATE("(Ljava/lang/String;Ljava/lang/String;)Z"),
+             reinterpret_cast<void *>(CopyPlayerSkin)},
     };
 
     return daftarkan(env, OBFUSCATE("com/android/support/Menu"), methods,
@@ -86,24 +86,24 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     // Satu-satunya JNI_OnLoad di library ini: milik menu, yang juga menyerahkan
     // JavaVM dan kelas activity ke sisi mod.
-    siapkanMod(vm, env);
+    setupMod(vm, env);
 
     // Kelas menu hanya ada saat pustaka ini dimuat dari APK yang sudah digabung
     // dengan template. Bila pustaka disuntikkan ke game asli, kelas itu tidak
     // terdaftar; hook tetap harus berjalan dengan sakelar bawaannya, jadi
     // kegagalan pendaftaran dicatat dan tidak membatalkan pemuatan.
-    bool menuTerdaftar = true;
+    bool menuRegistered = true;
     if (RegisterMenu(env) != 0)
-        menuTerdaftar = false;
+        menuRegistered = false;
     if (RegisterPreferences(env) != 0)
-        menuTerdaftar = false;
+        menuRegistered = false;
     if (RegisterMain(env) != 0)
-        menuTerdaftar = false;
+        menuRegistered = false;
     // Kelas pembantu diikat setelah pendaftaran. Bila kelas menu tidak ada,
     // setiap entri cache gagal sendiri-sendiri dan pemanggilnya memakai jalur
     // aman tanpa JNI.
-    siapkanCacheJni(env);
-    if (!menuTerdaftar)
+    prepareJniCache(env);
+    if (!menuRegistered)
         LOGI("Kelas menu tidak terdaftar, fitur berjalan tanpa menu");
     return JNI_VERSION_1_6;
 }

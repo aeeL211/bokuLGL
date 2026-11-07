@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <ctime>
 
-#include "fitur.h"
+#include "features.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -11,10 +11,10 @@
 
 namespace {
 
-Field fieldManajerSenjata = {};
-Field fieldSenjataCmn = {};
-Field fieldManajerState = {};
-Field fieldManajerCmn = {};
+Field fieldManagerWeapon = {};
+Field fieldWeaponCmn = {};
+Field fieldManagerState = {};
+Field fieldManagerCmn = {};
 Field fieldCmnHh = {};
 Field fieldState = {};
 Field fieldCombo = {};
@@ -25,284 +25,284 @@ Field fieldCharge = {};
 Field fieldStep = {};
 Field fieldHhRock = {};
 Field fieldConfigCharge = {};
-Field fieldStepPenuh = {};
+Field fieldStepFull = {};
 
 // Tombol yang ditahan menembak sekali per jendela. Pistol dan buster bawaan
 // sama-sama menunggu timer aksi yang panjang, dan buster bisa menghabiskan
 // interval tembaknya sebelum state akhir mulai, setelah itu tombol yang ditahan
 // berhenti menembak.
-constexpr long long kIramaPistolMs = 80;
-constexpr long long kAksiBusterMs = 60;
-constexpr long long kIramaBusterMs = 100;
+constexpr long long kRhythmPistolMs = 80;
+constexpr long long kActionBusterMs = 60;
+constexpr long long kRhythmBusterMs = 100;
 
 // Setiap pemain menjalankan state machine yang sama, jadi iramanya mengikuti
 // manajer pemain. Satu jam bersama akan membuat tamu mereset tepi tombol lokal.
-struct Irama {
-    void* manajer;
-    long long tembakPistolMs;
-    long long tembakBusterMs;
+struct Rhythm {
+    void* manager;
+    long long shootPistolMs;
+    long long shootBusterMs;
     bool ditahan;
 };
-constexpr int kJumlahIrama = 32;
-Irama daftarIrama[kJumlahIrama] = {};
-int iramaBerikut = 0;
+constexpr int kCountRhythm = 32;
+Rhythm rhythmList[kCountRhythm] = {};
+int rhythmNext = 0;
 
-long long sekarangMs() {
-    timespec sekarang = {};
-    clock_gettime(CLOCK_MONOTONIC, &sekarang);
-    return static_cast<long long>(sekarang.tv_sec) * 1000 + sekarang.tv_nsec / 1000000;
+long long nowMs() {
+    timespec now = {};
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return static_cast<long long>(now.tv_sec) * 1000 + now.tv_nsec / 1000000;
 }
 
-Irama& iramaUntuk(void* manajer) {
-    Irama* slotKosong = nullptr;
-    for (Irama& irama : daftarIrama) {
-        if (irama.manajer == manajer)
-            return irama;
-        if (!irama.manajer && !slotKosong)
-            slotKosong = &irama;
+Rhythm& rhythmFor(void* manager) {
+    Rhythm* slotKosong = nullptr;
+    for (Rhythm& rhythm : rhythmList) {
+        if (rhythm.manager == manager)
+            return rhythm;
+        if (!rhythm.manager && !slotKosong)
+            slotKosong = &rhythm;
     }
 
-    Irama& slot = slotKosong ? *slotKosong : daftarIrama[iramaBerikut];
-    iramaBerikut = (iramaBerikut + 1) % kJumlahIrama;
+    Rhythm& slot = slotKosong ? *slotKosong : rhythmList[rhythmNext];
+    rhythmNext = (rhythmNext + 1) % kCountRhythm;
     slot = {};
-    slot.manajer = manajer;
+    slot.manager = manager;
     return slot;
 }
 
 // Bernilai benar paling sering sekali per jendela, jadi tombol yang ditahan
 // menembak dengan laju tetap.
-bool iramaSiap(long long& terakhirMs, long long iramaMs) {
-    long long sekarang = sekarangMs();
-    if (sekarang - terakhirMs < iramaMs)
+bool rhythmReady(long long& lastMs, long long rhythmMs) {
+    long long now = nowMs();
+    if (now - lastMs < rhythmMs)
         return false;
-    terakhirMs = sekarang;
+    lastMs = now;
     return true;
 }
 
-void* statePemain(void* sendiri, const Field& bidangManajer) {
-    void* manajer = bacaPtr(sendiri, bidangManajer);
-    return bacaPtr(manajer, fieldState);
+void* statePlayer(void* own, const Field& managerField) {
+    void* manager = readPtr(own, managerField);
+    return readPtr(manager, fieldState);
 }
 
 // State machine senjata yang sama juga dijalankan untuk tamu di dalam room.
 // Semua hook di bawah hanya boleh mempercepat pemain lokal, jadi manajer pemain
 // diperiksa lebih dulu dan jalur bawaan dipakai untuk badan tamu.
-bool senjataLokal(void* manajer) { return pemainLokalHook(manajer); }
+bool weaponLocal(void* manager) { return isLocalPlayerHook(manager); }
 
 // Update state mengulang tembakan hanya selama flag combo-nya menyala, dan flag
 // itu mengikuti tombol yang ditahan. Menulisnya sebelum update bawaan membuat
 // semua gaya berdiri maupun bergerak ikut mengulang.
-void selaraskanCombo(void* manajer) {
-    void* state = bacaPtr(manajer, fieldState);
+void selaraskanCombo(void* manager) {
+    void* state = readPtr(manager, fieldState);
     if (state)
-        tulisBool(state, fieldCombo, tombolAksiDitekan(manajer));
+        writeBool(state, fieldCombo, isActionButtonPressed(manager));
 }
 
 // Tekanan tombol memulai tembakan bawaan, jadi irama dihitung dari sini dan
 // pengulangan paksa pertama jatuh satu jendela kemudian, bukan seketika.
-void hookUpdateState(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_STATE_UPDATE).orig);
-    if (!asli)
+void hookUpdateState(void* own, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_STATE_UPDATE).orig);
+    if (!original)
         return;
 
-    if (!fitur().tembakOtomatis) {
-        asli(sendiri, metode);
+    if (!features().shootAutomatic) {
+        original(own, method);
         return;
     }
 
-    void* manajer = bacaPtr(sendiri, fieldManajerState);
-    if (!senjataLokal(manajer)) {
-        asli(sendiri, metode);
+    void* manager = readPtr(own, fieldManagerState);
+    if (!weaponLocal(manager)) {
+        original(own, method);
         return;
     }
-    Irama& irama = iramaUntuk(manajer);
-    bool ditahan = tombolAksiDitekan(manajer);
-    if (ditahan && !irama.ditahan) {
-        irama.tembakPistolMs = sekarangMs();
-        irama.tembakBusterMs = irama.tembakPistolMs;
+    Rhythm& rhythm = rhythmFor(manager);
+    bool ditahan = isActionButtonPressed(manager);
+    if (ditahan && !rhythm.ditahan) {
+        rhythm.shootPistolMs = nowMs();
+        rhythm.shootBusterMs = rhythm.shootPistolMs;
     }
-    irama.ditahan = ditahan;
-    asli(sendiri, metode);
+    rhythm.ditahan = ditahan;
+    original(own, method);
 }
 
 // State akhir pistol adalah timer tetap. Mengakhirinya pada update pertama
 // menghilangkan jeda antar tembakan; fase aksi tetap memutar muzzle dan peluru.
-bool hookAkhirPistol(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
-    if (!asli)
+bool hookEndPistol(void* own, void* method) {
+    auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
+    if (!original)
         return false;
-    if (!fitur().tembakOtomatis || !senjataLokal(bacaPtr(sendiri, fieldManajerCmn)))
-        return asli(sendiri, metode);
+    if (!features().shootAutomatic || !weaponLocal(readPtr(own, fieldManagerCmn)))
+        return original(own, method);
     return true;
 }
 
 // Aksi pistol bawaan hanya berakhir setelah frame kedua plus timer aksi.
 // Menjawab ya pada irama pendek selama tombol ditahan menembak lagi sebelum
 // timer itu membiarkan jalur bawaan lewat.
-bool hookAkhirAksiPistol(void* sendiri, int gambar, void* metode) {
-    auto asli = reinterpret_cast<bool (*)(void*, int, void*)>(target(T_GUN_ACTION_END).orig);
-    if (!asli)
+bool hookEndActionPistol(void* own, int image, void* method) {
+    auto original = reinterpret_cast<bool (*)(void*, int, void*)>(target(T_GUN_ACTION_END).orig);
+    if (!original)
         return false;
-    if (!fitur().tembakOtomatis)
-        return asli(sendiri, gambar, metode);
+    if (!features().shootAutomatic)
+        return original(own, image, method);
 
-    void* manajer = bacaPtr(sendiri, fieldManajerCmn);
-    if (!senjataLokal(manajer))
-        return asli(sendiri, gambar, metode);
-    Irama& irama = iramaUntuk(manajer);
-    if (asli(sendiri, gambar, metode)) {
-        if (tombolAksiDitekan(manajer))
-            irama.tembakPistolMs = sekarangMs();
+    void* manager = readPtr(own, fieldManagerCmn);
+    if (!weaponLocal(manager))
+        return original(own, image, method);
+    Rhythm& rhythm = rhythmFor(manager);
+    if (original(own, image, method)) {
+        if (isActionButtonPressed(manager))
+            rhythm.shootPistolMs = nowMs();
         return true;
     }
-    if (!tombolAksiDitekan(manajer))
+    if (!isActionButtonPressed(manager))
         return false;
-    return iramaSiap(irama.tembakPistolMs, kIramaPistolMs);
+    return rhythmReady(rhythm.shootPistolMs, kRhythmPistolMs);
 }
 
 // Jaga flag combo tetap mutakhir selama aksi pistol, lalu jalankan update bawaan.
-void hookUpdatePistol(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_GUN_UPDATE).orig);
-    if (!asli)
+void hookUpdatePistol(void* own, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_GUN_UPDATE).orig);
+    if (!original)
         return;
 
-    void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
-    if (fitur().tembakOtomatis && senjataLokal(manajer))
-        selaraskanCombo(manajer);
-    asli(sendiri, metode);
+    void* manager = readPtr(own, fieldManagerWeapon);
+    if (features().shootAutomatic && weaponLocal(manager))
+        selaraskanCombo(manager);
+    original(own, method);
 }
 
 // Penyelerasan yang sama selama aksi buster.
-void hookUpdateBuster(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_UPDATE).orig);
-    if (!asli)
+void hookUpdateBuster(void* own, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_UPDATE).orig);
+    if (!original)
         return;
 
-    void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
-    if (fitur().tembakOtomatis && senjataLokal(manajer))
-        selaraskanCombo(manajer);
-    asli(sendiri, metode);
+    void* manager = readPtr(own, fieldManagerWeapon);
+    if (features().shootAutomatic && weaponLocal(manager))
+        selaraskanCombo(manager);
+    original(own, method);
 }
 
 // Setiap gaya mengakhiri aksi buster lewat pengecekan ini, yang menunggu timer
 // aksi panjang. Mengakhirinya satu jendela aksi setelah tembakan mulai
 // mempertahankan frame muzzle dan efek sambil membuang sisa penantiannya.
-bool hookAkhirAksiBuster(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_ACTION_END).orig);
-    if (!asli)
+bool hookEndActionBuster(void* own, void* method) {
+    auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_ACTION_END).orig);
+    if (!original)
         return false;
-    if (!fitur().tembakOtomatis)
-        return asli(sendiri, metode);
+    if (!features().shootAutomatic)
+        return original(own, method);
 
-    void* manajer = bacaPtr(sendiri, fieldManajerCmn);
-    if (!senjataLokal(manajer))
-        return asli(sendiri, metode);
-    Irama& irama = iramaUntuk(manajer);
-    if (asli(sendiri, metode))
+    void* manager = readPtr(own, fieldManagerCmn);
+    if (!weaponLocal(manager))
+        return original(own, method);
+    Rhythm& rhythm = rhythmFor(manager);
+    if (original(own, method))
         return true;
-    if (!tombolAksiDitekan(manajer))
+    if (!isActionButtonPressed(manager))
         return false;
-    return sekarangMs() - irama.tembakBusterMs >= kAksiBusterMs;
+    return nowMs() - rhythm.shootBusterMs >= kActionBusterMs;
 }
 
 // Gaya bergerak meninggalkan state akhir buster lewat pengecekan ini, yang
 // menyerah begitu interval tembakan lewat. Menjawab ya pada irama membuat
 // tembakan terus berjalan selama tombol ditahan.
-bool hookAkhirKeAksiBuster(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_END_TO_ACTION).orig);
-    if (!asli)
+bool hookEndToActionBuster(void* own, void* method) {
+    auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_END_TO_ACTION).orig);
+    if (!original)
         return false;
-    if (!fitur().tembakOtomatis)
-        return asli(sendiri, metode);
+    if (!features().shootAutomatic)
+        return original(own, method);
 
-    void* manajer = bacaPtr(sendiri, fieldManajerCmn);
-    if (!senjataLokal(manajer))
-        return asli(sendiri, metode);
-    Irama& irama = iramaUntuk(manajer);
-    if (asli(sendiri, metode)) {
-        if (tombolAksiDitekan(manajer))
-            irama.tembakBusterMs = sekarangMs();
+    void* manager = readPtr(own, fieldManagerCmn);
+    if (!weaponLocal(manager))
+        return original(own, method);
+    Rhythm& rhythm = rhythmFor(manager);
+    if (original(own, method)) {
+        if (isActionButtonPressed(manager))
+            rhythm.shootBusterMs = nowMs();
         return true;
     }
-    if (!tombolAksiDitekan(manajer))
+    if (!isActionButtonPressed(manager))
         return false;
-    return iramaSiap(irama.tembakBusterMs, kIramaBusterMs);
+    return rhythmReady(rhythm.shootBusterMs, kRhythmBusterMs);
 }
 
 // Buster berdiri menembak ulang di dalam update akhirnya sendiri. Menahan update
 // itu sampai iramanya jatuh tempo lalu memulai aksinya menjaga laju yang sama,
 // dan jalur bawaan tetap berjalan setiap kali tombol dilepas.
-void hookUpdateAkhirBuster(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_END_UPDATE).orig);
-    if (!asli)
+void hookUpdateEndBuster(void* own, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_END_UPDATE).orig);
+    if (!original)
         return;
-    if (!fitur().tembakOtomatis) {
-        asli(sendiri, metode);
-        return;
-    }
-
-    auto arahAkhir = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_END_DIR).addr);
-    auto aksi = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
-    void* manajer = bacaPtr(sendiri, fieldManajerSenjata);
-    void* cmn = bacaPtr(sendiri, fieldSenjataCmn);
-    if (!arahAkhir || !aksi || !cmn || !senjataLokal(manajer) || !tombolAksiDitekan(manajer)) {
-        asli(sendiri, metode);
+    if (!features().shootAutomatic) {
+        original(own, method);
         return;
     }
 
-    Irama& irama = iramaUntuk(manajer);
-    if (!iramaSiap(irama.tembakBusterMs, kIramaBusterMs))
+    auto directionEnd = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_END_DIR).addr);
+    auto action = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
+    void* manager = readPtr(own, fieldManagerWeapon);
+    void* cmn = readPtr(own, fieldWeaponCmn);
+    if (!directionEnd || !action || !cmn || !weaponLocal(manager) || !isActionButtonPressed(manager)) {
+        original(own, method);
+        return;
+    }
+
+    Rhythm& rhythm = rhythmFor(manager);
+    if (!rhythmReady(rhythm.shootBusterMs, kRhythmBusterMs))
         return;
 
-    aksi(sendiri, arahAkhir(cmn, target(T_ROCK_END_DIR).method), target(T_ROCK_ACTION).method);
+    action(own, directionEnd(cmn, target(T_ROCK_END_DIR).method), target(T_ROCK_ACTION).method);
 }
 
 // Pencarian id hanya mengembalikan proyektil terisi bila step charge runtime
 // sama dengan step penuh dari konfigurasi. Menulis step itu sebelum pencarian
 // membuat setiap tembakan memakai amunisi terkuat.
-int32_t hookIdBuster(void* sendiri, void* metode) {
-    auto asli = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_ID).orig);
-    if (!asli)
+int32_t hookIdBuster(void* own, void* method) {
+    auto original = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_ID).orig);
+    if (!original)
         return 0;
-    if (!fitur().busterPenuh)
-        return asli(sendiri, metode);
-    if (!senjataLokal(bacaPtr(sendiri, fieldManajerCmn)))
-        return asli(sendiri, metode);
+    if (!features().busterFull)
+        return original(own, method);
+    if (!weaponLocal(readPtr(own, fieldManagerCmn)))
+        return original(own, method);
 
-    void* state = statePemain(sendiri, fieldManajerCmn);
-    void* rock = bacaPtr(state, fieldRock);
-    void* charge = bacaPtr(rock, fieldCharge);
-    void* hh = bacaPtr(sendiri, fieldCmnHh);
-    void* config = bacaPtr(hh, fieldHhRock);
-    void* chargeConfig = bacaPtr(config, fieldConfigCharge);
+    void* state = statePlayer(own, fieldManagerCmn);
+    void* rock = readPtr(state, fieldRock);
+    void* charge = readPtr(rock, fieldCharge);
+    void* hh = readPtr(own, fieldCmnHh);
+    void* config = readPtr(hh, fieldHhRock);
+    void* chargeConfig = readPtr(config, fieldConfigCharge);
     if (charge && chargeConfig)
-        tulisInt(charge, fieldStep, bacaInt(chargeConfig, fieldStepPenuh));
+        writeInt(charge, fieldStep, readInt(chargeConfig, fieldStepFull));
 
-    return asli(sendiri, metode);
+    return original(own, method);
 }
 
-bool cariFieldSenjata() {
-    void* cmn = kelasDari("Player__State__Cmn");
-    void* senjata = kelasDari("Player__State__Std__Action__Hh__Weapon");
-    void* manajerState = kelasDari("Player__State");
-    return cariField(manajerState, "m", fieldManajerState) &&
-           cariField(senjata, "m", fieldManajerSenjata) &&
-           cariField(senjata, "cmn", fieldSenjataCmn) && cariField(cmn, "m", fieldManajerCmn) &&
-           cariField(cmn, "chr_Hh", fieldCmnHh) &&
-           cariField(kelasField(fieldManajerSenjata), "__state", fieldState) &&
-           cariField(kelasField(fieldState), "combo", fieldCombo) &&
-           cariField(kelasField(fieldState), "_rockman__Rock_Buster", fieldRock) &&
-           cariField(kelasField(fieldRock), "charge", fieldCharge) &&
-           cariField(kelasField(fieldCharge), "step", fieldStep) &&
-           cariField(kelasField(fieldCmnHh), "_rockman__Rock_Buster", fieldHhRock) &&
-           cariField(kelasField(fieldHhRock), "charge", fieldConfigCharge) &&
-           cariField(kelasField(fieldConfigCharge), "step__Full", fieldStepPenuh);
+bool findFieldWeapon() {
+    void* cmn = classOf("Player__State__Cmn");
+    void* weapon = classOf("Player__State__Std__Action__Hh__Weapon");
+    void* managerState = classOf("Player__State");
+    return findField(managerState, "m", fieldManagerState) &&
+           findField(weapon, "m", fieldManagerWeapon) &&
+           findField(weapon, "cmn", fieldWeaponCmn) && findField(cmn, "m", fieldManagerCmn) &&
+           findField(cmn, "chr_Hh", fieldCmnHh) &&
+           findField(fieldClass(fieldManagerWeapon), "__state", fieldState) &&
+           findField(fieldClass(fieldState), "combo", fieldCombo) &&
+           findField(fieldClass(fieldState), "_rockman__Rock_Buster", fieldRock) &&
+           findField(fieldClass(fieldRock), "charge", fieldCharge) &&
+           findField(fieldClass(fieldCharge), "step", fieldStep) &&
+           findField(fieldClass(fieldCmnHh), "_rockman__Rock_Buster", fieldHhRock) &&
+           findField(fieldClass(fieldHhRock), "charge", fieldConfigCharge) &&
+           findField(fieldClass(fieldConfigCharge), "step__Full", fieldStepFull);
 }
 
 } // namespace
 
-void pasangHookSenjata() {
-    if (!cariFieldSenjata()) {
+void installWeaponHook() {
+    if (!findFieldWeapon()) {
         LOGE("Field senjata tidak ditemukan; senjata tetap vanilla");
         return;
     }
@@ -311,13 +311,13 @@ void pasangHookSenjata() {
     if (!target(T_ROCK_ACTION).addr || !target(T_ROCK_END_DIR).addr)
         LOGE("Method tembak ulang buster tidak ditemukan; buster berdiri tetap vanilla");
 
-    pasangHook(target(T_STATE_UPDATE), reinterpret_cast<void*>(hookUpdateState));
-    pasangHook(target(T_GUN_END), reinterpret_cast<void*>(hookAkhirPistol));
-    pasangHook(target(T_GUN_ACTION_END), reinterpret_cast<void*>(hookAkhirAksiPistol));
-    pasangHook(target(T_GUN_UPDATE), reinterpret_cast<void*>(hookUpdatePistol));
-    pasangHook(target(T_ROCK_UPDATE), reinterpret_cast<void*>(hookUpdateBuster));
-    pasangHook(target(T_ROCK_ACTION_END), reinterpret_cast<void*>(hookAkhirAksiBuster));
-    pasangHook(target(T_ROCK_END_UPDATE), reinterpret_cast<void*>(hookUpdateAkhirBuster));
-    pasangHook(target(T_ROCK_END_TO_ACTION), reinterpret_cast<void*>(hookAkhirKeAksiBuster));
-    pasangHook(target(T_ROCK_ID), reinterpret_cast<void*>(hookIdBuster));
+    installHook(target(T_STATE_UPDATE), reinterpret_cast<void*>(hookUpdateState));
+    installHook(target(T_GUN_END), reinterpret_cast<void*>(hookEndPistol));
+    installHook(target(T_GUN_ACTION_END), reinterpret_cast<void*>(hookEndActionPistol));
+    installHook(target(T_GUN_UPDATE), reinterpret_cast<void*>(hookUpdatePistol));
+    installHook(target(T_ROCK_UPDATE), reinterpret_cast<void*>(hookUpdateBuster));
+    installHook(target(T_ROCK_ACTION_END), reinterpret_cast<void*>(hookEndActionBuster));
+    installHook(target(T_ROCK_END_UPDATE), reinterpret_cast<void*>(hookUpdateEndBuster));
+    installHook(target(T_ROCK_END_TO_ACTION), reinterpret_cast<void*>(hookEndToActionBuster));
+    installHook(target(T_ROCK_ID), reinterpret_cast<void*>(hookIdBuster));
 }

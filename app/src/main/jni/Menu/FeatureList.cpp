@@ -6,27 +6,27 @@
 
 namespace {
 
-jobjectArray salinDaftar(JNIEnv *env, const char *const *teks, int jumlah) {
-    jclass kelasTeks = kelasString(env);
-    if (!kelasTeks)
+jobjectArray copyList(JNIEnv *env, const char *const *text, int count) {
+    jclass klassText = klassString(env);
+    if (!klassText)
         return nullptr;
 
-    LocalRef<jobjectArray> hasil(env, env->NewObjectArray(jumlah, kelasTeks, nullptr));
-    if (!hasil) {
-        bersihkanEksepsi(env, "NewObjectArray daftar menu");
+    LocalRef<jobjectArray> result(env, env->NewObjectArray(count, klassText, nullptr));
+    if (!result) {
+        clearException(env, "NewObjectArray daftar menu");
         return nullptr;
     }
 
-    for (int i = 0; i < jumlah; i++) {
-        LocalRef<jstring> isi(env, env->NewStringUTF(teks[i]));
-        if (!isi) {
-            bersihkanEksepsi(env, "NewStringUTF daftar menu");
+    for (int i = 0; i < count; i++) {
+        LocalRef<jstring> content(env, env->NewStringUTF(text[i]));
+        if (!content) {
+            clearException(env, "NewStringUTF daftar menu");
             break;
         }
-        env->SetObjectArrayElement(hasil.get(), i, isi.get());
-        bersihkanEksepsi(env, "SetObjectArrayElement daftar menu");
+        env->SetObjectArrayElement(result.get(), i, content.get());
+        clearException(env, "SetObjectArrayElement daftar menu");
     }
-    return hasil.lepas();
+    return result.release();
 }
 
 } // namespace
@@ -35,8 +35,8 @@ jobjectArray salinDaftar(JNIEnv *env, const char *const *teks, int jumlah) {
 // CollapseAdd_, jadi seluruh section tertutup saat menu dibuka. Nomor fitur
 // ditulis eksplisit di isi section, jadi memindahkan baris tidak menggeser nomor
 // mana pun dan Changes() tetap memakai nomor yang sama.
-jobjectArray daftarFitur(JNIEnv *env) {
-    static const char *const fitur[] = {
+jobjectArray featureList(JNIEnv *env) {
+    static const char *const features[] = {
             OBFUSCATE("Collapse_Room dan Dunia"),
             OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
@@ -74,11 +74,11 @@ jobjectArray daftarFitur(JNIEnv *env) {
             OBFUSCATE("CollapseAdd_21_InputValue_1024_Titik Y tujuan"),
             OBFUSCATE("CollapseAdd_22_Button_Pindahkan pemain"),
     };
-    return salinDaftar(env, fitur, static_cast<int>(sizeof(fitur) / sizeof(fitur[0])));
+    return copyList(env, features, static_cast<int>(sizeof(features) / sizeof(features[0])));
 }
 
-jobjectArray daftarSetelan(JNIEnv *env) {
-    static const char *const setelan[] = {
+jobjectArray settingList(JNIEnv *env) {
+    static const char *const setting[] = {
             OBFUSCATE("Category_Pengaturan"),
             OBFUSCATE("-1_Toggle_Simpan preferensi"),
             OBFUSCATE("Category_Ikon"),
@@ -87,5 +87,5 @@ jobjectArray daftarSetelan(JNIEnv *env) {
             OBFUSCATE("-6_InputText_Sumber gambar ikon"),
             OBFUSCATE("ButtonLink_Lapor bug/saran_https://t.me/aeeL2"),
     };
-    return salinDaftar(env, setelan, static_cast<int>(sizeof(setelan) / sizeof(setelan[0])));
+    return copyList(env, setting, static_cast<int>(sizeof(setting) / sizeof(setting[0])));
 }

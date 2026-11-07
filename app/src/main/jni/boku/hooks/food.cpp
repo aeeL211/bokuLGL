@@ -1,6 +1,6 @@
 #include "hooks.h"
 
-#include "fitur.h"
+#include "features.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "targets.h"
@@ -10,7 +10,7 @@ namespace {
 // Setiap metode akhir makan dimiliki state pemain, dan state itu menyimpan
 // Player__Manager miliknya. Offset m berbeda per postur, jadi field dicari per
 // target dan disimpan pada instansiasi template masing-masing.
-template <TargetId id> Field& fieldPemainMakan() {
+template <TargetId id> Field& fieldPlayerEat() {
     static Field field = {};
     return field;
 }
@@ -32,39 +32,39 @@ template <TargetId id> Field& fieldPemainMakan() {
 //
 // Tamu di dalam room menjalankan state yang sama di simulasi lokal, jadi hanya
 // pemain lokal yang tangannya ditahan.
-template <TargetId id> void hookAkhirMakan(void* self, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, void*)>(target(id).orig);
-    if (!asli)
+template <TargetId id> void hookEndEat(void* self, void* method) {
+    auto original = reinterpret_cast<void (*)(void*, void*)>(target(id).orig);
+    if (!original)
         return;
-    if (!fitur().makanan) {
-        asli(self, method);
-        return;
-    }
-    const Field& bidangPemain = fieldPemainMakan<id>();
-    if (bidangPemain.field && !pemainLokalHook(bacaPtr(self, bidangPemain))) {
-        asli(self, method);
+    if (!features().food) {
+        original(self, method);
         return;
     }
-    setelTahanTangan(true);
-    asli(self, method);
-    setelTahanTangan(false);
-    segarkanTangan();
+    const Field& playerField = fieldPlayerEat<id>();
+    if (playerField.field && !isLocalPlayerHook(readPtr(self, playerField))) {
+        original(self, method);
+        return;
+    }
+    setHoldHand(true);
+    original(self, method);
+    setHoldHand(false);
+    refreshHand();
 }
 
-template <TargetId id> void pasangAkhirMakan() {
-    cariField(kelasDari(target(id).cls), "m", fieldPemainMakan<id>());
-    pasangHook(target(id), reinterpret_cast<void*>(hookAkhirMakan<id>));
+template <TargetId id> void installEndEat() {
+    findField(classOf(target(id).cls), "m", fieldPlayerEat<id>());
+    installHook(target(id), reinterpret_cast<void*>(hookEndEat<id>));
 }
 
 } // namespace
 
-void pasangHookMakanan() {
-    pasangAkhirMakan<T_EAT_END_KNEEL>();
-    pasangAkhirMakan<T_EAT_END_SIT_F>();
-    pasangAkhirMakan<T_EAT_END_SIT_S>();
-    pasangAkhirMakan<T_EAT_END_FOOD>();
-    pasangAkhirMakan<T_EAT_END_BUN_KNEEL>();
-    pasangAkhirMakan<T_EAT_END_BUN_SIT_F>();
-    pasangAkhirMakan<T_EAT_END_BUN_SIT_S>();
-    pasangAkhirMakan<T_EAT_END_BUN_FOOD>();
+void installFoodHook() {
+    installEndEat<T_EAT_END_KNEEL>();
+    installEndEat<T_EAT_END_SIT_F>();
+    installEndEat<T_EAT_END_SIT_S>();
+    installEndEat<T_EAT_END_FOOD>();
+    installEndEat<T_EAT_END_BUN_KNEEL>();
+    installEndEat<T_EAT_END_BUN_SIT_F>();
+    installEndEat<T_EAT_END_BUN_SIT_S>();
+    installEndEat<T_EAT_END_BUN_FOOD>();
 }

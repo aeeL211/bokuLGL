@@ -4,31 +4,31 @@
 // log dan penangan crash, yang menghasilkan .so paling kecil.
 #ifdef BOKU_LOG
 
-void cetakLog(char tingkat, const char* fmt, ...);
-void bukaFileLog();
-void pasangLogCrash();
+void printLog(char tingkat, const char* fmt, ...);
+void openLogFile();
+void installCrashLog();
 
 // Memotret ulang daftar modul tanpa memasang penangan lagi. Panggil setelah
 // pustaka game selesai dimuat, supaya nama modul muncul di blok crash.
-void segarkanModul();
+void refreshModules();
 
 // Mencatat pemanggil abort() dan __stack_chk_fail() supaya SIGABRT berikutnya
 // menyebut kode yang memutuskan mematikan proses. Panggil setelah ShadowHook siap.
-void pasangProbeCrash();
+void installCrashProbe();
 
 // Path lengkap berkas yang ditulis sesi ini, atau nullptr sebelum dibuka.
-const char* pathFileLog();
+const char* logFilePath();
 
-#define LOGI(...) cetakLog('I', __VA_ARGS__)
-#define LOGE(...) cetakLog('E', __VA_ARGS__)
+#define LOGI(...) printLog('I', __VA_ARGS__)
+#define LOGE(...) printLog('E', __VA_ARGS__)
 
 #else
 
-inline void bukaFileLog() {}
-inline void pasangLogCrash() {}
-inline void segarkanModul() {}
-inline void pasangProbeCrash() {}
-inline const char* pathFileLog() { return nullptr; }
+inline void openLogFile() {}
+inline void installCrashLog() {}
+inline void refreshModules() {}
+inline void installCrashProbe() {}
+inline const char* logFilePath() { return nullptr; }
 
 #define LOGI(...) ((void)0)
 #define LOGE(...) ((void)0)

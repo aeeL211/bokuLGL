@@ -18,7 +18,7 @@ public:
 
 private:
     JNIEnv* env_ = nullptr;
-    bool lepas_ = false;
+    bool release_ = false;
 };
 
 // Referensi lokal JNI selalu dibebaskan, termasuk saat ada jalur keluar lebih
@@ -37,18 +37,18 @@ public:
     LocalRef(const LocalRef&) = delete;
     LocalRef& operator=(const LocalRef&) = delete;
 
-    LocalRef(LocalRef&& lain) noexcept : env_(lain.env_), ref_(lain.ref_) {
-        lain.env_ = nullptr;
-        lain.ref_ = nullptr;
+    LocalRef(LocalRef&& other) noexcept : env_(other.env_), ref_(other.ref_) {
+        other.env_ = nullptr;
+        other.ref_ = nullptr;
     }
 
-    LocalRef& operator=(LocalRef&& lain) noexcept {
-        if (this != &lain) {
+    LocalRef& operator=(LocalRef&& other) noexcept {
+        if (this != &other) {
             reset();
-            env_ = lain.env_;
-            ref_ = lain.ref_;
-            lain.env_ = nullptr;
-            lain.ref_ = nullptr;
+            env_ = other.env_;
+            ref_ = other.ref_;
+            other.env_ = nullptr;
+            other.ref_ = nullptr;
         }
         return *this;
     }
@@ -57,7 +57,7 @@ public:
     explicit operator bool() const { return ref_ != nullptr; }
 
     // Melepas referensi tanpa menghapusnya, untuk nilai yang dikembalikan ke Java.
-    T lepas() {
+    T release() {
         T ref = ref_;
         ref_ = nullptr;
         return ref;
@@ -78,29 +78,29 @@ private:
 // ReleaseStringUTFChars selalu berpasangan.
 class StringUtf {
 public:
-    StringUtf(JNIEnv* env, jstring teks) : env_(env), teks_(teks) {
-        if (env_ && teks_)
-            isi_ = env_->GetStringUTFChars(teks_, nullptr);
+    StringUtf(JNIEnv* env, jstring text) : env_(env), text_(text) {
+        if (env_ && text_)
+            content_ = env_->GetStringUTFChars(text_, nullptr);
     }
 
     ~StringUtf() {
-        if (env_ && teks_ && isi_)
-            env_->ReleaseStringUTFChars(teks_, isi_);
+        if (env_ && text_ && content_)
+            env_->ReleaseStringUTFChars(text_, content_);
     }
 
     StringUtf(const StringUtf&) = delete;
     StringUtf& operator=(const StringUtf&) = delete;
 
-    const char* get() const { return isi_; }
-    explicit operator bool() const { return isi_ != nullptr; }
+    const char* get() const { return content_; }
+    explicit operator bool() const { return content_ != nullptr; }
 
 private:
     JNIEnv* env_ = nullptr;
-    jstring teks_ = nullptr;
-    const char* isi_ = nullptr;
+    jstring text_ = nullptr;
+    const char* content_ = nullptr;
 };
 
 // Eksepsi Java yang tertinggal membuat setiap panggilan JNI berikutnya gagal.
 // Semua titik panggil membersihkannya, dan kegagalan dicatat ke logcat dengan
 // tag yang sama seperti log native.
-void bersihkanEksepsi(JNIEnv* env, const char* konteks);
+void clearException(JNIEnv* env, const char* context);

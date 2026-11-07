@@ -14,12 +14,12 @@ Api api = {};
 // Nama sederhana yang sama bisa ada di beberapa assembly ("Iap" dan "_Unlock"
 // sama-sama terduplikasi), jadi setiap kelas yang dibutuhkan didaftarkan di sini
 // dan baru diikat setelah scan mencocokkan salah satu metodenya.
-struct SlotKelas {
-    const char* nama;
-    void* kelas;
+struct SlotKlass {
+    const char* name;
+    void* klass;
 };
 
-SlotKelas daftarKelas[] = {
+SlotKlass listKlass[] = {
     {"Iap", nullptr},
     {"UI__Iap", nullptr},
     {"_Unlock", nullptr},
@@ -70,86 +70,86 @@ constexpr size_t kDataArray = 4 * sizeof(void*);
 
 Api& apiIl2cpp() { return api; }
 
-void* kelasDari(const char* nama) {
-    for (SlotKelas& s : daftarKelas) {
-        if (!strcmp(s.nama, nama))
-            return s.kelas;
+void* classOf(const char* name) {
+    for (SlotKlass& s : listKlass) {
+        if (!strcmp(s.name, name))
+            return s.klass;
     }
     return nullptr;
 }
 
-void ikatKelas(const char* nama, void* kelas) {
-    for (SlotKelas& s : daftarKelas) {
-        if (!s.kelas && !strcmp(s.nama, nama))
-            s.kelas = kelas;
+void bindKlass(const char* name, void* klass) {
+    for (SlotKlass& s : listKlass) {
+        if (!s.klass && !strcmp(s.name, name))
+            s.klass = klass;
     }
 }
 
-bool cariField(void* kelas, const char* nama, Field& hasil) {
-    if (!kelas)
+bool findField(void* klass, const char* name, Field& result) {
+    if (!klass)
         return false;
-    hasil.field = api.fieldFromName(kelas, nama);
-    if (!hasil.field)
+    result.field = api.fieldFromName(klass, name);
+    if (!result.field)
         return false;
-    hasil.offset = api.fieldOffset(hasil.field);
+    result.offset = api.fieldOffset(result.field);
     return true;
 }
 
-void* kelasField(const Field& bidang) {
-    if (!bidang.field || !api.fieldType || !api.classFromType)
+void* fieldClass(const Field& field) {
+    if (!field.field || !api.fieldType || !api.classFromType)
         return nullptr;
-    void* tipe = api.fieldType(bidang.field);
-    return tipe ? api.classFromType(tipe) : nullptr;
+    void* type = api.fieldType(field.field);
+    return type ? api.classFromType(type) : nullptr;
 }
 
-void* kelasElemenField(const Field& bidang) {
-    void* kelas = kelasField(bidang);
-    if (!kelas || !api.elementClass)
+void* fieldElementClass(const Field& field) {
+    void* klass = fieldClass(field);
+    if (!klass || !api.elementClass)
         return nullptr;
-    return api.elementClass(kelas);
+    return api.elementClass(klass);
 }
 
-void* bacaPtr(void* objek, const Field& bidang) {
-    if (!objek || !bidang.field)
+void* readPtr(void* objek, const Field& field) {
+    if (!objek || !field.field)
         return nullptr;
-    return *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + bidang.offset);
+    return *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + field.offset);
 }
 
-int32_t bacaInt(void* objek, const Field& bidang) {
-    if (!objek || !bidang.field)
+int32_t readInt(void* objek, const Field& field) {
+    if (!objek || !field.field)
         return 0;
-    return *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + bidang.offset);
+    return *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + field.offset);
 }
 
-void tulisInt(void* objek, const Field& bidang, int32_t nilai) {
-    if (!objek || !bidang.field)
+void writeInt(void* objek, const Field& field, int32_t value) {
+    if (!objek || !field.field)
         return;
-    *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + bidang.offset) = nilai;
+    *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + field.offset) = value;
 }
 
-float bacaFloat(void* objek, const Field& bidang) {
-    if (!objek || !bidang.field)
+float readFloat(void* objek, const Field& field) {
+    if (!objek || !field.field)
         return 0.0f;
-    return *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + bidang.offset);
+    return *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + field.offset);
 }
 
-void tulisFloat(void* objek, const Field& bidang, float nilai) {
-    if (!objek || !bidang.field)
+void writeFloat(void* objek, const Field& field, float value) {
+    if (!objek || !field.field)
         return;
-    *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + bidang.offset) = nilai;
+    *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + field.offset) = value;
 }
 
-bool bacaBool(void* objek, const Field& bidang) {
-    if (!objek || !bidang.field)
+bool readBool(void* objek, const Field& field) {
+    if (!objek || !field.field)
         return false;
-    return *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + bidang.offset) != 0;
+    return *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + field.offset) != 0;
 }
 
-void tulisBool(void* objek, const Field& bidang, bool nilai) {
-    if (!objek || !bidang.field)
+void writeBool(void* objek, const Field& field, bool value) {
+    if (!objek || !field.field)
         return;
-    *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + bidang.offset) =
-        nilai ? 1 : 0;
+    *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + field.offset) =
+        value ? 1 : 0;
 }
 
 // il2cpp_field_set_value pada build ini menyimpan referensinya langsung: fungsi
@@ -157,218 +157,218 @@ void tulisBool(void* objek, const Field& bidang, bool nilai) {
 // ke variabel lokal menaruh alamat stack di field, lalu pengumpul sampah membebaskan
 // string yang seharusnya dijaga hidup oleh field itu. Pembacaan ulang menutup build
 // yang justru mengharapkan pointer ke nilai.
-void setelRef(void* objek, const Field& bidang, void* nilai) {
-    if (!objek || !bidang.field)
+void setRef(void* objek, const Field& field, void* value) {
+    if (!objek || !field.field)
         return;
     if (api.fieldSetValue) {
-        api.fieldSetValue(objek, bidang.field, nilai);
-        if (bacaPtr(objek, bidang) == nilai)
+        api.fieldSetValue(objek, field.field, value);
+        if (readPtr(objek, field) == value)
             return;
-        api.fieldSetValue(objek, bidang.field, &nilai);
-        if (bacaPtr(objek, bidang) == nilai)
+        api.fieldSetValue(objek, field.field, &value);
+        if (readPtr(objek, field) == value)
             return;
     }
-    *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + bidang.offset) = nilai;
+    *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + field.offset) = value;
 }
 
-int32_t panjangArray(void* array) {
+int32_t lengthArray(void* array) {
     if (!array || !api.arrayLength)
         return 0;
     return static_cast<int32_t>(api.arrayLength(array));
 }
 
-char* dataArray(void* array) { return reinterpret_cast<char*>(array) + kDataArray; }
+char* arrayData(void* array) { return reinterpret_cast<char*>(array) + kDataArray; }
 
-int32_t panjangString(void* teks) {
-    if (!teks || !api.stringLength)
+int32_t lengthString(void* text) {
+    if (!text || !api.stringLength)
         return 0;
-    return api.stringLength(teks);
+    return api.stringLength(text);
 }
 
-const uint16_t* karakterString(void* teks) {
-    if (!teks || !api.stringChars)
+const uint16_t* characterString(void* text) {
+    if (!text || !api.stringChars)
         return nullptr;
-    return api.stringChars(teks);
+    return api.stringChars(text);
 }
 
-bool samaString(void* pertama, void* kedua) {
-    if (!pertama || !kedua)
+bool sameString(void* first, void* secondary) {
+    if (!first || !secondary)
         return false;
-    if (pertama == kedua)
+    if (first == secondary)
         return true;
-    int32_t panjang = panjangString(pertama);
-    if (panjang != panjangString(kedua))
+    int32_t length = lengthString(first);
+    if (length != lengthString(secondary))
         return false;
-    const uint16_t* karakterPertama = karakterString(pertama);
-    const uint16_t* karakterKedua = karakterString(kedua);
-    if (!karakterPertama || !karakterKedua)
+    const uint16_t* characterFirst = characterString(first);
+    const uint16_t* characterSecondary = characterString(secondary);
+    if (!characterFirst || !characterSecondary)
         return false;
-    for (int32_t i = 0; i < panjang; i++) {
-        if (karakterPertama[i] != karakterKedua[i])
+    for (int32_t i = 0; i < length; i++) {
+        if (characterFirst[i] != characterSecondary[i])
             return false;
     }
     return true;
 }
 
-void* stringUtf16Baru(const uint16_t* karakter, int32_t panjang) {
+void* stringUtf16New(const uint16_t* character, int32_t length) {
     if (!api.stringNewUtf16)
         return nullptr;
-    return api.stringNewUtf16(karakter, panjang);
+    return api.stringNewUtf16(character, length);
 }
 
 namespace {
 
 // Urutan yang rusak dibaca satu byte dan menjadi U+FFFD, jadi sisa teks tetap
 // tersalin. Mengembalikan jumlah byte yang dipakai.
-size_t bacaTitikKode(const char* teks, size_t tersedia, uint32_t& kode) {
-    unsigned char awal = static_cast<unsigned char>(teks[0]);
-    size_t panjang = 0;
-    if (awal < 0x80) {
-        kode = awal;
+size_t readPointCode(const char* text, size_t tersedia, uint32_t& code) {
+    unsigned char initial = static_cast<unsigned char>(text[0]);
+    size_t length = 0;
+    if (initial < 0x80) {
+        code = initial;
         return 1;
     }
-    if ((awal & 0xE0) == 0xC0) {
-        kode = awal & 0x1F;
-        panjang = 2;
-    } else if ((awal & 0xF0) == 0xE0) {
-        kode = awal & 0x0F;
-        panjang = 3;
-    } else if ((awal & 0xF8) == 0xF0) {
-        kode = awal & 0x07;
-        panjang = 4;
+    if ((initial & 0xE0) == 0xC0) {
+        code = initial & 0x1F;
+        length = 2;
+    } else if ((initial & 0xF0) == 0xE0) {
+        code = initial & 0x0F;
+        length = 3;
+    } else if ((initial & 0xF8) == 0xF0) {
+        code = initial & 0x07;
+        length = 4;
     } else {
-        kode = 0xFFFD;
+        code = 0xFFFD;
         return 1;
     }
-    if (panjang > tersedia) {
-        kode = 0xFFFD;
+    if (length > tersedia) {
+        code = 0xFFFD;
         return 1;
     }
-    for (size_t i = 1; i < panjang; i++) {
-        unsigned char lanjut = static_cast<unsigned char>(teks[i]);
+    for (size_t i = 1; i < length; i++) {
+        unsigned char lanjut = static_cast<unsigned char>(text[i]);
         if ((lanjut & 0xC0) != 0x80) {
-            kode = 0xFFFD;
+            code = 0xFFFD;
             return 1;
         }
-        kode = (kode << 6) | (lanjut & 0x3F);
+        code = (code << 6) | (lanjut & 0x3F);
     }
     // Bentuk terpendek ditolak supaya satu karakter tidak punya dua ejaan.
-    if ((panjang == 2 && kode < 0x80) || (panjang == 3 && kode < 0x800) ||
-        (panjang == 4 && kode < 0x10000) || kode > 0x10FFFF || (kode >= 0xD800 && kode <= 0xDFFF)) {
-        kode = 0xFFFD;
+    if ((length == 2 && code < 0x80) || (length == 3 && code < 0x800) ||
+        (length == 4 && code < 0x10000) || code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
+        code = 0xFFFD;
         return 1;
     }
-    return panjang;
+    return length;
 }
 
 // Paling banyak empat byte, jadi pemanggil yang menyisakan empat byte punya ruang
 // untuk kode apa pun.
-size_t tulisTitikKode(uint32_t kode, char* keluaran) {
-    if (kode < 0x80) {
-        keluaran[0] = static_cast<char>(kode);
+size_t writePointCode(uint32_t code, char* keluaran) {
+    if (code < 0x80) {
+        keluaran[0] = static_cast<char>(code);
         return 1;
     }
-    if (kode < 0x800) {
-        keluaran[0] = static_cast<char>(0xC0 | (kode >> 6));
-        keluaran[1] = static_cast<char>(0x80 | (kode & 0x3F));
+    if (code < 0x800) {
+        keluaran[0] = static_cast<char>(0xC0 | (code >> 6));
+        keluaran[1] = static_cast<char>(0x80 | (code & 0x3F));
         return 2;
     }
-    if (kode < 0x10000) {
-        keluaran[0] = static_cast<char>(0xE0 | (kode >> 12));
-        keluaran[1] = static_cast<char>(0x80 | ((kode >> 6) & 0x3F));
-        keluaran[2] = static_cast<char>(0x80 | (kode & 0x3F));
+    if (code < 0x10000) {
+        keluaran[0] = static_cast<char>(0xE0 | (code >> 12));
+        keluaran[1] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+        keluaran[2] = static_cast<char>(0x80 | (code & 0x3F));
         return 3;
     }
-    keluaran[0] = static_cast<char>(0xF0 | (kode >> 18));
-    keluaran[1] = static_cast<char>(0x80 | ((kode >> 12) & 0x3F));
-    keluaran[2] = static_cast<char>(0x80 | ((kode >> 6) & 0x3F));
-    keluaran[3] = static_cast<char>(0x80 | (kode & 0x3F));
+    keluaran[0] = static_cast<char>(0xF0 | (code >> 18));
+    keluaran[1] = static_cast<char>(0x80 | ((code >> 12) & 0x3F));
+    keluaran[2] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+    keluaran[3] = static_cast<char>(0x80 | (code & 0x3F));
     return 4;
 }
 
 } // namespace
 
-void* stringDariUtf8(const char* teks) {
-    if (!teks)
+void* stringFromUtf8(const char* text) {
+    if (!text)
         return nullptr;
-    size_t panjang = strlen(teks);
+    size_t length = strlen(text);
     static const uint16_t kosong = 0;
-    if (!panjang)
-        return stringUtf16Baru(&kosong, 0);
+    if (!length)
+        return stringUtf16New(&kosong, 0);
     // Satu titik kode UTF-8 menjadi paling banyak dua unit UTF-16, dan jumlah
     // byte menjadi batas atas jumlah titik kode.
-    size_t kapasitas = panjang * 2 + 2;
+    size_t kapasitas = length * 2 + 2;
     auto* buf = static_cast<uint16_t*>(malloc(kapasitas * sizeof(uint16_t)));
     if (!buf)
         return nullptr;
 
     int32_t terpakai = 0;
-    for (size_t i = 0; i < panjang;) {
-        uint32_t kode = 0;
-        i += bacaTitikKode(teks + i, panjang - i, kode);
-        if (kode >= 0x10000) {
-            kode -= 0x10000;
-            buf[terpakai++] = static_cast<uint16_t>(0xD800 + (kode >> 10));
-            buf[terpakai++] = static_cast<uint16_t>(0xDC00 + (kode & 0x3FF));
+    for (size_t i = 0; i < length;) {
+        uint32_t code = 0;
+        i += readPointCode(text + i, length - i, code);
+        if (code >= 0x10000) {
+            code -= 0x10000;
+            buf[terpakai++] = static_cast<uint16_t>(0xD800 + (code >> 10));
+            buf[terpakai++] = static_cast<uint16_t>(0xDC00 + (code & 0x3FF));
         } else {
-            buf[terpakai++] = static_cast<uint16_t>(kode);
+            buf[terpakai++] = static_cast<uint16_t>(code);
         }
     }
-    void* hasil = stringUtf16Baru(buf, terpakai);
+    void* result = stringUtf16New(buf, terpakai);
     free(buf);
-    return hasil;
+    return result;
 }
 
-bool keUtf8(void* teks, char* keluaran, size_t ukuran) {
-    int32_t panjang = panjangString(teks);
-    const uint16_t* karakter = karakterString(teks);
-    if (panjang <= 0 || !karakter)
+bool toUtf8(void* text, char* keluaran, size_t size) {
+    int32_t length = lengthString(text);
+    const uint16_t* character = characterString(text);
+    if (length <= 0 || !character)
         return false;
 
     size_t terpakai = 0;
-    for (int32_t i = 0; i < panjang; i++) {
-        uint32_t kode = karakter[i];
-        if (kode >= 0xD800 && kode <= 0xDBFF && i + 1 < panjang) {
-            uint32_t rendah = karakter[i + 1];
-            if (rendah >= 0xDC00 && rendah <= 0xDFFF) {
-                kode = 0x10000 + ((kode - 0xD800) << 10) + (rendah - 0xDC00);
+    for (int32_t i = 0; i < length; i++) {
+        uint32_t code = character[i];
+        if (code >= 0xD800 && code <= 0xDBFF && i + 1 < length) {
+            uint32_t low = character[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+                code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
                 i++;
             }
         }
-        if (kode >= 0xD800 && kode <= 0xDFFF)
-            kode = 0xFFFD;
-        if (terpakai + 4 >= ukuran)
+        if (code >= 0xD800 && code <= 0xDFFF)
+            code = 0xFFFD;
+        if (terpakai + 4 >= size)
             return false;
-        terpakai += tulisTitikKode(kode, keluaran + terpakai);
+        terpakai += writePointCode(code, keluaran + terpakai);
     }
     keluaran[terpakai] = '\0';
     return true;
 }
 
-void* dataFieldStatis(void* kelas) {
-    if (!kelas || !api.staticFieldData)
+void* dataFieldStatic(void* klass) {
+    if (!klass || !api.staticFieldData)
         return nullptr;
-    return api.staticFieldData(kelas);
+    return api.staticFieldData(klass);
 }
 
-bool dekatNilai(float nilai, float target) {
-    float selisih = nilai - target;
+bool nearValue(float value, float target) {
+    float selisih = value - target;
     return selisih > -0.01f && selisih < 0.01f;
 }
 
-void* alamatMethod(void* metode) { return metode ? *reinterpret_cast<void**>(metode) : nullptr; }
+void* addressMethod(void* method) { return method ? *reinterpret_cast<void**>(method) : nullptr; }
 
-bool punyaBadan(void* alamat) {
-    if (!alamat)
+bool ownBody(void* address) {
+    if (!address)
         return false;
-    uintptr_t posisi = reinterpret_cast<uintptr_t>(alamat);
+    uintptr_t position = reinterpret_cast<uintptr_t>(address);
     Dl_info informasi;
-    if (!dladdr(reinterpret_cast<void*>(posisi), &informasi) || !informasi.dli_fbase)
+    if (!dladdr(reinterpret_cast<void*>(position), &informasi) || !informasi.dli_fbase)
         return false;
-    return *reinterpret_cast<uint32_t*>(posisi) != 0xd65f03c0;
+    return *reinterpret_cast<uint32_t*>(position) != 0xd65f03c0;
 }
 
-bool ikatApi() {
+bool bindApi() {
     void* pustaka = dlopen("libil2cpp.so", RTLD_LAZY | RTLD_NOLOAD);
     if (!pustaka)
         pustaka = dlopen("libil2cpp.so", RTLD_LAZY);
@@ -420,28 +420,28 @@ bool ikatApi() {
     return true;
 }
 
-void* tipeKelas(void* kelas) {
-    if (!kelas || !api.classGetType || !api.typeGetObject)
+void* typeKlass(void* klass) {
+    if (!klass || !api.classGetType || !api.typeGetObject)
         return nullptr;
-    void* tipe = api.classGetType(kelas);
-    return tipe ? api.typeGetObject(tipe) : nullptr;
+    void* type = api.classGetType(klass);
+    return type ? api.typeGetObject(type) : nullptr;
 }
 
-void* cariKelas(const char* nama) {
-    if (!nama)
+void* findClass(const char* name) {
+    if (!name)
         return nullptr;
 
     // Hanya kelas Unity yang dicari di luar tabel target, jadi hasilnya disimpan
     // di sini dan pemindaian penuh tidak diulang.
-    constexpr int kBatasKelasTambahan = 8;
-    static const char* namaTersimpan[kBatasKelasTambahan] = {};
-    static void* kelasTersimpan[kBatasKelasTambahan] = {};
-    for (int i = 0; i < kBatasKelasTambahan && namaTersimpan[i]; i++) {
-        if (!strcmp(namaTersimpan[i], nama))
-            return kelasTersimpan[i];
+    constexpr int kLimitKlassExtra = 8;
+    static const char* nameSaved[kLimitKlassExtra] = {};
+    static void* klassSaved[kLimitKlassExtra] = {};
+    for (int i = 0; i < kLimitKlassExtra && nameSaved[i]; i++) {
+        if (!strcmp(nameSaved[i], name))
+            return klassSaved[i];
     }
 
-    void* dikenal = kelasDari(nama);
+    void* dikenal = classOf(name);
     if (dikenal)
         return dikenal;
 
@@ -449,61 +449,61 @@ void* cariKelas(const char* nama) {
     void* domain = a.domain ? a.domain() : nullptr;
     if (!domain || !a.assemblies || !a.image)
         return nullptr;
-    size_t jumlahAssembly = 0;
-    void** assemblies = a.assemblies(domain, &jumlahAssembly);
+    size_t countAssembly = 0;
+    void** assemblies = a.assemblies(domain, &countAssembly);
     if (!assemblies)
         return nullptr;
 
-    for (size_t i = 0; i < jumlahAssembly; i++) {
+    for (size_t i = 0; i < countAssembly; i++) {
         void* image = a.image(assemblies[i]);
         if (!image)
             continue;
-        size_t jumlahKelas = a.classCount(image);
-        for (size_t j = 0; j < jumlahKelas; j++) {
-            void* kelas = a.classAt(image, j);
-            const char* namaKelas = kelas ? a.className(kelas) : nullptr;
-            if (!namaKelas || strcmp(namaKelas, nama))
+        size_t countKlass = a.classCount(image);
+        for (size_t j = 0; j < countKlass; j++) {
+            void* klass = a.classAt(image, j);
+            const char* className = klass ? a.className(klass) : nullptr;
+            if (!className || strcmp(className, name))
                 continue;
-            for (int slot = 0; slot < kBatasKelasTambahan; slot++) {
-                if (namaTersimpan[slot])
+            for (int slot = 0; slot < kLimitKlassExtra; slot++) {
+                if (nameSaved[slot])
                     continue;
-                namaTersimpan[slot] = nama;
-                kelasTersimpan[slot] = kelas;
+                nameSaved[slot] = name;
+                klassSaved[slot] = klass;
                 break;
             }
-            return kelas;
+            return klass;
         }
     }
     return nullptr;
 }
 
-void* cariKelasField(const char* nama, const char* namaField) {
-    if (!nama || !namaField)
+void* findKlassField(const char* name, const char* nameField) {
+    if (!name || !nameField)
         return nullptr;
 
     Api& a = api;
     void* domain = a.domain ? a.domain() : nullptr;
     if (!domain || !a.assemblies || !a.image || !a.fieldFromName)
         return nullptr;
-    size_t jumlahAssembly = 0;
-    void** assemblies = a.assemblies(domain, &jumlahAssembly);
+    size_t countAssembly = 0;
+    void** assemblies = a.assemblies(domain, &countAssembly);
     if (!assemblies)
         return nullptr;
 
     // Kelas dengan nama sama bisa lebih dari satu, jadi kandidat baru diterima
     // setelah field yang diminta benar-benar ada di dalamnya.
-    for (size_t i = 0; i < jumlahAssembly; i++) {
+    for (size_t i = 0; i < countAssembly; i++) {
         void* image = a.image(assemblies[i]);
         if (!image)
             continue;
-        size_t jumlahKelas = a.classCount(image);
-        for (size_t j = 0; j < jumlahKelas; j++) {
-            void* kelas = a.classAt(image, j);
-            const char* namaKelas = kelas ? a.className(kelas) : nullptr;
-            if (!namaKelas || strcmp(namaKelas, nama))
+        size_t countKlass = a.classCount(image);
+        for (size_t j = 0; j < countKlass; j++) {
+            void* klass = a.classAt(image, j);
+            const char* className = klass ? a.className(klass) : nullptr;
+            if (!className || strcmp(className, name))
                 continue;
-            if (a.fieldFromName(kelas, namaField))
-                return kelas;
+            if (a.fieldFromName(klass, nameField))
+                return klass;
         }
     }
     return nullptr;

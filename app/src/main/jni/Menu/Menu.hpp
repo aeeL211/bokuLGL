@@ -16,19 +16,19 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject);
 jobjectArray GetFeatureList(JNIEnv *env, jobject context);
 
 // Section Room: teks "nama<TAB>kunci<TAB>peran" per tamu, dipisah newline.
-jstring DaftarPemain(JNIEnv *env, jclass clazz);
+jstring PlayerList(JNIEnv *env, jclass clazz);
 
 // Baris posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY".
-jstring PosisiPemain(JNIEnv *env, jclass clazz);
+jstring PlayerPosition(JNIEnv *env, jclass clazz);
 
-jboolean TendangPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama,
-                       jboolean permanen);
+jboolean KickPlayer(JNIEnv *env, jclass clazz, jstring key, jstring name,
+                       jboolean permanent);
 
-jboolean TendangHost(JNIEnv *env, jclass clazz, jstring nama);
+jboolean KickHost(JNIEnv *env, jclass clazz, jstring name);
 
-jboolean TendangSemua(JNIEnv *env, jclass clazz);
+jboolean KickAll(JNIEnv *env, jclass clazz);
 
-jboolean SalinSkinPemain(JNIEnv *env, jclass clazz, jstring kunci, jstring nama);
+jboolean CopyPlayerSkin(JNIEnv *env, jclass clazz, jstring key, jstring name);
 
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value, jlong Lvalue,

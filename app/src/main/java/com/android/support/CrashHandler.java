@@ -28,13 +28,13 @@ public final class CrashHandler {
     private static final String LOG_DIR = "crash_logs";
     private static final String FILE_PREFIX = "crash_";
     private static final String FILE_EXTENSION = ".txt";
-    private static final int LOG_DISIMPAN = 5;
-    private static final long TOAST_TAMPIL_MS = 2000L;
-    private static final long TUNGGU_MAKS_MS = 2500L;
+    private static final int LOG_SAVED = 5;
+    private static final long TOAST_SHOW_MS = 2000L;
+    private static final long WAIT_MAX_MS = 2500L;
 
     private static UncaughtExceptionHandler defaultHandler;
     private static Context appContext;
-    private static volatile boolean sedangMenangani;
+    private static volatile boolean isHandling;
     final static boolean showToasts = true;
 
     private CrashHandler() {
@@ -49,9 +49,9 @@ public final class CrashHandler {
 
         // Dipanggil dua kali (MainActivity lalu Main) tidak boleh membungkus
         // handler milik kita sendiri, supaya tidak ada rantai handler yang bertambah.
-        UncaughtExceptionHandler sekarang = Thread.getDefaultUncaughtExceptionHandler();
-        if (!(sekarang instanceof PenangkapCrash))
-            defaultHandler = sekarang;
+        UncaughtExceptionHandler now = Thread.getDefaultUncaughtExceptionHandler();
+        if (!(now instanceof PenangkapCrash))
+            defaultHandler = now;
 
         cleanOldLogs();
 
@@ -64,11 +64,11 @@ public final class CrashHandler {
             Log.e(TAG, "Uncaught exception detected", throwable);
 
             // Crash di dalam penanganan crash langsung diteruskan ke handler asli.
-            if (sedangMenangani) {
+            if (isHandling) {
                 teruskan(thread, throwable);
                 return;
             }
-            sedangMenangani = true;
+            isHandling = true;
 
             try {
                 handleException(thread, throwable);
@@ -97,12 +97,12 @@ public final class CrashHandler {
         // thread pembantu dengan Looper sendiri.
         Thread penampil = null;
         if (showToasts && appContext != null)
-            penampil = tampilkanToast(crashFile);
+            penampil = showToast(crashFile);
 
         // Wait a bit for toast to show and log to be saved
         if (penampil != null) {
             try {
-                penampil.join(TUNGGU_MAKS_MS);
+                penampil.join(WAIT_MAX_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -111,7 +111,7 @@ public final class CrashHandler {
         teruskan(thread, throwable);
     }
 
-    private static File saveCrashLog(Throwable throwable, Thread sumber) {
+    private static File saveCrashLog(Throwable throwable, Thread source) {
         File dir = getLogDirectory();
         if (dir == null)
             return null;
@@ -123,7 +123,7 @@ public final class CrashHandler {
         File logFile = new File(dir, fileName);
 
         try {
-            writeCrashLog(logFile, throwable, sumber);
+            writeCrashLog(logFile, throwable, source);
             Log.i(TAG, "Crash log saved to: " + logFile.getAbsolutePath());
             return logFile;
         } catch (IOException e) {
@@ -132,7 +132,7 @@ public final class CrashHandler {
         }
     }
 
-    private static void writeCrashLog(File file, Throwable throwable, Thread sumber)
+    private static void writeCrashLog(File file, Throwable throwable, Thread source)
             throws IOException {
         File parentDir = file.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
@@ -141,7 +141,7 @@ public final class CrashHandler {
             }
         }
 
-        String logContent = buildCrashReport(throwable, sumber);
+        String logContent = buildCrashReport(throwable, source);
 
         try (FileOutputStream fos = new FileOutputStream(file)) {
             fos.write(logContent.getBytes(StandardCharsets.UTF_8));
@@ -149,7 +149,7 @@ public final class CrashHandler {
         }
     }
 
-    private static String buildCrashReport(Throwable throwable, Thread sumber) {
+    private static String buildCrashReport(Throwable throwable, Thread source) {
         StringBuilder report = new StringBuilder(8192);
 
         // App and device info
@@ -163,8 +163,8 @@ public final class CrashHandler {
         report.append("Board: ").append(Build.BOARD).append("\n");
         report.append("Fingerprint: ").append(Build.FINGERPRINT).append("\n");
         // Thread yang crash, bukan thread yang sedang menulis laporan.
-        Thread asal = sumber != null ? sumber : Thread.currentThread();
-        report.append("Thread: ").append(asal.getName()).append("\n");
+        Thread origin = source != null ? source : Thread.currentThread();
+        report.append("Thread: ").append(origin.getName()).append("\n");
         report.append("=============== STACK TRACE ===============\n");
 
         // printStackTrace sudah mencetak seluruh rantai "Caused by", jadi tidak
@@ -236,7 +236,7 @@ public final class CrashHandler {
     }
 
     /** Menampilkan toast di thread pembantu ber-Looper selama {@link #TOAST_TAMPIL_MS}. */
-    private static Thread tampilkanToast(final File crashFile) {
+    private static Thread showToast(final File crashFile) {
         final String message;
         if (crashFile != null && crashFile.exists()) {
             message = "CRASH! check:\n" + getDisplayPath(crashFile);
@@ -256,7 +256,7 @@ public final class CrashHandler {
                         public void run() {
                             looper.quit();
                         }
-                    }, TOAST_TAMPIL_MS);
+                    }, TOAST_SHOW_MS);
                     Looper.loop();
                 } catch (Throwable t) {
                     Log.e(TAG, "Toast crash gagal ditampilkan", t);
@@ -300,13 +300,13 @@ public final class CrashHandler {
         File[] logs = logDir.listFiles((dir, name) ->
                 name.startsWith(FILE_PREFIX) && name.endsWith(FILE_EXTENSION));
 
-        if (logs != null && logs.length > LOG_DISIMPAN) {
+        if (logs != null && logs.length > LOG_SAVED) {
             Arrays.sort(logs, (f1, f2) ->
                     Long.compare(f2.lastModified(), f1.lastModified()));
 
             // Versi lama mulai dari indeks 10, jadi yang tersisa 10 berkas
             // padahal komentarnya "keep last 5".
-            for (int i = LOG_DISIMPAN; i < logs.length; i++) {
+            for (int i = LOG_SAVED; i < logs.length; i++) {
                 if (!logs[i].delete()) {
                     Log.w(TAG, "Failed to delete old log: " + logs[i].getName());
                 }

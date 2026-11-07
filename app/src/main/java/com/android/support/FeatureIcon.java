@@ -19,43 +19,43 @@ import android.view.View;
  * Semua objek gambar dibuat sekali di konstruktor atau onSizeChanged, jadi
  * onDraw tidak mengalokasikan apa pun.
  */
-public class IkonFitur extends View {
+public class FeatureIcon extends View {
     /** Lebar kotak ikon dalam dp. Tingginya mengikuti tinggi baris. */
-    public static final int LEBAR_DP = 48;
+    public static final int WIDTH_DP = 48;
 
     /** Bagian sisi terpendek kotak yang dipakai pola, seperti di game. */
-    private static final float FRAKSI_POLA = 0.70f;
+    private static final float FRACTION_PATTERN = 0.70f;
 
-    private final Paint catKotak = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catPola = Piksel.catTajam();
-    private final Path kotak = new Path();
+    private final Paint catBox = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint catPattern = PixelArt.catTajam();
+    private final Path box = new Path();
     private final RectF area = new RectF();
-    private final Rect tujuan = new Rect();
-    private final float[] sudut = new float[8];
+    private final Rect target = new Rect();
+    private final float[] corner = new float[8];
     private final Bitmap bitmap;
     private int sel = 1;
 
-    public IkonFitur(Context context, String[] pola, boolean sudutKiri) {
+    public FeatureIcon(Context context, String[] pattern, boolean cornerLeft) {
         super(context);
-        bitmap = Piksel.standar(pola);
-        catKotak.setStyle(Paint.Style.FILL);
+        bitmap = PixelArt.standar(pattern);
+        catBox.setStyle(Paint.Style.FILL);
 
         // Urutan sudut: kiri-atas, kanan-atas, kanan-bawah, kiri-bawah.
         float radius = Theme.dp(context, Theme.RADIUS_ROW);
-        float kanan = sudutKiri ? 0f : radius;
-        sudut[0] = radius;
-        sudut[1] = radius;
-        sudut[2] = kanan;
-        sudut[3] = kanan;
-        sudut[4] = kanan;
-        sudut[5] = kanan;
-        sudut[6] = radius;
-        sudut[7] = radius;
+        float right = cornerLeft ? 0f : radius;
+        corner[0] = radius;
+        corner[1] = radius;
+        corner[2] = right;
+        corner[3] = right;
+        corner[4] = right;
+        corner[5] = right;
+        corner[6] = radius;
+        corner[7] = radius;
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int sisi = (int) Theme.dp(getContext(), LEBAR_DP);
+        int sisi = (int) Theme.dp(getContext(), WIDTH_DP);
         setMeasuredDimension(resolveSize(sisi, widthMeasureSpec),
                 resolveSize(sisi, heightMeasureSpec));
     }
@@ -64,9 +64,9 @@ public class IkonFitur extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         area.set(0f, 0f, w, h);
-        kotak.reset();
-        kotak.addRoundRect(area, sudut, Path.Direction.CW);
-        sel = Piksel.sel(w, h, FRAKSI_POLA);
+        box.reset();
+        box.addRoundRect(area, corner, Path.Direction.CW);
+        sel = PixelArt.sel(w, h, FRACTION_PATTERN);
     }
 
     @Override
@@ -78,8 +78,8 @@ public class IkonFitur extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         // Hanya view yang bisa diketuk atau berada di baris yang bisa diketuk yang berstatus ditekan.
-        catKotak.setColor(isPressed() ? Theme.TRACK : Theme.ICON_BOX);
-        canvas.drawPath(kotak, catKotak);
-        Piksel.gambar(canvas, bitmap, catPola, tujuan, getWidth(), getHeight(), sel);
+        catBox.setColor(isPressed() ? Theme.TRACK : Theme.ICON_BOX);
+        canvas.drawPath(box, catBox);
+        PixelArt.image(canvas, bitmap, catPattern, target, getWidth(), getHeight(), sel);
     }
 }

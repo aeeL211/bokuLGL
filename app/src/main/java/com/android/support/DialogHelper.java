@@ -16,7 +16,7 @@ import android.widget.Toast;
  * {@link DialogMenu}, sama dengan semua dialog lain di menu.
  */
 public class DialogHelper {
-    private static final long JEDA_HITUNG_MS = 1000L;
+    private static final long DELAY_COUNT_MS = 1000L;
 
     public static void showDialogWithLink(final Context context, final String title,
                                           final String message, final String LinkBtnTitle,
@@ -35,60 +35,60 @@ public class DialogHelper {
             return;
         }
 
-        DialogMenu menu = new DialogMenu(context);
+        MenuDialog menu = new MenuDialog(context);
         // Context selain Activity (mis. Service) hanya bisa menampilkan dialog lewat jendela overlay.
         menu.setOverlay(!(context instanceof Activity));
 
-        DialogMenu.Tombol tautan = null;
+        MenuDialog.Button tautan = null;
         if (url != null) {
-            tautan = new DialogMenu.Tombol(LinkBtnTitle, new Runnable() {
+            tautan = new MenuDialog.Button(LinkBtnTitle, new Runnable() {
                 @Override
                 public void run() {
                     openUrlSafely(context, url);
                 }
             });
         }
-        final String labelTutup = CloseBtnTitle == null ? "" : CloseBtnTitle;
-        String labelAwal = sec > 0 ? labelTutup + "(" + sec + ")" : labelTutup;
+        final String labelClose = CloseBtnTitle == null ? "" : CloseBtnTitle;
+        String labelInitial = sec > 0 ? labelClose + "(" + sec + ")" : labelClose;
 
-        DialogMenu.Hasil hasil = menu.tampilkan(title, message, null, null, tautan, null,
-                new DialogMenu.Tombol(labelAwal, null), true);
-        if (hasil != null && sec > 0)
-            mulaiHitungMundur(hasil, labelTutup, sec);
+        MenuDialog.Result result = menu.display(title, message, null, null, tautan, null,
+                new MenuDialog.Button(labelInitial, null), true);
+        if (result != null && sec > 0)
+            startCountdown(result, labelClose, sec);
     }
 
     /** Tombol tutup menghitung mundur dan menekan dirinya sendiri saat habis. */
-    private static void mulaiHitungMundur(final DialogMenu.Hasil hasil, final String label,
-                                          final int detik) {
+    private static void startCountdown(final MenuDialog.Result result, final String label,
+                                          final int second) {
         final Handler handler = new Handler(Looper.getMainLooper());
-        final Runnable hitung = new Runnable() {
-            int sisa = detik;
+        final Runnable compute = new Runnable() {
+            int remaining = second;
 
             @SuppressLint("SetTextI18n")
             @Override
             public void run() {
-                if (!hasil.dialog.isShowing())
+                if (!result.dialog.isShowing())
                     return;
-                Button tutup = hasil.negatif;
-                if (tutup == null)
+                Button close = result.negatif;
+                if (close == null)
                     return;
-                if (sisa > 0) {
-                    tutup.setText(label + "(" + sisa + ")");
-                    sisa--;
-                    handler.postDelayed(this, JEDA_HITUNG_MS);
+                if (remaining > 0) {
+                    close.setText(label + "(" + remaining + ")");
+                    remaining--;
+                    handler.postDelayed(this, DELAY_COUNT_MS);
                 } else {
-                    tutup.performClick();
+                    close.performClick();
                 }
             }
         };
         // Dialog yang ditutup lebih awal tidak boleh meninggalkan callback yang menggantung.
-        hasil.dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+        result.dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
             @Override
             public void onDismiss(DialogInterface dialog) {
-                handler.removeCallbacks(hitung);
+                handler.removeCallbacks(compute);
             }
         });
-        handler.post(hitung);
+        handler.post(compute);
     }
 
     @SuppressLint("QueryPermissionsNeeded")

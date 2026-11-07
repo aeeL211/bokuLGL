@@ -17,17 +17,17 @@ import java.util.WeakHashMap;
  * halus untuk section. Semua transisi dilewati bila pengguna mematikan animasi
  * sistem (skala animasi 0), dan view selalu berakhir di keadaan akhir yang benar.
  */
-final class Transisi {
-    private static final long DURASI_MS = 160L;
-    private static final float AWAL_SKALA = 0.94f;
+final class Transition {
+    private static final long DURATION_MS = 160L;
+    private static final float INITIAL_SCALE = 0.94f;
 
     private static final Map<View, ValueAnimator> lipatan = new WeakHashMap<View, ValueAnimator>();
 
-    private Transisi() {
+    private Transition() {
     }
 
     /** False bila animasi dimatikan di pengaturan sistem. */
-    static boolean aktif(Context context) {
+    static boolean active(Context context) {
         try {
             return Settings.Global.getFloat(context.getContentResolver(),
                     Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f;
@@ -37,74 +37,74 @@ final class Transisi {
     }
 
     /** Memunculkan view dengan fade dari transparan sampai {@code alphaAkhir}. */
-    static void muncul(View view, float alphaAkhir) {
+    static void muncul(View view, float alphaEnd) {
         view.animate().cancel();
-        if (!aktif(view.getContext())) {
-            view.setAlpha(alphaAkhir);
+        if (!active(view.getContext())) {
+            view.setAlpha(alphaEnd);
             return;
         }
         view.setAlpha(0f);
-        view.animate().alpha(alphaAkhir).setDuration(DURASI_MS)
+        view.animate().alpha(alphaEnd).setDuration(DURATION_MS)
                 .setInterpolator(new DecelerateInterpolator()).start();
     }
 
     /** Dialog muncul dengan fade dan sedikit membesar dari tengah. */
-    static void masuk(View view) {
+    static void enter(View view) {
         view.animate().cancel();
-        if (!aktif(view.getContext())) {
+        if (!active(view.getContext())) {
             view.setAlpha(1f);
             view.setScaleX(1f);
             view.setScaleY(1f);
             return;
         }
         view.setAlpha(0f);
-        view.setScaleX(AWAL_SKALA);
-        view.setScaleY(AWAL_SKALA);
-        view.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(DURASI_MS)
+        view.setScaleX(INITIAL_SCALE);
+        view.setScaleY(INITIAL_SCALE);
+        view.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(DURATION_MS)
                 .setInterpolator(new DecelerateInterpolator()).start();
     }
 
     /** Membuka atau menutup isi section dengan animasi tinggi. */
-    static void lipat(final View isi, final boolean buka) {
-        ValueAnimator lama = lipatan.remove(isi);
-        if (lama != null)
-            lama.cancel();
+    static void fold(final View content, final boolean open) {
+        ValueAnimator old = lipatan.remove(content);
+        if (old != null)
+            old.cancel();
 
-        final ViewGroup.LayoutParams params = isi.getLayoutParams();
-        int lebarInduk = isi.getParent() instanceof View ? ((View) isi.getParent()).getWidth() : 0;
-        boolean bisaAnimasi = params != null && lebarInduk > 0 && isi.getWindowToken() != null
-                && aktif(isi.getContext());
-        if (!bisaAnimasi) {
+        final ViewGroup.LayoutParams params = content.getLayoutParams();
+        int widthParent = content.getParent() instanceof View ? ((View) content.getParent()).getWidth() : 0;
+        boolean canAnimation = params != null && widthParent > 0 && content.getWindowToken() != null
+                && active(content.getContext());
+        if (!canAnimation) {
             if (params != null)
                 params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
-            isi.setVisibility(buka ? View.VISIBLE : View.GONE);
-            isi.requestLayout();
+            content.setVisibility(open ? View.VISIBLE : View.GONE);
+            content.requestLayout();
             return;
         }
 
-        int awal;
-        int akhir;
-        if (buka) {
-            isi.measure(View.MeasureSpec.makeMeasureSpec(lebarInduk, View.MeasureSpec.EXACTLY),
+        int initial;
+        int end;
+        if (open) {
+            content.measure(View.MeasureSpec.makeMeasureSpec(widthParent, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-            awal = isi.getVisibility() == View.VISIBLE ? isi.getHeight() : 0;
-            akhir = isi.getMeasuredHeight();
-            params.height = awal;
-            isi.setVisibility(View.VISIBLE);
+            initial = content.getVisibility() == View.VISIBLE ? content.getHeight() : 0;
+            end = content.getMeasuredHeight();
+            params.height = initial;
+            content.setVisibility(View.VISIBLE);
         } else {
-            awal = isi.getHeight();
-            akhir = 0;
+            initial = content.getHeight();
+            end = 0;
         }
 
         final boolean[] batal = {false};
-        ValueAnimator animator = ValueAnimator.ofInt(awal, akhir);
-        animator.setDuration(DURASI_MS);
+        ValueAnimator animator = ValueAnimator.ofInt(initial, end);
+        animator.setDuration(DURATION_MS);
         animator.setInterpolator(new DecelerateInterpolator());
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 params.height = (Integer) animation.getAnimatedValue();
-                isi.setLayoutParams(params);
+                content.setLayoutParams(params);
             }
         });
         animator.addListener(new AnimatorListenerAdapter() {
@@ -117,13 +117,13 @@ final class Transisi {
             public void onAnimationEnd(Animator animation) {
                 if (batal[0])
                     return;
-                lipatan.remove(isi);
+                lipatan.remove(content);
                 params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
-                isi.setVisibility(buka ? View.VISIBLE : View.GONE);
-                isi.setLayoutParams(params);
+                content.setVisibility(open ? View.VISIBLE : View.GONE);
+                content.setLayoutParams(params);
             }
         });
-        lipatan.put(isi, animator);
+        lipatan.put(content, animator);
         animator.start();
     }
 }

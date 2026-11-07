@@ -37,72 +37,72 @@ import android.widget.CompoundButton;
  */
 public class AnimatedSwitch extends CompoundButton {
     private static final float DURASI = 190f;
-    private static final float DURASI_TEKAN = 90f;
-    private static final float BATAS_FRAME_MS = 20f;
-    private static final long JEDA_KABAR_MS = 50L;
+    private static final float DURATION_PRESS = 90f;
+    private static final float LIMIT_FRAME_MS = 20f;
+    private static final long DELAY_NOTIFY_MS = 50L;
 
-    private static final float PIL_LEBAR_DP = 52f;
-    private static final float PIL_TINGGI_DP = 26f;
-    private static final float GARIS_DP = 3f;
-    private static final float TEKAN_MELAR_DP = 4f;
-    private static final float TARGET_TINGGI_DP = Theme.TARGET_DP;
+    private static final float PILL_WIDTH_DP = 52f;
+    private static final float PILL_HEIGHT_DP = 26f;
+    private static final float LINE_DP = 3f;
+    private static final float PRESS_STRETCH_DP = 4f;
+    private static final float TARGET_HEIGHT_DP = Theme.TARGET_DP;
 
     private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final RectF bidang = new RectF();
-    private final OvershootInterpolator memantul = new OvershootInterpolator(0.9f);
+    private final RectF field = new RectF();
+    private final OvershootInterpolator bounce = new OvershootInterpolator(0.9f);
     private final DecelerateInterpolator mengerem = new DecelerateInterpolator();
 
     // posisi 0 = mati, 1 = hidup (boleh sedikit melewati batas saat overshoot).
-    private float posisi;
+    private float position;
     // tekan 0..1 = knob melar saat jari menyentuh.
-    private float tekan;
-    private float tekanTujuan;
+    private float press;
+    private float pressTarget;
 
-    private boolean geser;
-    private float geserAwal;
-    private float geserTujuan;
-    private float geserProgres;
-    private float geserDurasi;
-    private boolean geserMemantul;
+    private boolean drag;
+    private float dragInitial;
+    private float dragTarget;
+    private float dragProgress;
+    private float dragDuration;
+    private boolean dragBounce;
 
-    private boolean berjalan;
-    private long terakhirMs;
+    private boolean running;
+    private long lastMs;
 
     // Ukuran dalam piksel dihitung sekali di konstruktor, bukan tiap frame.
-    private final float pilLebarPx;
-    private final float pilTinggiPx;
-    private final float garisPx;
-    private final float melarPx;
-    private final int targetTinggiPx;
+    private final float pillWidthPx;
+    private final float pillHeightPx;
+    private final float linePx;
+    private final float stretchPx;
+    private final int targetHeightPx;
 
     private OnCheckedChangeListener pendengar;
-    private boolean terakhirDikabarkan;
+    private boolean lastDikabarkan;
 
     private final Runnable kabarkan = new Runnable() {
         @Override
         public void run() {
-            boolean sekarang = isChecked();
-            if (sekarang == terakhirDikabarkan)
+            boolean now = isChecked();
+            if (now == lastDikabarkan)
                 return;
-            terakhirDikabarkan = sekarang;
+            lastDikabarkan = now;
             if (pendengar != null)
-                pendengar.onCheckedChanged(AnimatedSwitch.this, sekarang);
+                pendengar.onCheckedChanged(AnimatedSwitch.this, now);
         }
     };
 
     public AnimatedSwitch(Context context) {
         super(context);
-        pilLebarPx = Theme.dp(context, PIL_LEBAR_DP);
-        pilTinggiPx = Theme.dp(context, PIL_TINGGI_DP);
-        garisPx = Theme.dp(context, GARIS_DP);
-        melarPx = Theme.dp(context, TEKAN_MELAR_DP);
-        targetTinggiPx = (int) Theme.dp(context, TARGET_TINGGI_DP);
+        pillWidthPx = Theme.dp(context, PILL_WIDTH_DP);
+        pillHeightPx = Theme.dp(context, PILL_HEIGHT_DP);
+        linePx = Theme.dp(context, LINE_DP);
+        stretchPx = Theme.dp(context, PRESS_STRETCH_DP);
+        targetHeightPx = (int) Theme.dp(context, TARGET_HEIGHT_DP);
         setBackground(null);
         setButtonDrawable(null);
         setPadding(0, 0, 0, 0);
         setClickable(true);
         setFocusable(true);
-        posisi = isChecked() ? 1f : 0f;
+        position = isChecked() ? 1f : 0f;
     }
 
     /**
@@ -112,13 +112,13 @@ public class AnimatedSwitch extends CompoundButton {
     @Override
     public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
         pendengar = listener;
-        terakhirDikabarkan = isChecked();
+        lastDikabarkan = isChecked();
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(resolveSize((int) pilLebarPx, widthMeasureSpec),
-                resolveSize(targetTinggiPx, heightMeasureSpec));
+        setMeasuredDimension(resolveSize((int) pillWidthPx, widthMeasureSpec),
+                resolveSize(targetHeightPx, heightMeasureSpec));
     }
 
     /**
@@ -131,100 +131,100 @@ public class AnimatedSwitch extends CompoundButton {
     public void setChecked(boolean checked) {
         super.setChecked(checked);
 
-        float tujuan = checked ? 1f : 0f;
+        float target = checked ? 1f : 0f;
         boolean terlihat = isLaidOut() && isShown();
         if (!terlihat) {
-            hentikanAnimasi();
-            posisi = tujuan;
+            stopAnimation();
+            position = target;
             invalidate();
             return;
         }
 
-        if (geser ? geserTujuan != tujuan : posisi != tujuan)
-            mulaiGeser(tujuan);
+        if (drag ? dragTarget != target : position != target)
+            startDrag(target);
 
         // Kabar ditunda beberapa frame agar knob sudah mulai bergerak sebelum
         // pekerjaan berat di listener. Ketukan beruntun digabung: yang dikabarkan
         // hanya keadaan akhir, dan hanya bila berbeda dari kabar terakhir.
         removeCallbacks(kabarkan);
-        postDelayed(kabarkan, JEDA_KABAR_MS);
+        postDelayed(kabarkan, DELAY_NOTIFY_MS);
     }
 
     @Override
     protected void drawableStateChanged() {
         super.drawableStateChanged();
-        tekanTujuan = isPressed() ? 1f : 0f;
-        if (isLaidOut() && tekan != tekanTujuan)
-            mulaiFrame();
+        pressTarget = isPressed() ? 1f : 0f;
+        if (isLaidOut() && press != pressTarget)
+            startFrame();
         invalidate();
     }
 
-    private void mulaiGeser(float tujuan) {
-        float jarak = Math.abs(tujuan - posisi);
-        geserAwal = posisi;
-        geserTujuan = tujuan;
-        geserProgres = 0f;
-        geserDurasi = DURASI * Math.max(0.45f, jarak);
+    private void startDrag(float target) {
+        float jarak = Math.abs(target - position);
+        dragInitial = position;
+        dragTarget = target;
+        dragProgress = 0f;
+        dragDuration = DURASI * Math.max(0.45f, jarak);
         // Geser jauh sedikit memantul di ujung seperti saklar fisik; geser
         // pendek (membalik di tengah jalan) hanya mengerem.
-        geserMemantul = jarak > 0.6f;
-        geser = true;
-        mulaiFrame();
+        dragBounce = jarak > 0.6f;
+        drag = true;
+        startFrame();
     }
 
-    private void mulaiFrame() {
-        if (!berjalan) {
-            berjalan = true;
-            terakhirMs = SystemClock.uptimeMillis();
+    private void startFrame() {
+        if (!running) {
+            running = true;
+            lastMs = SystemClock.uptimeMillis();
         }
         postInvalidateOnAnimation();
     }
 
     /** Memajukan animasi satu frame. True bila masih perlu frame berikutnya. */
-    private boolean langkah() {
-        long sekarang = SystemClock.uptimeMillis();
-        float dt = Math.min((float) (sekarang - terakhirMs), BATAS_FRAME_MS);
-        terakhirMs = sekarang;
+    private boolean step() {
+        long now = SystemClock.uptimeMillis();
+        float dt = Math.min((float) (now - lastMs), LIMIT_FRAME_MS);
+        lastMs = now;
         boolean lanjut = false;
 
-        if (geser) {
-            geserProgres += dt / geserDurasi;
-            if (geserProgres >= 1f) {
-                posisi = geserTujuan;
-                geser = false;
+        if (drag) {
+            dragProgress += dt / dragDuration;
+            if (dragProgress >= 1f) {
+                position = dragTarget;
+                drag = false;
             } else {
-                float t = geserMemantul
-                        ? memantul.getInterpolation(geserProgres)
-                        : mengerem.getInterpolation(geserProgres);
-                posisi = geserAwal + (geserTujuan - geserAwal) * t;
+                float t = dragBounce
+                        ? bounce.getInterpolation(dragProgress)
+                        : mengerem.getInterpolation(dragProgress);
+                position = dragInitial + (dragTarget - dragInitial) * t;
                 lanjut = true;
             }
         }
 
-        if (tekan != tekanTujuan) {
-            float maju = dt / DURASI_TEKAN;
-            tekan = tekan < tekanTujuan
-                    ? Math.min(tekanTujuan, tekan + maju)
-                    : Math.max(tekanTujuan, tekan - maju);
-            if (tekan != tekanTujuan)
+        if (press != pressTarget) {
+            float maju = dt / DURATION_PRESS;
+            press = press < pressTarget
+                    ? Math.min(pressTarget, press + maju)
+                    : Math.max(pressTarget, press - maju);
+            if (press != pressTarget)
                 lanjut = true;
         }
         return lanjut;
     }
 
     /** Menghentikan animasi dan mengembalikan tampilan ke status yang sebenarnya. */
-    private void hentikanAnimasi() {
-        geser = false;
-        berjalan = false;
-        tekan = 0f;
-        tekanTujuan = 0f;
-        posisi = isChecked() ? 1f : 0f;
+    private void stopAnimation() {
+        drag = false;
+        running = false;
+        press = 0f;
+        pressTarget = 0f;
+        position = isChecked() ? 1f : 0f;
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        hentikanAnimasi();
+        stopAnimation();
     }
 
     @Override
@@ -233,55 +233,55 @@ public class AnimatedSwitch extends CompoundButton {
         // tidak tertinggal setengah jalan.
         removeCallbacks(kabarkan);
         kabarkan.run();
-        hentikanAnimasi();
+        stopAnimation();
         super.onDetachedFromWindow();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        boolean lanjut = berjalan && langkah();
+        boolean lanjut = running && step();
         if (lanjut)
             postInvalidateOnAnimation();
         else
-            berjalan = false;
+            running = false;
 
-        float lebar = getWidth();
-        float tinggi = getHeight();
-        float pilLebar = Math.min(lebar, pilLebarPx);
-        float pilTinggi = pilTinggiPx;
-        float garis = garisPx;
+        float width = getWidth();
+        float height = getHeight();
+        float pillWidth = Math.min(width, pillWidthPx);
+        float pillHeight = pillHeightPx;
+        float line = linePx;
 
-        float kiri = (lebar - pilLebar) / 2f;
-        float atas = (tinggi - pilTinggi) / 2f;
-        float radius = pilTinggi / 2f;
+        float left = (width - pillWidth) / 2f;
+        float top = (height - pillHeight) / 2f;
+        float radius = pillHeight / 2f;
 
         // Warna mengikuti posisi tetapi dijepit supaya overshoot tidak membuat
         // warna keluar dari rentang. Theme.campur tidak membuat objek baru.
-        float f = Math.max(0f, Math.min(1f, posisi));
-        int warnaTrack = Theme.campur(Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK, f);
-        int warnaKnob = Theme.campur(Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB, f);
+        float f = Math.max(0f, Math.min(1f, position));
+        int trackColor = Theme.mix(Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK, f);
+        int knobColor = Theme.mix(Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB, f);
 
         // Garis luar #B28950 sebagai pil penuh, lalu track di dalamnya. Saat mati
         // track memang berwarna sama dengan garis, persis seperti di game.
         cat.setStyle(Paint.Style.FILL);
-        cat.setColor(Theme.STROKE_KONTROL);
-        bidang.set(kiri, atas, kiri + pilLebar, atas + pilTinggi);
-        canvas.drawRoundRect(bidang, radius, radius, cat);
+        cat.setColor(Theme.STROKE_CONTROL);
+        field.set(left, top, left + pillWidth, top + pillHeight);
+        canvas.drawRoundRect(field, radius, radius, cat);
 
-        cat.setColor(warnaTrack);
-        bidang.set(kiri + garis, atas + garis, kiri + pilLebar - garis, atas + pilTinggi - garis);
-        float radiusDalam = radius - garis;
-        canvas.drawRoundRect(bidang, radiusDalam, radiusDalam, cat);
+        cat.setColor(trackColor);
+        field.set(left + line, top + line, left + pillWidth - line, top + pillHeight - line);
+        float radiusInside = radius - line;
+        canvas.drawRoundRect(field, radiusInside, radiusInside, cat);
 
         // Knob bulat mengisi penuh tinggi bagian dalam. Saat ditekan knob melar
         // ke arah tengah supaya tepi luarnya tidak lompat.
-        float diameter = pilTinggi - 2f * garis;
-        float melar = melarPx * tekan;
-        float jalur = pilLebar - 2f * garis - diameter;
-        float knobKiri = kiri + garis + jalur * posisi - melar * posisi;
-        bidang.set(knobKiri, atas + garis, knobKiri + diameter + melar, atas + garis + diameter);
+        float diameter = pillHeight - 2f * line;
+        float stretch = stretchPx * press;
+        float jalur = pillWidth - 2f * line - diameter;
+        float knobLeft = left + line + jalur * position - stretch * position;
+        field.set(knobLeft, top + line, knobLeft + diameter + stretch, top + line + diameter);
 
-        cat.setColor(warnaKnob);
-        canvas.drawRoundRect(bidang, diameter / 2f, diameter / 2f, cat);
+        cat.setColor(knobColor);
+        canvas.drawRoundRect(field, diameter / 2f, diameter / 2f, cat);
     }
 }

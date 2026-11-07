@@ -15,27 +15,27 @@ import android.view.View;
  * (48dp) supaya area sentuhnya memenuhi ukuran minimum. Glyph digambar dari
  * grid pixel 16x16 lewat {@link Piksel}, sama seperti ikon fitur.
  */
-final class TombolSudut extends View {
-    private static final float KOTAK_DP = 34f;
-    private static final float GARIS_DP = 2f;
-    private static final float FRAKSI_GLYPH = 0.70f;
+final class CornerButton extends View {
+    private static final float BOX_DP = 34f;
+    private static final float LINE_DP = 2f;
+    private static final float FRACTION_GLYPH = 0.70f;
 
     private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catGlyph = Piksel.catTajam();
-    private final RectF kotak = new RectF();
-    private final RectF garis = new RectF();
-    private final Rect tujuan = new Rect();
+    private final Paint catGlyph = PixelArt.catTajam();
+    private final RectF box = new RectF();
+    private final RectF line = new RectF();
+    private final Rect target = new Rect();
     private final Bitmap glyph;
-    private final float kotakPx;
-    private final float garisPx;
+    private final float boxPx;
+    private final float linePx;
     private final float radiusPx;
     private int sel = 1;
 
-    TombolSudut(Context context, String[] pola) {
+    CornerButton(Context context, String[] pattern) {
         super(context);
-        glyph = Piksel.buat(pola, Theme.ACTIVE_BORDER, Theme.ACTIVE_BORDER, Theme.ACTIVE_BORDER);
-        kotakPx = Theme.dp(context, KOTAK_DP);
-        garisPx = Theme.dp(context, GARIS_DP);
+        glyph = PixelArt.create(pattern, Theme.ACTIVE_BORDER, Theme.ACTIVE_BORDER, Theme.ACTIVE_BORDER);
+        boxPx = Theme.dp(context, BOX_DP);
+        linePx = Theme.dp(context, LINE_DP);
         radiusPx = Theme.dp(context, Theme.RADIUS_PANEL);
         setClickable(true);
         setFocusable(true);
@@ -51,13 +51,13 @@ final class TombolSudut extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        float sisi = Math.min(kotakPx, Math.min(w, h));
-        float kiri = (w - sisi) / 2f;
-        float atas = (h - sisi) / 2f;
-        kotak.set(kiri, atas, kiri + sisi, atas + sisi);
-        float masuk = garisPx / 2f;
-        garis.set(kotak.left + masuk, kotak.top + masuk, kotak.right - masuk, kotak.bottom - masuk);
-        sel = Piksel.sel((int) sisi, (int) sisi, FRAKSI_GLYPH);
+        float sisi = Math.min(boxPx, Math.min(w, h));
+        float left = (w - sisi) / 2f;
+        float top = (h - sisi) / 2f;
+        box.set(left, top, left + sisi, top + sisi);
+        float enter = linePx / 2f;
+        line.set(box.left + enter, box.top + enter, box.right - enter, box.bottom - enter);
+        sel = PixelArt.sel((int) sisi, (int) sisi, FRACTION_GLYPH);
     }
 
     @Override
@@ -69,14 +69,14 @@ final class TombolSudut extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         cat.setStyle(Paint.Style.FILL);
-        cat.setColor(isPressed() ? Theme.BOX_SUDUT_TEKAN : Theme.BOX_SUDUT);
-        canvas.drawRoundRect(kotak, radiusPx, radiusPx, cat);
+        cat.setColor(isPressed() ? Theme.BOX_CORNER_PRESS : Theme.BOX_CORNER);
+        canvas.drawRoundRect(box, radiusPx, radiusPx, cat);
 
         cat.setStyle(Paint.Style.STROKE);
-        cat.setStrokeWidth(garisPx);
+        cat.setStrokeWidth(linePx);
         cat.setColor(Theme.ACTIVE_BORDER);
-        canvas.drawRoundRect(garis, radiusPx, radiusPx, cat);
+        canvas.drawRoundRect(line, radiusPx, radiusPx, cat);
 
-        Piksel.gambar(canvas, glyph, catGlyph, tujuan, getWidth(), getHeight(), sel);
+        PixelArt.image(canvas, glyph, catGlyph, target, getWidth(), getHeight(), sel);
     }
 }

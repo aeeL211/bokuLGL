@@ -8,328 +8,328 @@
 
 namespace {
 
-std::mutex kunciCache;
+std::mutex cacheKey;
 
-jclass ambilKelas(JNIEnv* env, const char* nama) {
-    jclass lokal = env->FindClass(nama);
-    if (!lokal) {
+jclass getClass(JNIEnv* env, const char* name) {
+    jclass local = env->FindClass(name);
+    if (!local) {
         env->ExceptionClear();
         return nullptr;
     }
-    auto global = static_cast<jclass>(env->NewGlobalRef(lokal));
-    env->DeleteLocalRef(lokal);
+    auto global = static_cast<jclass>(env->NewGlobalRef(local));
+    env->DeleteLocalRef(local);
     if (!global)
         env->ExceptionClear();
     return global;
 }
 
-jmethodID ambilMetodeStatis(JNIEnv* env, jclass kelas, const char* nama, const char* tanda) {
-    if (!kelas)
+jmethodID getStaticMethod(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+    if (!klass)
         return nullptr;
-    jmethodID metode = env->GetStaticMethodID(kelas, nama, tanda);
-    if (!metode)
+    jmethodID method = env->GetStaticMethodID(klass, name, tanda);
+    if (!method)
         env->ExceptionClear();
-    return metode;
+    return method;
 }
 
-jmethodID ambilMetode(JNIEnv* env, jclass kelas, const char* nama, const char* tanda) {
-    if (!kelas)
+jmethodID getMethod(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+    if (!klass)
         return nullptr;
-    jmethodID metode = env->GetMethodID(kelas, nama, tanda);
-    if (!metode)
+    jmethodID method = env->GetMethodID(klass, name, tanda);
+    if (!method)
         env->ExceptionClear();
-    return metode;
+    return method;
 }
 
-jfieldID ambilFieldStatis(JNIEnv* env, jclass kelas, const char* nama, const char* tanda) {
-    if (!kelas)
+jfieldID getStaticField(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+    if (!klass)
         return nullptr;
-    jfieldID field = env->GetStaticFieldID(kelas, nama, tanda);
+    jfieldID field = env->GetStaticFieldID(klass, name, tanda);
     if (!field)
         env->ExceptionClear();
     return field;
 }
 
-jfieldID ambilField(JNIEnv* env, jclass kelas, const char* nama, const char* tanda) {
-    if (!kelas)
+jfieldID getField(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+    if (!klass)
         return nullptr;
-    jfieldID field = env->GetFieldID(kelas, nama, tanda);
+    jfieldID field = env->GetFieldID(klass, name, tanda);
     if (!field)
         env->ExceptionClear();
     return field;
 }
 
-KelasDialog dialog = {};
-std::atomic<bool> dialogSiap{false};
+DialogClass dialog = {};
+std::atomic<bool> dialogReady{false};
 
-KelasToast toast = {};
-std::atomic<bool> toastSiap{false};
+ToastClass toast = {};
+std::atomic<bool> toastReady{false};
 
-KelasMetode html = {};
-std::atomic<bool> htmlSiap{false};
+ClassMethod html = {};
+std::atomic<bool> htmlReady{false};
 
-KelasMetode textView = {};
-std::atomic<bool> textViewSiap{false};
+ClassMethod textView = {};
+std::atomic<bool> textViewReady{false};
 
-KelasIntent intent = {};
-std::atomic<bool> intentSiap{false};
+IntentClass intent = {};
+std::atomic<bool> intentReady{false};
 
 jclass launcher = nullptr;
-std::atomic<bool> launcherSiap{false};
+std::atomic<bool> launcherReady{false};
 
-KelasMetode uri = {};
-std::atomic<bool> uriSiap{false};
+ClassMethod uri = {};
+std::atomic<bool> uriReady{false};
 
-KelasBuild build = {};
-std::atomic<bool> buildSiap{false};
+BuildClass build = {};
+std::atomic<bool> buildReady{false};
 
-KelasMetode settings = {};
-std::atomic<bool> settingsSiap{false};
+ClassMethod settings = {};
+std::atomic<bool> settingsReady{false};
 
-KelasKonteks konteks = {};
-std::atomic<bool> konteksSiap{false};
+ContextClass context = {};
+std::atomic<bool> contextReady{false};
 
-KelasAktivitas aktivitas = {};
-std::atomic<bool> aktivitasSiap{false};
+ActivityClass activity = {};
+std::atomic<bool> activityReady{false};
 
-KelasManajerPaket manajerPaket = {};
-std::atomic<bool> manajerPaketSiap{false};
+PacketManagerClass managerPacket = {};
+std::atomic<bool> managerPacketReady{false};
 
-KelasInfoPaket infoPaket = {};
-std::atomic<bool> infoPaketSiap{false};
+PacketInfoClass infoPacket = {};
+std::atomic<bool> infoPacketReady{false};
 
-jclass kelasStringGlobal = nullptr;
-std::atomic<bool> stringSiap{false};
+jclass klassStringGlobal = nullptr;
+std::atomic<bool> stringReady{false};
 
 } // namespace
 
-jclass kelasString(JNIEnv* env) {
-    if (stringSiap.load(std::memory_order_acquire))
-        return kelasStringGlobal;
+jclass klassString(JNIEnv* env) {
+    if (stringReady.load(std::memory_order_acquire))
+        return klassStringGlobal;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!stringSiap.load(std::memory_order_relaxed)) {
-        kelasStringGlobal = ambilKelas(env, OBFUSCATE("java/lang/String"));
-        stringSiap.store(true, std::memory_order_release);
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!stringReady.load(std::memory_order_relaxed)) {
+        klassStringGlobal = getClass(env, OBFUSCATE("java/lang/String"));
+        stringReady.store(true, std::memory_order_release);
     }
-    return kelasStringGlobal;
+    return klassStringGlobal;
 }
 
-const KelasDialog* cacheDialog(JNIEnv* env) {
-    if (dialogSiap.load(std::memory_order_acquire))
-        return dialog.kelas ? &dialog : nullptr;
+const DialogClass* cacheDialog(JNIEnv* env) {
+    if (dialogReady.load(std::memory_order_acquire))
+        return dialog.klass ? &dialog : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!dialogSiap.load(std::memory_order_relaxed)) {
-        dialog.kelas = ambilKelas(env, OBFUSCATE("com/android/support/DialogHelper"));
-        dialog.tampil = ambilMetodeStatis(
-            env, dialog.kelas, OBFUSCATE("showDialogWithLink"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!dialogReady.load(std::memory_order_relaxed)) {
+        dialog.klass = getClass(env, OBFUSCATE("com/android/support/DialogHelper"));
+        dialog.show = getStaticMethod(
+            env, dialog.klass, OBFUSCATE("showDialogWithLink"),
             OBFUSCATE("(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;"
                       "Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)V"));
-        dialogSiap.store(true, std::memory_order_release);
+        dialogReady.store(true, std::memory_order_release);
     }
-    return dialog.kelas ? &dialog : nullptr;
+    return dialog.klass ? &dialog : nullptr;
 }
 
-const KelasToast* cacheToast(JNIEnv* env) {
-    if (toastSiap.load(std::memory_order_acquire))
-        return toast.kelas ? &toast : nullptr;
+const ToastClass* cacheToast(JNIEnv* env) {
+    if (toastReady.load(std::memory_order_acquire))
+        return toast.klass ? &toast : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!toastSiap.load(std::memory_order_relaxed)) {
-        toast.kelas = ambilKelas(env, OBFUSCATE("android/widget/Toast"));
-        toast.buat =
-            ambilMetodeStatis(env, toast.kelas, OBFUSCATE("makeText"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!toastReady.load(std::memory_order_relaxed)) {
+        toast.klass = getClass(env, OBFUSCATE("android/widget/Toast"));
+        toast.create =
+            getStaticMethod(env, toast.klass, OBFUSCATE("makeText"),
                               OBFUSCATE("(Landroid/content/Context;Ljava/lang/CharSequence;I)"
                                         "Landroid/widget/Toast;"));
-        toast.tampil = ambilMetode(env, toast.kelas, OBFUSCATE("show"), OBFUSCATE("()V"));
-        toastSiap.store(true, std::memory_order_release);
+        toast.show = getMethod(env, toast.klass, OBFUSCATE("show"), OBFUSCATE("()V"));
+        toastReady.store(true, std::memory_order_release);
     }
-    return toast.kelas ? &toast : nullptr;
+    return toast.klass ? &toast : nullptr;
 }
 
-const KelasMetode* cacheHtml(JNIEnv* env) {
-    if (htmlSiap.load(std::memory_order_acquire))
-        return html.kelas ? &html : nullptr;
+const ClassMethod* cacheHtml(JNIEnv* env) {
+    if (htmlReady.load(std::memory_order_acquire))
+        return html.klass ? &html : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!htmlSiap.load(std::memory_order_relaxed)) {
-        html.kelas = ambilKelas(env, OBFUSCATE("android/text/Html"));
-        html.metode = ambilMetodeStatis(env, html.kelas, OBFUSCATE("fromHtml"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!htmlReady.load(std::memory_order_relaxed)) {
+        html.klass = getClass(env, OBFUSCATE("android/text/Html"));
+        html.method = getStaticMethod(env, html.klass, OBFUSCATE("fromHtml"),
                                         OBFUSCATE("(Ljava/lang/String;)Landroid/text/Spanned;"));
-        htmlSiap.store(true, std::memory_order_release);
+        htmlReady.store(true, std::memory_order_release);
     }
-    return html.kelas ? &html : nullptr;
+    return html.klass ? &html : nullptr;
 }
 
-const KelasMetode* cacheTextView(JNIEnv* env) {
-    if (textViewSiap.load(std::memory_order_acquire))
-        return textView.kelas ? &textView : nullptr;
+const ClassMethod* cacheTextView(JNIEnv* env) {
+    if (textViewReady.load(std::memory_order_acquire))
+        return textView.klass ? &textView : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!textViewSiap.load(std::memory_order_relaxed)) {
-        textView.kelas = ambilKelas(env, OBFUSCATE("android/widget/TextView"));
-        textView.metode = ambilMetode(env, textView.kelas, OBFUSCATE("setText"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!textViewReady.load(std::memory_order_relaxed)) {
+        textView.klass = getClass(env, OBFUSCATE("android/widget/TextView"));
+        textView.method = getMethod(env, textView.klass, OBFUSCATE("setText"),
                                       OBFUSCATE("(Ljava/lang/CharSequence;)V"));
-        textViewSiap.store(true, std::memory_order_release);
+        textViewReady.store(true, std::memory_order_release);
     }
-    return textView.kelas ? &textView : nullptr;
+    return textView.klass ? &textView : nullptr;
 }
 
-const KelasIntent* cacheIntent(JNIEnv* env) {
-    if (intentSiap.load(std::memory_order_acquire))
-        return intent.kelas ? &intent : nullptr;
+const IntentClass* cacheIntent(JNIEnv* env) {
+    if (intentReady.load(std::memory_order_acquire))
+        return intent.klass ? &intent : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!intentSiap.load(std::memory_order_relaxed)) {
-        intent.kelas = ambilKelas(env, OBFUSCATE("android/content/Intent"));
-        intent.dariKonteks =
-            ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!intentReady.load(std::memory_order_relaxed)) {
+        intent.klass = getClass(env, OBFUSCATE("android/content/Intent"));
+        intent.fromContext =
+            getMethod(env, intent.klass, OBFUSCATE("<init>"),
                         OBFUSCATE("(Landroid/content/Context;Ljava/lang/Class;)V"));
-        intent.dariUri = ambilMetode(env, intent.kelas, OBFUSCATE("<init>"),
+        intent.fromUri = getMethod(env, intent.klass, OBFUSCATE("<init>"),
                                      OBFUSCATE("(Ljava/lang/String;Landroid/net/Uri;)V"));
-        intentSiap.store(true, std::memory_order_release);
+        intentReady.store(true, std::memory_order_release);
     }
-    return intent.kelas ? &intent : nullptr;
+    return intent.klass ? &intent : nullptr;
 }
 
 jclass cacheLauncher(JNIEnv* env) {
-    if (launcherSiap.load(std::memory_order_acquire))
+    if (launcherReady.load(std::memory_order_acquire))
         return launcher;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!launcherSiap.load(std::memory_order_relaxed)) {
-        launcher = ambilKelas(env, OBFUSCATE("com/android/support/Launcher"));
-        launcherSiap.store(true, std::memory_order_release);
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!launcherReady.load(std::memory_order_relaxed)) {
+        launcher = getClass(env, OBFUSCATE("com/android/support/Launcher"));
+        launcherReady.store(true, std::memory_order_release);
     }
     return launcher;
 }
 
-const KelasMetode* cacheUri(JNIEnv* env) {
-    if (uriSiap.load(std::memory_order_acquire))
-        return uri.kelas ? &uri : nullptr;
+const ClassMethod* cacheUri(JNIEnv* env) {
+    if (uriReady.load(std::memory_order_acquire))
+        return uri.klass ? &uri : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!uriSiap.load(std::memory_order_relaxed)) {
-        uri.kelas = ambilKelas(env, OBFUSCATE("android/net/Uri"));
-        uri.metode = ambilMetodeStatis(env, uri.kelas, OBFUSCATE("parse"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!uriReady.load(std::memory_order_relaxed)) {
+        uri.klass = getClass(env, OBFUSCATE("android/net/Uri"));
+        uri.method = getStaticMethod(env, uri.klass, OBFUSCATE("parse"),
                                        OBFUSCATE("(Ljava/lang/String;)Landroid/net/Uri;"));
-        uriSiap.store(true, std::memory_order_release);
+        uriReady.store(true, std::memory_order_release);
     }
-    return uri.kelas ? &uri : nullptr;
+    return uri.klass ? &uri : nullptr;
 }
 
-const KelasBuild* cacheBuild(JNIEnv* env) {
-    if (buildSiap.load(std::memory_order_acquire))
-        return build.kelas ? &build : nullptr;
+const BuildClass* cacheBuild(JNIEnv* env) {
+    if (buildReady.load(std::memory_order_acquire))
+        return build.klass ? &build : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!buildSiap.load(std::memory_order_relaxed)) {
-        build.kelas = ambilKelas(env, OBFUSCATE("android/os/Build$VERSION"));
-        build.sdk = ambilFieldStatis(env, build.kelas, OBFUSCATE("SDK_INT"), OBFUSCATE("I"));
-        buildSiap.store(true, std::memory_order_release);
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!buildReady.load(std::memory_order_relaxed)) {
+        build.klass = getClass(env, OBFUSCATE("android/os/Build$VERSION"));
+        build.sdk = getStaticField(env, build.klass, OBFUSCATE("SDK_INT"), OBFUSCATE("I"));
+        buildReady.store(true, std::memory_order_release);
     }
-    return build.kelas ? &build : nullptr;
+    return build.klass ? &build : nullptr;
 }
 
-const KelasMetode* cacheSettings(JNIEnv* env) {
-    if (settingsSiap.load(std::memory_order_acquire))
-        return settings.kelas ? &settings : nullptr;
+const ClassMethod* cacheSettings(JNIEnv* env) {
+    if (settingsReady.load(std::memory_order_acquire))
+        return settings.klass ? &settings : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!settingsSiap.load(std::memory_order_relaxed)) {
-        settings.kelas = ambilKelas(env, OBFUSCATE("android/provider/Settings"));
-        settings.metode = ambilMetodeStatis(env, settings.kelas, OBFUSCATE("canDrawOverlays"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!settingsReady.load(std::memory_order_relaxed)) {
+        settings.klass = getClass(env, OBFUSCATE("android/provider/Settings"));
+        settings.method = getStaticMethod(env, settings.klass, OBFUSCATE("canDrawOverlays"),
                                             OBFUSCATE("(Landroid/content/Context;)Z"));
-        settingsSiap.store(true, std::memory_order_release);
+        settingsReady.store(true, std::memory_order_release);
     }
-    return settings.kelas ? &settings : nullptr;
+    return settings.klass ? &settings : nullptr;
 }
 
-const KelasKonteks* cacheKonteks(JNIEnv* env) {
-    if (konteksSiap.load(std::memory_order_acquire))
-        return konteks.kelas ? &konteks : nullptr;
+const ContextClass* cacheContext(JNIEnv* env) {
+    if (contextReady.load(std::memory_order_acquire))
+        return context.klass ? &context : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!konteksSiap.load(std::memory_order_relaxed)) {
-        konteks.kelas = ambilKelas(env, OBFUSCATE("android/content/Context"));
-        konteks.mulaiLayanan =
-            ambilMetode(env, konteks.kelas, OBFUSCATE("startService"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!contextReady.load(std::memory_order_relaxed)) {
+        context.klass = getClass(env, OBFUSCATE("android/content/Context"));
+        context.startService =
+            getMethod(env, context.klass, OBFUSCATE("startService"),
                         OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
-        konteks.mulaiAktivitas = ambilMetode(env, konteks.kelas, OBFUSCATE("startActivity"),
+        context.startActivity = getMethod(env, context.klass, OBFUSCATE("startActivity"),
                                              OBFUSCATE("(Landroid/content/Intent;)V"));
-        konteks.namaPaket = ambilMetode(env, konteks.kelas, OBFUSCATE("getPackageName"),
+        context.packetName = getMethod(env, context.klass, OBFUSCATE("getPackageName"),
                                         OBFUSCATE("()Ljava/lang/String;"));
-        konteksSiap.store(true, std::memory_order_release);
+        contextReady.store(true, std::memory_order_release);
     }
-    return konteks.kelas ? &konteks : nullptr;
+    return context.klass ? &context : nullptr;
 }
 
-const KelasAktivitas* cacheAktivitas(JNIEnv* env) {
-    if (aktivitasSiap.load(std::memory_order_acquire))
-        return aktivitas.kelas ? &aktivitas : nullptr;
+const ActivityClass* cacheActivity(JNIEnv* env) {
+    if (activityReady.load(std::memory_order_acquire))
+        return activity.klass ? &activity : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!aktivitasSiap.load(std::memory_order_relaxed)) {
-        aktivitas.kelas = ambilKelas(env, OBFUSCATE("android/app/Activity"));
-        aktivitas.manajerPaket = ambilMetode(env, aktivitas.kelas, OBFUSCATE("getPackageManager"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!activityReady.load(std::memory_order_relaxed)) {
+        activity.klass = getClass(env, OBFUSCATE("android/app/Activity"));
+        activity.managerPacket = getMethod(env, activity.klass, OBFUSCATE("getPackageManager"),
                                              OBFUSCATE("()Landroid/content/pm/PackageManager;"));
-        aktivitas.namaPaket = ambilMetode(env, aktivitas.kelas, OBFUSCATE("getPackageName"),
+        activity.packetName = getMethod(env, activity.klass, OBFUSCATE("getPackageName"),
                                           OBFUSCATE("()Ljava/lang/String;"));
-        aktivitasSiap.store(true, std::memory_order_release);
+        activityReady.store(true, std::memory_order_release);
     }
-    return aktivitas.kelas ? &aktivitas : nullptr;
+    return activity.klass ? &activity : nullptr;
 }
 
-const KelasManajerPaket* cacheManajerPaket(JNIEnv* env) {
-    if (manajerPaketSiap.load(std::memory_order_acquire))
-        return manajerPaket.kelas ? &manajerPaket : nullptr;
+const PacketManagerClass* cacheManagerPacket(JNIEnv* env) {
+    if (managerPacketReady.load(std::memory_order_acquire))
+        return managerPacket.klass ? &managerPacket : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!manajerPaketSiap.load(std::memory_order_relaxed)) {
-        manajerPaket.kelas = ambilKelas(env, OBFUSCATE("android/content/pm/PackageManager"));
-        manajerPaket.infoPaket =
-            ambilMetode(env, manajerPaket.kelas, OBFUSCATE("getPackageInfo"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!managerPacketReady.load(std::memory_order_relaxed)) {
+        managerPacket.klass = getClass(env, OBFUSCATE("android/content/pm/PackageManager"));
+        managerPacket.infoPacket =
+            getMethod(env, managerPacket.klass, OBFUSCATE("getPackageInfo"),
                         OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
-        manajerPaketSiap.store(true, std::memory_order_release);
+        managerPacketReady.store(true, std::memory_order_release);
     }
-    return manajerPaket.kelas ? &manajerPaket : nullptr;
+    return managerPacket.klass ? &managerPacket : nullptr;
 }
 
-const KelasInfoPaket* cacheInfoPaket(JNIEnv* env) {
-    if (infoPaketSiap.load(std::memory_order_acquire))
-        return infoPaket.kelas ? &infoPaket : nullptr;
+const PacketInfoClass* cacheInfoPacket(JNIEnv* env) {
+    if (infoPacketReady.load(std::memory_order_acquire))
+        return infoPacket.klass ? &infoPacket : nullptr;
     if (!env)
         return nullptr;
-    std::lock_guard<std::mutex> tahan(kunciCache);
-    if (!infoPaketSiap.load(std::memory_order_relaxed)) {
-        infoPaket.kelas = ambilKelas(env, OBFUSCATE("android/content/pm/PackageInfo"));
-        infoPaket.namaVersi = ambilField(env, infoPaket.kelas, OBFUSCATE("versionName"),
+    std::lock_guard<std::mutex> hold(cacheKey);
+    if (!infoPacketReady.load(std::memory_order_relaxed)) {
+        infoPacket.klass = getClass(env, OBFUSCATE("android/content/pm/PackageInfo"));
+        infoPacket.versionName = getField(env, infoPacket.klass, OBFUSCATE("versionName"),
                                          OBFUSCATE("Ljava/lang/String;"));
-        infoPaket.kodeVersi =
-            ambilField(env, infoPaket.kelas, OBFUSCATE("versionCode"), OBFUSCATE("I"));
-        infoPaketSiap.store(true, std::memory_order_release);
+        infoPacket.codeVersion =
+            getField(env, infoPacket.klass, OBFUSCATE("versionCode"), OBFUSCATE("I"));
+        infoPacketReady.store(true, std::memory_order_release);
     }
-    return infoPaket.kelas ? &infoPaket : nullptr;
+    return infoPacket.klass ? &infoPacket : nullptr;
 }
 
-void siapkanCacheJni(JNIEnv* env) {
+void prepareJniCache(JNIEnv* env) {
     if (!env)
         return;
-    kelasString(env);
+    klassString(env);
     cacheDialog(env);
     cacheToast(env);
     cacheHtml(env);
@@ -339,8 +339,8 @@ void siapkanCacheJni(JNIEnv* env) {
     cacheUri(env);
     cacheBuild(env);
     cacheSettings(env);
-    cacheKonteks(env);
-    cacheAktivitas(env);
-    cacheManajerPaket(env);
-    cacheInfoPaket(env);
+    cacheContext(env);
+    cacheActivity(env);
+    cacheManagerPacket(env);
+    cacheInfoPacket(env);
 }

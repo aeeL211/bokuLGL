@@ -1,85 +1,85 @@
 #include "feature_registry.h"
 
-#include "fitur.h"
+#include "features.h"
 
-void terapkanPerubahanFitur(jint nomor, jboolean aktif, jint nilai) {
-    Fitur& sakelar = fitur();
-    switch (nomor) {
-    case fitur_nomor::kIap:
-        sakelar.iap = aktif;
+void applyFeatureChange(jint number, jboolean active, jint value) {
+    Features& sakelar = features();
+    switch (number) {
+    case feature_number::kIap:
+        sakelar.iap = active;
         break;
-    case fitur_nomor::kSlot:
-        sakelar.slot = aktif;
+    case feature_number::kSlot:
+        sakelar.slot = active;
         break;
-    case fitur_nomor::kInputTeks:
-        sakelar.inputTeks = aktif;
+    case feature_number::kInputText:
+        sakelar.inputText = active;
         break;
-    case fitur_nomor::kKataKasar:
-        sakelar.kataKasar = aktif;
+    case feature_number::kWordRude:
+        sakelar.wordRude = active;
         break;
-    case fitur_nomor::kSimpanDuniaDanRoom:
-        sakelar.simpanDunia = aktif;
-        sakelar.ukuranRoom = aktif;
+    case feature_number::kSaveWorldAndRoom:
+        sakelar.saveWorld = active;
+        sakelar.roomSize = active;
         break;
-    case fitur_nomor::kSandiRoom:
-        sakelar.sandiRoom = aktif;
+    case feature_number::kPasswordRoom:
+        sakelar.roomPassword = active;
         break;
-    case fitur_nomor::kPrivasi:
-        sakelar.privasi = aktif;
+    case feature_number::kPrivacy:
+        sakelar.privacy = active;
         break;
-    case fitur_nomor::kChatPribadi:
-        sakelar.chatPribadi = aktif;
+    case feature_number::kChatPrivate:
+        sakelar.privateChat = active;
         break;
-    case fitur_nomor::kTembakOtomatis:
-        sakelar.tembakOtomatis = aktif;
+    case feature_number::kShootAutomatic:
+        sakelar.shootAutomatic = active;
         break;
-    case fitur_nomor::kBusterPenuh:
-        sakelar.busterPenuh = aktif;
+    case feature_number::kBusterFull:
+        sakelar.busterFull = active;
         break;
-    case fitur_nomor::kKotoran:
-        sakelar.kotoran = aktif;
+    case feature_number::kFeces:
+        sakelar.feces = active;
         break;
-    case fitur_nomor::kMakanan:
-        sakelar.makanan = aktif;
+    case feature_number::kFood:
+        sakelar.food = active;
         break;
-    case fitur_nomor::kGetar:
-        sakelar.getar = aktif;
+    case feature_number::kShake:
+        sakelar.shake = active;
         break;
-    case fitur_nomor::kTerpental:
-        sakelar.terpental = aktif;
+    case feature_number::kKnockback:
+        sakelar.knockback = active;
         break;
-    case fitur_nomor::kNoClip:
-        sakelar.noClip = aktif;
+    case feature_number::kNoClip:
+        sakelar.noClip = active;
         break;
-    case fitur_nomor::kTeleportX:
-        permintaanTeleport().x.store(nilai);
+    case feature_number::kTeleportX:
+        teleportRequest().x.store(value);
         break;
-    case fitur_nomor::kTeleportY:
-        permintaanTeleport().y.store(nilai);
+    case feature_number::kTeleportY:
+        teleportRequest().y.store(value);
         break;
-    case fitur_nomor::kTeleportJalankan:
-        permintaanTeleport().menunggu.store(true);
+    case feature_number::kTeleportJalankan:
+        teleportRequest().menunggu.store(true);
         break;
-    case fitur_nomor::kKecepatan:
-        sakelar.kecepatanPemain.store(nilai);
+    case feature_number::kSpeed:
+        sakelar.speedPlayer.store(value);
         break;
-    case fitur_nomor::kGravitasi:
-        sakelar.gravitasiPemain.store(nilai);
+    case feature_number::kGravity:
+        sakelar.gravityPlayer.store(value);
         break;
-    case fitur_nomor::kResetKecepatan:
-        sakelar.kecepatanPemain.store(fitur_nomor::kNilaiKecepatanAwal);
+    case feature_number::kResetSpeed:
+        sakelar.speedPlayer.store(feature_number::kValueSpeedInitial);
         break;
-    case fitur_nomor::kResetGravitasi:
-        sakelar.gravitasiPemain.store(fitur_nomor::kNilaiGravitasiAwal);
+    case feature_number::kResetGravity:
+        sakelar.gravityPlayer.store(feature_number::kValueGravityInitial);
         break;
-    case fitur_nomor::kRentangSkin:
-        sakelar.rentangSkin.store(nilai);
+    case feature_number::kRangeSkin:
+        sakelar.skinRange.store(value);
         break;
-    case fitur_nomor::kPecahan:
-        sakelar.pecahan = aktif;
+    case feature_number::kPecahan:
+        sakelar.pecahan = active;
         break;
-    case fitur_nomor::kIzinRoomLain:
-        sakelar.izinRoomLain = aktif;
+    case feature_number::kPermissionRoomOther:
+        sakelar.permissionRoomOther = active;
         break;
     default:
         break;

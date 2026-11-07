@@ -10,7 +10,7 @@ import android.view.View;
 
 public class Launcher extends Service {
     /** Selang pemeriksaan apakah game masih di depan. */
-    private static final long PERIKSA_MS = 1000L;
+    private static final long CHECK_MS = 1000L;
 
     Menu menu;
 
@@ -18,9 +18,9 @@ public class Launcher extends Service {
     private final Runnable pemeriksa = new Runnable() {
         @Override
         public void run() {
-            periksaGame();
+            checkGame();
             if (handler != null)
-                handler.postDelayed(this, PERIKSA_MS);
+                handler.postDelayed(this, CHECK_MS);
         }
     };
 
@@ -50,7 +50,7 @@ public class Launcher extends Service {
         return runningAppProcessInfo.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
     }
 
-    private void periksaGame() {
+    private void checkGame() {
         if (menu == null)
             return;
         menu.setVisibility(isNotInGame() ? View.INVISIBLE : View.VISIBLE);

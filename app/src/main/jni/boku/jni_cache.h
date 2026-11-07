@@ -6,73 +6,73 @@
 // referensi global. Pencarian nama karena itu tidak diulang pada setiap toast
 // atau dialog, dan kelas yang hilang hanya dicatat sekali.
 
-struct KelasMetode {
-    jclass kelas;
-    jmethodID metode;
+struct ClassMethod {
+    jclass klass;
+    jmethodID method;
 };
 
-struct KelasDialog {
-    jclass kelas;
-    jmethodID tampil;
+struct DialogClass {
+    jclass klass;
+    jmethodID show;
 };
 
-struct KelasToast {
-    jclass kelas;
-    jmethodID buat;
-    jmethodID tampil;
+struct ToastClass {
+    jclass klass;
+    jmethodID create;
+    jmethodID show;
 };
 
-struct KelasIntent {
-    jclass kelas;
-    jmethodID dariKonteks;
-    jmethodID dariUri;
+struct IntentClass {
+    jclass klass;
+    jmethodID fromContext;
+    jmethodID fromUri;
 };
 
-struct KelasBuild {
-    jclass kelas;
+struct BuildClass {
+    jclass klass;
     jfieldID sdk;
 };
 
-struct KelasKonteks {
-    jclass kelas;
-    jmethodID mulaiLayanan;
-    jmethodID mulaiAktivitas;
-    jmethodID namaPaket;
+struct ContextClass {
+    jclass klass;
+    jmethodID startService;
+    jmethodID startActivity;
+    jmethodID packetName;
 };
 
-struct KelasAktivitas {
-    jclass kelas;
-    jmethodID manajerPaket;
-    jmethodID namaPaket;
+struct ActivityClass {
+    jclass klass;
+    jmethodID managerPacket;
+    jmethodID packetName;
 };
 
-struct KelasManajerPaket {
-    jclass kelas;
-    jmethodID infoPaket;
+struct PacketManagerClass {
+    jclass klass;
+    jmethodID infoPacket;
 };
 
-struct KelasInfoPaket {
-    jclass kelas;
-    jfieldID namaVersi;
-    jfieldID kodeVersi;
+struct PacketInfoClass {
+    jclass klass;
+    jfieldID versionName;
+    jfieldID codeVersion;
 };
 
 // Mengisi cache lebih awal dari JNI_OnLoad. Kegagalan satu kelas tidak
 // menghentikan kelas lain; pemanggil memeriksa hasilnya sendiri.
-void siapkanCacheJni(JNIEnv* env);
+void prepareJniCache(JNIEnv* env);
 
-jclass kelasString(JNIEnv* env);
+jclass klassString(JNIEnv* env);
 
-const KelasDialog* cacheDialog(JNIEnv* env);
-const KelasToast* cacheToast(JNIEnv* env);
-const KelasMetode* cacheHtml(JNIEnv* env);
-const KelasMetode* cacheTextView(JNIEnv* env);
-const KelasIntent* cacheIntent(JNIEnv* env);
+const DialogClass* cacheDialog(JNIEnv* env);
+const ToastClass* cacheToast(JNIEnv* env);
+const ClassMethod* cacheHtml(JNIEnv* env);
+const ClassMethod* cacheTextView(JNIEnv* env);
+const IntentClass* cacheIntent(JNIEnv* env);
 jclass cacheLauncher(JNIEnv* env);
-const KelasMetode* cacheUri(JNIEnv* env);
-const KelasBuild* cacheBuild(JNIEnv* env);
-const KelasMetode* cacheSettings(JNIEnv* env);
-const KelasKonteks* cacheKonteks(JNIEnv* env);
-const KelasAktivitas* cacheAktivitas(JNIEnv* env);
-const KelasManajerPaket* cacheManajerPaket(JNIEnv* env);
-const KelasInfoPaket* cacheInfoPaket(JNIEnv* env);
+const ClassMethod* cacheUri(JNIEnv* env);
+const BuildClass* cacheBuild(JNIEnv* env);
+const ClassMethod* cacheSettings(JNIEnv* env);
+const ContextClass* cacheContext(JNIEnv* env);
+const ActivityClass* cacheActivity(JNIEnv* env);
+const PacketManagerClass* cacheManagerPacket(JNIEnv* env);
+const PacketInfoClass* cacheInfoPacket(JNIEnv* env);
