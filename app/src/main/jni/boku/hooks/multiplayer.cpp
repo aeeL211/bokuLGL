@@ -113,7 +113,7 @@ void hookLedakRentang(void* self, float x, float y, int step, void* method) {
     if (!asli)
         return;
     Target& terapkan = target(T_EXPLODE_APPLY);
-    if (!fitur().izinRoomLain || !zonaSiap || !terapkan.method) {
+    if (!fitur().izinRoomLain || !zonaSiap || !terapkan.addr || !terapkan.method) {
         asli(self, x, y, step, method);
         return;
     }
@@ -122,7 +122,10 @@ void hookLedakRentang(void* self, float x, float y, int step, void* method) {
         asli(self, x, y, step, method);
         return;
     }
-    auto lokal = reinterpret_cast<void (*)(void*, int, float, float, int, void*)>(terapkan.method);
+    // addr adalah alamat kode method; method hanya MethodInfo yang menjadi
+    // argumen tersembunyi terakhir. Memanggil MethodInfo sebagai fungsi akan
+    // melompat ke data dan membuat game hang.
+    auto lokal = reinterpret_cast<void (*)(void*, int, float, float, int, void*)>(terapkan.addr);
     lokal(self, bacaInt(zona, zonaAktif), x, y, step, terapkan.method);
 }
 
