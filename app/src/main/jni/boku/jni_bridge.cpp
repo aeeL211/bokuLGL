@@ -4,35 +4,46 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 
 namespace {
 
-JavaVM* vmTersimpan = nullptr;
-jclass kelasUnity = nullptr;
+std::atomic<JavaVM*> vmTersimpan{nullptr};
+std::atomic<jclass> kelasUnity{nullptr};
 
 } // namespace
 
-JavaVM* vmJava() { return vmTersimpan; }
+JavaVM* vmJava() { return vmTersimpan.load(std::memory_order_acquire); }
 
-void setelVmJava(JavaVM* vm) { vmTersimpan = vm; }
+void setelVmJava(JavaVM* vm) { vmTersimpan.store(vm, std::memory_order_release); }
 
-jclass kelasUnityPlayer() { return kelasUnity; }
+jclass kelasUnityPlayer() { return kelasUnity.load(std::memory_order_acquire); }
 
 void simpanKelasUnityPlayer(JNIEnv* env) {
+    if (kelasUnity.load(std::memory_order_acquire))
+        return;
     jclass kelas = env->FindClass("com.unity3d.player.UnityPlayer");
     if (kelas) {
-        kelasUnity = static_cast<jclass>(env->NewGlobalRef(kelas));
+        auto global = static_cast<jclass>(env->NewGlobalRef(kelas));
         env->DeleteLocalRef(kelas);
+        if (global) {
+            jclass kosong = nullptr;
+            // Dua thread bisa menyimpan kelas yang sama; yang kalah menghapus
+            // referensi globalnya sendiri supaya tidak ada yang bocor.
+            if (!kelasUnity.compare_exchange_strong(kosong, global))
+                env->DeleteGlobalRef(global);
+        }
     }
     if (env->ExceptionCheck())
         env->ExceptionClear();
 }
 
 JavaVM* cariVmJava() {
-    if (vmTersimpan)
-        return vmTersimpan;
+    JavaVM* tersimpan = vmTersimpan.load(std::memory_order_acquire);
+    if (tersimpan)
+        return tersimpan;
     typedef jint (*GetVms)(JavaVM**, jsize, jsize*);
     auto ambilVm = reinterpret_cast<GetVms>(dlsym(RTLD_DEFAULT, "JNI_GetCreatedJavaVMs"));
     if (!ambilVm)
@@ -41,7 +52,7 @@ JavaVM* cariVmJava() {
     jsize jumlah = 0;
     if (ambilVm(&vm, 1, &jumlah) != JNI_OK || jumlah < 1)
         return nullptr;
-    vmTersimpan = vm;
+    vmTersimpan.store(vm, std::memory_order_release);
     return vm;
 }
 

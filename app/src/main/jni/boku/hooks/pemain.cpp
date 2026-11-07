@@ -1,18 +1,16 @@
 #include "hooks.h"
 
-#include <pthread.h>
-
 #include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <ctime>
 
 #include "fitur.h"
-#include "hook.h"
+#include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
+#include "player_service.h"
 #include "targets.h"
 
 namespace {
@@ -93,31 +91,6 @@ Field fieldMargin = {};
 Field fieldMarginAtas = {};
 Field fieldMarginKiri = {};
 Field fieldMarginKanan = {};
-
-// Posisi untuk baris menu. Nilainya hanya salinan angka, jadi aman dibaca dari
-// thread UI tanpa menyentuh objek IL2CPP.
-pthread_mutex_t kunciPosisi = PTHREAD_MUTEX_INITIALIZER;
-struct PosisiRingkas {
-    bool ada;
-    bool adaTile;
-    float tileX;
-    float tileY;
-    float duniaX;
-    float duniaY;
-};
-PosisiRingkas posisiRingkas = {};
-
-// Baris posisi hanya dibaca menu sekali per detik. Salinan diperbarui selama
-// dua detik sesudah pembacaan terakhir, jadi menu yang tertutup tidak lagi
-// mengunci mutex tiap frame.
-constexpr double kMasaPosisi = 2.0;
-std::atomic<double> posisiDiminta{0.0};
-
-double sekarangDetik() {
-    timespec ts = {};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
-}
 
 // Pos.tile dan Pos.world memakai ruang koordinat berbeda. Selisih keduanya
 // memberi satu skala yang berlaku untuk kedua sumbu, jadi teleport tidak perlu
@@ -223,14 +196,7 @@ int32_t tinggiDuniaTile(void* manajerPemain) {
 }
 
 void simpanPosisi(bool adaTile, const Vektor2& tile, const Vektor2& dunia) {
-    pthread_mutex_lock(&kunciPosisi);
-    posisiRingkas.ada = true;
-    posisiRingkas.adaTile = adaTile;
-    posisiRingkas.tileX = adaTile ? tile.x : 0.0f;
-    posisiRingkas.tileY = adaTile ? tile.y : 0.0f;
-    posisiRingkas.duniaX = dunia.x;
-    posisiRingkas.duniaY = dunia.y;
-    pthread_mutex_unlock(&kunciPosisi);
+    pemain::simpanPosisi(adaTile, tile.x, tile.y, dunia.x, dunia.y);
 }
 
 // Perpindahan pemain memberi pasangan (tile, dunia). Rasio keduanya adalah
@@ -789,7 +755,7 @@ void saatUpdatePemain(void* manajer) {
         Vektor2 tile = {};
         bool adaDunia = bacaVektor(posisi, fieldDunia, dunia);
         bool adaTile = bacaTile(posisi, tile);
-        if (adaDunia && sekarangDetik() < posisiDiminta.load()) {
+        if (adaDunia && pemain::layaniPosisi()) {
             Vektor2 tileUi = tile;
             tileUi.y -= static_cast<float>(tinggi) * 0.5f;
             simpanPosisi(adaTile, tileUi, dunia);
@@ -812,30 +778,6 @@ void saatUpdatePemain(void* manajer) {
     if (nilaiGravitasi != logGravitasi) {
         logGravitasi = nilaiGravitasi;
         LOGI("Gravitasi pemain: %.1fx", ambilKelipatan(nilaiGravitasi, 0.0f, 3.0f));
-    }
-}
-
-// Menyalin posisi terakhir untuk baris menu. Formatnya:
-// tileX<TAB>tileY<TAB>duniaX<TAB>duniaY, dengan bagian tile kosong bila field
-// tile tidak tersedia.
-void salinPosisiPemain(char* keluaran, size_t ukuran) {
-    if (!keluaran || ukuran == 0)
-        return;
-    keluaran[0] = '\0';
-    posisiDiminta.store(sekarangDetik() + kMasaPosisi);
-
-    PosisiRingkas salinan = {};
-    pthread_mutex_lock(&kunciPosisi);
-    salinan = posisiRingkas;
-    pthread_mutex_unlock(&kunciPosisi);
-
-    if (!salinan.ada)
-        return;
-    if (salinan.adaTile) {
-        snprintf(keluaran, ukuran, "%.2f\t%.2f\t%.1f\t%.1f", salinan.tileX, salinan.tileY,
-                 salinan.duniaX, salinan.duniaY);
-    } else {
-        snprintf(keluaran, ukuran, "\t\t%.1f\t%.1f", salinan.duniaX, salinan.duniaY);
     }
 }
 

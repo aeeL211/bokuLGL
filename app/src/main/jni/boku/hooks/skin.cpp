@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "hook.h"
+#include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
 #include "targets.h"

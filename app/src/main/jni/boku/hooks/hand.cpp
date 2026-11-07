@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "hook.h"
+#include "hook_manager.h"
 #include "log.h"
 #include "targets.h"
 

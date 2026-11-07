@@ -11,6 +11,8 @@
 #include <cstring>
 
 #include "jni_bridge.h"
+#include "jni_cache.h"
+#include "jni_util.h"
 #include "log.h"
 
 namespace {
@@ -27,36 +29,26 @@ constexpr char kElipsis[] = "...";
 // jadi ia mendapat thread berumur pendek yang menyiapkan Looper-nya sendiri dan
 // menjaganya tetap berjalan.
 void tampilkanDiLayar(JNIEnv* env, const char* teks) {
-    jobject activity = nullptr;
+    LocalRef<jobject> activity;
     if (kelasUnityPlayer()) {
         jfieldID fieldAktivitas =
             env->GetStaticFieldID(kelasUnityPlayer(), "currentActivity", "Landroid/app/Activity;");
         if (fieldAktivitas)
-            activity = env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas);
+            activity = LocalRef<jobject>(
+                    env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
+        else
+            bersihkanEksepsi(env, "UnityPlayer.currentActivity");
     }
 
-    jclass kelasToast = env->FindClass("android/widget/Toast");
-    jmethodID make =
-        kelasToast ? env->GetStaticMethodID(kelasToast, "makeText",
-                                            "(Landroid/content/Context;Ljava/lang/CharSequence;I)"
-                                            "Landroid/widget/Toast;")
-                   : nullptr;
-    jstring pesan = env->NewStringUTF(teks);
-    jobject objekToast = (make && pesan && activity)
-                             ? env->CallStaticObjectMethod(kelasToast, make, activity, pesan, 0)
-                             : nullptr;
-    if (objekToast) {
-        jmethodID show = env->GetMethodID(kelasToast, "show", "()V");
-        if (show)
-            env->CallVoidMethod(objekToast, show);
-        env->DeleteLocalRef(objekToast);
-    }
-    if (pesan)
-        env->DeleteLocalRef(pesan);
-    if (activity)
-        env->DeleteLocalRef(activity);
-    if (kelasToast)
-        env->DeleteLocalRef(kelasToast);
+    const KelasToast* toast = cacheToast(env);
+    LocalRef<jstring> pesan(env, env->NewStringUTF(teks));
+    LocalRef<jobject> objekToast(
+            env, (toast && toast->buat && toast->tampil && pesan && activity)
+                     ? env->CallStaticObjectMethod(toast->kelas, toast->buat, activity.get(),
+                                                   pesan.get(), 0)
+                     : nullptr);
+    if (objekToast)
+        env->CallVoidMethod(objekToast.get(), toast->tampil);
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         LOGE("Toast gagal: %s", teks);
@@ -64,21 +56,19 @@ void tampilkanDiLayar(JNIEnv* env, const char* teks) {
 }
 
 bool adaLooper(JNIEnv* env) {
-    jclass kelasLooper = env->FindClass("android/os/Looper");
+    LocalRef<jclass> kelasLooper(env, env->FindClass("android/os/Looper"));
     jmethodID metodeLooper =
-        kelasLooper ? env->GetStaticMethodID(kelasLooper, "myLooper", "()Landroid/os/Looper;")
+        kelasLooper ? env->GetStaticMethodID(kelasLooper.get(), "myLooper",
+                                             "()Landroid/os/Looper;")
                     : nullptr;
-    jobject looper =
-        metodeLooper ? env->CallStaticObjectMethod(kelasLooper, metodeLooper) : nullptr;
-    if (looper)
-        env->DeleteLocalRef(looper);
-    if (kelasLooper)
-        env->DeleteLocalRef(kelasLooper);
+    LocalRef<jobject> looper(
+            env, metodeLooper ? env->CallStaticObjectMethod(kelasLooper.get(), metodeLooper)
+                              : nullptr);
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return false;
     }
-    return looper != nullptr;
+    return static_cast<bool>(looper);
 }
 
 void* threadToast(void* argumen) {
@@ -91,11 +81,11 @@ void* threadToast(void* argumen) {
     if (!lekatJni(&env, &lepas))
         return nullptr;
 
-    jclass kelasLooper = env->FindClass("android/os/Looper");
+    LocalRef<jclass> kelasLooper(env, env->FindClass("android/os/Looper"));
     jmethodID prepare =
-        kelasLooper ? env->GetStaticMethodID(kelasLooper, "prepare", "()V") : nullptr;
+        kelasLooper ? env->GetStaticMethodID(kelasLooper.get(), "prepare", "()V") : nullptr;
     if (prepare)
-        env->CallStaticVoidMethod(kelasLooper, prepare);
+        env->CallStaticVoidMethod(kelasLooper.get(), prepare);
     if (env->ExceptionCheck())
         env->ExceptionClear();
 
@@ -104,9 +94,14 @@ void* threadToast(void* argumen) {
     // Menjaga pesan milik toast tetap mengalir di versi Android lama, tempat
     // tampilannya ditampilkan dan disembunyikan lewat penangan di thread
     // pembuatnya.
-    jmethodID loop = kelasLooper ? env->GetStaticMethodID(kelasLooper, "loop", "()V") : nullptr;
-    if (loop)
-        env->CallStaticVoidMethod(kelasLooper, loop);
+    jmethodID loop =
+        kelasLooper ? env->GetStaticMethodID(kelasLooper.get(), "loop", "()V") : nullptr;
+    if (!loop) {
+        if (lepas)
+            cariVmJava()->DetachCurrentThread();
+        return nullptr;
+    }
+    env->CallStaticVoidMethod(kelasLooper.get(), loop);
     return nullptr;
 }
 
@@ -336,10 +331,10 @@ bool bacaNama(char* out, size_t size) {
 } // namespace
 
 void tampilkanToast(const char* teks) {
-    JNIEnv* env = nullptr;
-    bool lepas = false;
-    if (!lekatJni(&env, &lepas))
+    EnvScope lingkup;
+    if (!lingkup)
         return;
+    JNIEnv* env = lingkup.env();
 
     if (adaLooper(env)) {
         tampilkanDiLayar(env, teks);
@@ -354,8 +349,6 @@ void tampilkanToast(const char* teks) {
             }
         }
     }
-    if (lepas)
-        cariVmJava()->DetachCurrentThread();
 }
 
 // Toast aktivasi menyebut akun dari berkas manajer mod; berkas yang rusak atau

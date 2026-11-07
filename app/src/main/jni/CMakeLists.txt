@@ -96,7 +96,7 @@ set_source_files_properties("${TARGETS_SOURCE}" PROPERTIES GENERATED TRUE)
 
 # Menu side of the template: Java bridge, feature list and the single JNI_OnLoad.
 set(MENU_SOURCES
-  Main.cpp
+  Menu/FeatureList.cpp
   Menu/Menu.cpp
   Menu/Jni.cpp
   Menu/Setup.cpp
@@ -108,10 +108,14 @@ set(MENU_SOURCES
 set(MOD_SOURCES
   "${BOKU_ROOT}/main.cpp"
   "${BOKU_ROOT}/fitur.cpp"
+  "${BOKU_ROOT}/feature_registry.cpp"
   "${BOKU_ROOT}/jni_bridge.cpp"
+  "${BOKU_ROOT}/jni_cache.cpp"
+  "${BOKU_ROOT}/jni_util.cpp"
   "${BOKU_ROOT}/log.cpp"
+  "${BOKU_ROOT}/player_service.cpp"
   "${BOKU_ROOT}/toast.cpp"
-  "${BOKU_ROOT}/hook.cpp"
+  "${BOKU_ROOT}/hook_manager.cpp"
   "${BOKU_ROOT}/il2cpp_api.cpp"
   "${BOKU_ROOT}/targets.cpp"
   "${BOKU_ROOT}/info.cpp"

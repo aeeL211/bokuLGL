@@ -3,13 +3,15 @@
 
 #include <jni.h>
 #include <unistd.h>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 
 // Menu menunggu libil2cpp.so sebelum menyusun daftar fitur, sehingga hasil
-// pemindaian /proc/self/maps disimpan sekali.
-extern bool mainLibLoaded;
+// pemindaian /proc/self/maps disimpan sekali. Thread pemindaian dan thread UI
+// membacanya bersamaan, jadi nilainya atomik.
+extern std::atomic<bool> mainLibLoaded;
 
 jboolean isGameLibLoaded(JNIEnv* env, jobject thiz);
 

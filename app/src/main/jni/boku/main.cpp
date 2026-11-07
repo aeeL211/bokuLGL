@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "Utils.hpp"
-#include "hook.h"
+#include "hook_manager.h"
 #include "hooks/hooks.h"
 #include "il2cpp_api.h"
 #include "info.h"

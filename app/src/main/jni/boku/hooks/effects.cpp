@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "fitur.h"
-#include "hook.h"
+#include "hook_manager.h"
 #include "targets.h"
 
 namespace {

@@ -68,17 +68,6 @@ enum class HasilSalin { Gagal, Tersimpan, SudahAda, TidakAda };
 // Dipanggil di thread game.
 HasilSalin salinModelTamu(void* manajerTamu, const char* kunci, const char* nama, int& slot);
 
-// Daftar pemain untuk section Room di menu, ditulis sebagai baris
-// "nama<TAB>kunci<TAB>peran" yang dipisah newline. Perannya host, kamu, atau
-// tamu. Aman dipanggil dari thread UI.
-void salinDaftarPemain(char* keluaran, size_t ukuran);
-
-// Posisi pemain lokal untuk baris menu, ditulis sebagai
-// "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY". Bagian tile kosong bila game tidak
-// punya field tile. Aman dipanggil dari thread UI.
-void salinPosisiPemain(char* keluaran, size_t ukuran);
-
-// Mengantrekan satu aksi dari menu. Aksi dijalankan dari hook update tamu, di
-// thread game, satu per detak supaya paket tidak bertabrakan.
-bool antrekanTendangPemain(const char* kunci, const char* nama);
-bool antrekanSalinPemain(const char* kunci, const char* nama);
+// Salinan daftar pemain, antrean aksi, dan posisi pemain lokal berada di
+// boku/player_service.h. Hook room hanya mengisi salinan itu, dan menu hanya
+// membacanya.

@@ -4,6 +4,8 @@
 #include <cstdio>
 
 #include "jni_bridge.h"
+#include "jni_cache.h"
+#include "jni_util.h"
 #include "log.h"
 
 #ifndef BOKU_BUILD_COMMIT
@@ -13,92 +15,63 @@
 namespace {
 
 bool versiAplikasi(char* nama, size_t size, jint& kode) {
-    JNIEnv* env = nullptr;
-    bool lepas = false;
-    if (!lekatJni(&env, &lepas))
+    EnvScope lingkup;
+    if (!lingkup)
         return false;
+    JNIEnv* env = lingkup.env();
 
-    jobject activity = nullptr;
-    jclass kelasActivity = nullptr;
-    jobject manajer = nullptr;
-    jclass kelasManajer = nullptr;
-    jstring paket = nullptr;
-    jobject informasi = nullptr;
-    jclass kelasInformasi = nullptr;
-    jstring versi = nullptr;
     bool berhasil = false;
     kode = 0;
 
+    LocalRef<jobject> activity;
     if (kelasUnityPlayer()) {
         jfieldID fieldAktivitas =
             env->GetStaticFieldID(kelasUnityPlayer(), "currentActivity", "Landroid/app/Activity;");
         if (fieldAktivitas)
-            activity = env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas);
+            activity = LocalRef<jobject>(
+                    env, env->GetStaticObjectField(kelasUnityPlayer(), fieldAktivitas));
+        else
+            bersihkanEksepsi(env, "UnityPlayer.currentActivity");
     }
-    if (activity) {
-        kelasActivity = env->GetObjectClass(activity);
-        if (kelasActivity) {
-            jmethodID getManager = env->GetMethodID(kelasActivity, "getPackageManager",
-                                                    "()Landroid/content/pm/PackageManager;");
-            if (getManager)
-                manajer = env->CallObjectMethod(activity, getManager);
-            jmethodID getPackage =
-                env->GetMethodID(kelasActivity, "getPackageName", "()Ljava/lang/String;");
-            if (getPackage)
-                paket = static_cast<jstring>(env->CallObjectMethod(activity, getPackage));
-        }
+
+    const KelasAktivitas* aktivitas = cacheAktivitas(env);
+    LocalRef<jstring> paket;
+    LocalRef<jobject> manajer;
+    if (activity && aktivitas && aktivitas->namaPaket && aktivitas->manajerPaket) {
+        paket = LocalRef<jstring>(
+                env, static_cast<jstring>(env->CallObjectMethod(activity.get(),
+                                                                aktivitas->namaPaket)));
+        manajer = LocalRef<jobject>(
+                env, env->CallObjectMethod(activity.get(), aktivitas->manajerPaket));
     }
-    if (manajer && paket) {
-        kelasManajer = env->GetObjectClass(manajer);
-        if (kelasManajer) {
-            jmethodID getInfo =
-                env->GetMethodID(kelasManajer, "getPackageInfo",
-                                 "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
-            if (getInfo)
-                informasi = env->CallObjectMethod(manajer, getInfo, paket, 0);
-        }
+
+    const KelasManajerPaket* infoManajer = cacheManajerPaket(env);
+    LocalRef<jobject> informasi;
+    if (manajer && paket && infoManajer && infoManajer->infoPaket) {
+        informasi = LocalRef<jobject>(env, env->CallObjectMethod(manajer.get(),
+                                                                 infoManajer->infoPaket,
+                                                                 paket.get(), 0));
     }
-    if (informasi) {
-        kelasInformasi = env->GetObjectClass(informasi);
-        if (kelasInformasi) {
-            jfieldID fieldNama =
-                env->GetFieldID(kelasInformasi, "versionName", "Ljava/lang/String;");
-            jfieldID fieldKode = env->GetFieldID(kelasInformasi, "versionCode", "I");
-            if (fieldNama)
-                versi = static_cast<jstring>(env->GetObjectField(informasi, fieldNama));
-            if (fieldKode)
-                kode = env->GetIntField(informasi, fieldKode);
-            if (versi) {
-                const char* karakter = env->GetStringUTFChars(versi, nullptr);
-                if (karakter) {
-                    snprintf(nama, size, "%s", karakter);
-                    berhasil = true;
-                    env->ReleaseStringUTFChars(versi, karakter);
-                }
+
+    const KelasInfoPaket* info = cacheInfoPaket(env);
+    LocalRef<jstring> versi;
+    if (informasi && info) {
+        if (info->namaVersi)
+            versi = LocalRef<jstring>(
+                    env, static_cast<jstring>(
+                             env->GetObjectField(informasi.get(), info->namaVersi)));
+        if (info->kodeVersi)
+            kode = env->GetIntField(informasi.get(), info->kodeVersi);
+        if (versi) {
+            StringUtf karakter(env, versi.get());
+            if (karakter) {
+                snprintf(nama, size, "%s", karakter.get());
+                berhasil = true;
             }
         }
     }
 
-    if (versi)
-        env->DeleteLocalRef(versi);
-    if (kelasInformasi)
-        env->DeleteLocalRef(kelasInformasi);
-    if (informasi)
-        env->DeleteLocalRef(informasi);
-    if (paket)
-        env->DeleteLocalRef(paket);
-    if (kelasManajer)
-        env->DeleteLocalRef(kelasManajer);
-    if (manajer)
-        env->DeleteLocalRef(manajer);
-    if (kelasActivity)
-        env->DeleteLocalRef(kelasActivity);
-    if (activity)
-        env->DeleteLocalRef(activity);
-    if (env->ExceptionCheck())
-        env->ExceptionClear();
-    if (lepas)
-        cariVmJava()->DetachCurrentThread();
+    bersihkanEksepsi(env, "versi aplikasi");
     return berhasil;
 }
 

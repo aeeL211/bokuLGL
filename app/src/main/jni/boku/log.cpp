@@ -17,9 +17,11 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <mutex>
 
-#include "hook.h"
+#include "hook_manager.h"
 #include "jni_bridge.h"
+#include "jni_util.h"
 
 #ifdef BOKU_LOG
 
@@ -31,6 +33,12 @@ namespace {
 // UnityPlayer.currentActivity, jadi nama paket tidak pernah ditulis mati dan
 // paket yang diganti nama tetap bekerja.
 std::atomic<int> fdLog{-1};
+
+// Dua pemanggil pertama (konstruktor pustaka dan JNI_OnLoad) bisa mencoba
+// membuka berkas bersamaan. Kunci ini memastikan hanya satu berkas sesi yang
+// dibuat; pemeriksaan fdLog di dalamnya menangani pemanggil yang datang
+// belakangan.
+std::mutex kunciBuka;
 
 // Path berkas yang dibuka sesi ini, disimpan supaya perintah bisa mencetaknya.
 char pathSesi[600] = {};
@@ -133,10 +141,10 @@ void siram() {
 // getExternalFilesDir adalah API publik untuk direktori eksternal per aplikasi;
 // memanggilnya menghindari menebak nama paket atau titik mount penyimpanan.
 bool direktoriFile(char* out, size_t size) {
-    JNIEnv* env = nullptr;
-    bool lepas = false;
-    if (!lekatJni(&env, &lepas))
+    EnvScope lingkup;
+    if (!lingkup)
         return false;
+    JNIEnv* env = lingkup.env();
 
     bool berhasil = false;
     jobject activity = nullptr;
@@ -188,8 +196,6 @@ bool direktoriFile(char* out, size_t size) {
         env->DeleteLocalRef(activity);
     if (env->ExceptionCheck())
         env->ExceptionClear();
-    if (lepas)
-        cariVmJava()->DetachCurrentThread();
     return berhasil;
 }
 
@@ -520,6 +526,9 @@ void tanganiCrash(int sig, siginfo_t* info, void* konteks) {
 const char* pathFileLog() { return pathSesi[0] ? pathSesi : nullptr; }
 
 void bukaFileLog() {
+    if (fdLog >= 0)
+        return;
+    std::lock_guard<std::mutex> tahan(kunciBuka);
     if (fdLog >= 0)
         return;
     char direktori[512];
