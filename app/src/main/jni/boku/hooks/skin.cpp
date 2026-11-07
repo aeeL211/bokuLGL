@@ -481,9 +481,9 @@ bool findFieldGuestAlive() {
     bool found = findField(klassGuest, "key", guestKeyField) &&
                  findField(klassGuest, "model", fieldModelGuest);
     if (found) {
-        fieldPortraitLiveReady = findField(klassGuest, "account", fieldAccountGuest) &&
-                                 findField(fieldClass(fieldAccountGuest), "portrait",
-                                           fieldPortraitAccount);
+        fieldPortraitLiveReady =
+            findField(klassGuest, "account", fieldAccountGuest) &&
+            findField(fieldClass(fieldAccountGuest), "portrait", fieldPortraitAccount);
     }
     return found;
 }
