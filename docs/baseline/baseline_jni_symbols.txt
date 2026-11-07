@@ -1,5 +1,4 @@
-BASELINE JNI - diambil dari source dan artifacts/bokuLGL/lib/arm64-v8a/libboku.so
-sebelum refaktor (7 November 2026).
+BASELINE JNI - snapshot sumber terbaru (7 November 2026).
 
 MODE: RegisterNatives di JNI_OnLoad, bukan penamaan Java_com_*.
 Bukti ELF: .dynsym hanya mengekspor JNI_OnLoad. Tidak ada simbol Java_*.
@@ -9,22 +8,25 @@ Bukti ELF: .dynsym hanya mengekspor JNI_OnLoad. Tidak ada simbol Java_*.
 
 JNI_OnLoad
   com.android.support.Menu (instance):
-    Init                 (Landroid/content/Context;Landroid/widget/TextView;Landroid/widget/TextView;)V
-    Icon                 ()Ljava/lang/String;
-    IconWebViewData      ()Ljava/lang/String;
-    GetFeatureList       ()[Ljava/lang/String;
-    SettingsList         ()[Ljava/lang/String;
-    IsGameLibLoaded      ()Z
-    DaftarPemain         ()Ljava/lang/String;
-    PosisiPemain         ()Ljava/lang/String;
-    TendangPemain        (Ljava/lang/String;Ljava/lang/String;)Z
-    SalinSkinPemain      (Ljava/lang/String;Ljava/lang/String;)Z
+    CopyPlayerAvatar         (Ljava/lang/String;)Z
+    CopyPlayerSkin           (Ljava/lang/String;Ljava/lang/String;)Z
+    GetFeatureList           ()[Ljava/lang/String;
+    Icon                     ()Ljava/lang/String;
+    IconWebViewData          ()Ljava/lang/String;
+    Init                     (Landroid/content/Context;Landroid/widget/TextView;Landroid/widget/TextView;)V
+    IsGameLibLoaded          ()Z
+    KickAll                  ()Z
+    KickHost                 (Ljava/lang/String;)Z
+    KickPlayer               (Ljava/lang/String;Ljava/lang/String;Z)Z
+    PlayerList               ()Ljava/lang/String;
+    PlayerPosition           ()Ljava/lang/String;
+    SettingsList             ()[Ljava/lang/String;
 
   com.android.support.Preferences (static):
-    Changes              (Landroid/content/Context;ILjava/lang/String;IJZLjava/lang/String;)V
+    Changes                  (Landroid/content/Context;ILjava/lang/String;IJZLjava/lang/String;)V
 
   com.android.support.Main (static, private):
-    CheckOverlayPermission (Landroid/content/Context;)V
+    CheckOverlayPermission   (Landroid/content/Context;)V
 
 Catatan: kontrak Java menulis nama simbol Java_com_android_support_*, tetapi
 proyek ini memakai RegisterNatives. RegisterNatives dipertahankan; daftar di atas

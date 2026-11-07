@@ -124,10 +124,10 @@ def collect_hooks(name: str, text: str, seen: set[str]) -> list[str]:
 def hook_order(root: Path) -> list[str]:
     jni = root / "app" / "src" / "main" / "jni"
     main_text = (jni / "boku" / "main.cpp").read_text(encoding="utf-8")
-    calls = re.findall(r"^(?:\s{4})(install[A-Z][A-Za-z0-9_]*)\(\);",
+    calls = re.findall(r"^(?:\s{4})(install[A-Z][A-Za-z0-9_]*Hook)\(\);",
                        main_text, re.MULTILINE)
-    if len(calls) != 21:
-        raise SystemExit(f"installHookX count in main.cpp is {len(calls)}, not 21")
+    if len(calls) != 22:
+        raise SystemExit(f"installXHook count in main.cpp is {len(calls)}, not 22")
     result: list[str] = []
     for name in calls:
         for file in sorted((jni / "boku" / "hooks").glob("*.cpp")):

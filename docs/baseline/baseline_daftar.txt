@@ -1,17 +1,21 @@
-BASELINE DAFTAR FITUR - string persis sebelum refaktor.
-Sumber: app/src/main/jni/Main.cpp, array features[] pada GetFeatureList() dan
-SettingsList(). Setiap baris di bawah marker adalah satu elemen array, byte per
-byte, tanpa karakter tambahan.
+BASELINE DAFTAR FITUR - string persis dari sumber terbaru.
+Sumber: app/src/main/jni/Menu/FeatureList.cpp, array features[] pada
+featureList() dan settingList(). Setiap baris di bawah marker adalah satu
+elemen array, byte per byte, tanpa karakter tambahan.
 
-=== GetFeatureList (30 entri) ===
+=== GetFeatureList (34 entri) ===
 Collapse_Room dan Dunia
 CollapseAdd_6_Toggle_True_Masuk room tanpa sandi
 CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat
 CollapseAdd_5_Toggle_True_Simpan dunia dan room besar
+CollapseAdd_29_Toggle_True_Bangun dan hancurkan di room orang lain
+CollapseAdd_31_Toggle_Atur dunia sendiri
+CollapseAdd_33_Spinner_Musim dunia_Bawaan,Pagi,Senja,Malam
 CollapseAdd_PlayerList_Pemain di room ini
 Collapse_Nama dan Profil
 CollapseAdd_2_Toggle_True_Nama, tanggal lahir, dan sandi tanpa batas
 CollapseAdd_27_SeekBar_Jarak geser skin_5_100_25_0
+CollapseAdd_30_Toggle_Skin & Portrait Auto Dump
 CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar
 CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan
 Collapse_Belanja
@@ -34,7 +38,6 @@ CollapseAdd_LivePos_Posisi pemain
 CollapseAdd_20_InputValue_1024_Titik X tujuan
 CollapseAdd_21_InputValue_1024_Titik Y tujuan
 CollapseAdd_22_Button_Pindahkan pemain
-
 === SettingsList (7 entri) ===
 Category_Pengaturan
 -1_Toggle_Simpan preferensi

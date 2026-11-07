@@ -1,40 +1,46 @@
-BASELINE FITUR - isi Changes() sebelum refaktor.
-Sumber: app/src/main/jni/Main.cpp, switch (featNum).
-Semua nilai disimpan ke state atomik di boku/fitur.{h,cpp}; tidak ada hook yang
+BASELINE FITUR - isi Changes() pada sumber terbaru.
+Sumber: app/src/main/jni/boku/feature_registry.cpp, switch (featNum).
+Semua nilai disimpan ke state atomik di boku/feature_flags.h; tidak ada hook yang
 dipasang/dilepas saat nilai berubah. Nilai yang sama boleh dikirim berulang
 (idempoten).
 
 featNum | tipe argumen | efek | nilai awal
-0       | boolean isOn  | Fitur.iap = isOn (beli item tanpa bayar) | true
-1       | boolean isOn  | Fitur.slot = isOn (slot simpan tanpa batas) | true
-2       | boolean isOn  | Fitur.inputTeks = isOn (nama/tanggal/sandi tanpa batas) | true
+0       | boolean isOn  | Features.iap = isOn (beli item tanpa bayar) | true
+1       | boolean isOn  | Features.slot = isOn (slot simpan tanpa batas) | true
+2       | boolean isOn  | Features.inputText = isOn (nama/tanggal/sandi tanpa batas) | true
 3       | -             | tidak ditangani (default) | -
-4       | boolean isOn  | Fitur.kataKasar = isOn (tanpa sensor kata kasar) | true
-5       | boolean isOn  | Fitur.simpanDunia = isOn DAN Fitur.ukuranRoom = isOn | true / true
-6       | boolean isOn  | Fitur.sandiRoom = isOn (masuk room tanpa sandi) | true
-7       | boolean isOn  | Fitur.privasi = isOn (detail akun tersembunyi) | true
+4       | boolean isOn  | Features.rudeWord = isOn (tanpa sensor kata kasar) | true
+5       | boolean isOn  | Features.saveWorld = isOn DAN Features.roomSize = isOn | true / true
+6       | boolean isOn  | Features.roomPassword = isOn (masuk room tanpa sandi) | true
+7       | boolean isOn  | Features.privacy = isOn (detail akun tersembunyi) | true
 8       | -             | tidak ditangani (default) | -
-9       | boolean isOn  | Fitur.chatPribadi = isOn (pesan pribadi di chat) | true
+9       | boolean isOn  | Features.privateChat = isOn (pesan pribadi di chat) | true
 10      | -             | tidak ditangani (default) | -
-11      | boolean isOn  | Fitur.tembakOtomatis = isOn | true
-12      | boolean isOn  | Fitur.busterPenuh = isOn | true
-13      | boolean isOn  | Fitur.kotoran = isOn | true
-14      | boolean isOn  | Fitur.makanan = isOn | true
-15      | boolean isOn  | Fitur.getar = isOn (getar kamera) | true
-16      | boolean isOn  | Fitur.terpental = isOn (tidak terpental saat meledak) | true
+11      | boolean isOn  | Features.shootAutomatic = isOn | true
+12      | boolean isOn  | Features.busterFull = isOn | true
+13      | boolean isOn  | Features.feces = isOn | true
+14      | boolean isOn  | Features.food = isOn | true
+15      | boolean isOn  | Features.shake = isOn (getar kamera) | true
+16      | boolean isOn  | Features.knockback = isOn (tidak terpental saat meledak) | true
 17      | -             | tidak ditangani (default) | -
 18      | -             | tidak ditangani (default) | -
-19      | boolean isOn  | Fitur.noClip = isOn (tembus dinding) | false
-20      | int value     | PermintaanTeleport.x = value (titik X tujuan) | 0
-21      | int value     | PermintaanTeleport.y = value (titik Y tujuan) | 0
-22      | -             | PermintaanTeleport.menunggu = true (tombol Pindahkan) | false
-23      | int value     | Fitur.kecepatanPemain = value (5..50 -> 0,5x..5,0x) | 10
-24      | int value     | Fitur.gravitasiPemain = value (0..30 -> 0,0x..3,0x) | 10
-25      | -             | Fitur.kecepatanPemain = 10 (reset) | 10
-26      | -             | Fitur.gravitasiPemain = 10 (reset) | 10
-27      | int value     | Fitur.rentangSkin = value (5..100) | 25
-28      | boolean isOn  | Fitur.pecahan = isOn (puing tile) | true
+19      | boolean isOn  | Features.noClip = isOn (tembus dinding) | false
+20      | int value     | TeleportRequest.x = value (titik X tujuan) | 0
+21      | int value     | TeleportRequest.y = value (titik Y tujuan) | 0
+22      | -             | TeleportRequest.waiting = true (tombol Pindahkan) | false
+23      | int value     | Features.speedPlayer = value (5..50 -> 0,5x..5,0x) | 10
+24      | int value     | Features.gravityPlayer = value (0..30 -> 0,0x..3,0x) | 10
+25      | -             | Features.speedPlayer = 10 (reset) | 10
+26      | -             | Features.gravityPlayer = 10 (reset) | 10
+27      | int value     | Features.skinRange = value (5..100) | 25
+28      | boolean isOn  | Features.debris = isOn (puing tile) | true
+29      | boolean isOn  | Features.permissionRoomOther = isOn (bangun di room lain) | true
+30      | boolean isOn  | Features.autoDump = isOn (skin & portrait auto dump) | false
+31      | boolean isOn  | Features.worldLocal = isOn (atur dunia sendiri) | false
+32      | int value     | Features.worldBackground = value (0..6, 0 = bawaan) | 0
+33      | int value     | Features.worldPeriod = value (0..3, 0 = bawaan) | 0
+34      | int value     | Features.worldWeather = value (0..10, 0 = bawaan) | 0
 default | -            | diabaikan, termasuk featNum -1, -4, -5, -6, -100 dari Java | -
 
-Catatan: featNum 3, 8, 10, 17, 18 tidak pernah dikirim oleh daftar fitur saat
-baseline, tetapi tetap jatuh ke default seperti sebelumnya.
+Catatan: featNum 3, 8, 10, 17, 18 tidak pernah dikirim oleh daftar fitur,
+tetapi tetap jatuh ke default seperti sebelumnya.
