@@ -176,8 +176,8 @@ void jalankanAksi(void* manajerTamu, const pemain::Aksi& aksi) {
         void* multi = bacaPtr(bacaPtr(manajerTamu, fieldManajerTamu), fieldMultiManajer);
         bool terkirim = multi && tendangKunci(multi, stringDariUtf8(aksi.kunci), permanen, 1);
         if (terkirim) {
-            snprintf(pesan, sizeof(pesan), permanen ? "Kick permanen terkirim: %s"
-                                                   : "Kick sementara terkirim: %s",
+            snprintf(pesan, sizeof(pesan),
+                     permanen ? "Kick permanen terkirim: %s" : "Kick sementara terkirim: %s",
                      aksi.nama);
             LOGI("%s menu: %s", permanen ? "Kick permanen" : "Kick sementara", aksi.kunci);
         } else {
@@ -210,8 +210,7 @@ void jalankanAksi(void* manajerTamu, const pemain::Aksi& aksi) {
         // Paket berulang membuat host sibuk memproses tendangan untuk dirinya
         // sendiri; sebagian build akhirnya menutup room dari sisi host.
         bool terkirim = tendangKunci(multi, host, true, kBurstHost);
-        snprintf(pesan, sizeof(pesan), terkirim ? "Kick host dikirim: %d paket"
-                                                : "Kick host gagal",
+        snprintf(pesan, sizeof(pesan), terkirim ? "Kick host dikirim: %d paket" : "Kick host gagal",
                  kBurstHost);
         if (terkirim)
             LOGI("Kick host: %d paket", kBurstHost);

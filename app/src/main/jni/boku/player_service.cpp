@@ -118,9 +118,7 @@ bool antrekanTendangHost(const char* nama) {
     return antrekan(Aksi::Jenis::TendangHost, nullptr, nama);
 }
 
-bool antrekanTendangSemua() {
-    return antrekan(Aksi::Jenis::TendangSemua, nullptr, "semua tamu");
-}
+bool antrekanTendangSemua() { return antrekan(Aksi::Jenis::TendangSemua, nullptr, "semua tamu"); }
 
 bool antrekanSalin(const char* kunci, const char* nama) {
     return antrekan(Aksi::Jenis::Salin, kunci, nama);
