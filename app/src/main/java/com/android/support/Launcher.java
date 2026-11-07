@@ -6,16 +6,18 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 
 public class Launcher extends Service {
+    private static final String TAG = BKLog.TAG;
     /** Interval for checking whether the game is still in the foreground. */
     private static final long CHECK_MS = 1000L;
 
     Menu menu;
 
     private Handler handler;
-    private final Runnable pemeriksa = new Runnable() {
+    private final Runnable checker = new Runnable() {
         @Override
         public void run() {
             checkGame();
@@ -35,7 +37,7 @@ public class Launcher extends Service {
 
         //Create a handler for this Class
         handler = new Handler(Looper.getMainLooper());
-        handler.post(pemeriksa);
+        handler.post(checker);
     }
 
     @Override
@@ -43,17 +45,27 @@ public class Launcher extends Service {
         return null;
     }
 
-    //Check if we are still in the game. If now our menu and menu button will dissapear
-    private boolean isNotInGame() {
-        ActivityManager.RunningAppProcessInfo runningAppProcessInfo = new ActivityManager.RunningAppProcessInfo();
-        ActivityManager.getMyMemoryState(runningAppProcessInfo);
-        return runningAppProcessInfo.importance != ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+    // The menu belongs to the game, so it is only shown while this process is
+    // the one the user is looking at.
+    private boolean isGameVisible() {
+        ActivityManager.RunningAppProcessInfo info = new ActivityManager.RunningAppProcessInfo();
+        ActivityManager.getMyMemoryState(info);
+        // Some ROMs report a visible game as IMPORTANCE_VISIBLE instead of
+        // FOREGROUND, for example in split screen. Both mean the game is on
+        // screen and the menu must stay available.
+        return info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                || info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
     }
 
     private void checkGame() {
         if (menu == null)
             return;
-        menu.setVisibility(isNotInGame() ? View.INVISIBLE : View.VISIBLE);
+        try {
+            menu.setVisibility(isGameVisible() ? View.VISIBLE : View.INVISIBLE);
+        } catch (Throwable t) {
+            // A dead window token must not stop the checker for later ticks.
+            Log.d(TAG, "Menu visibility failed: " + t);
+        }
     }
 
     //Destroy our View

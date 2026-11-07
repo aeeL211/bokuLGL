@@ -24,6 +24,13 @@
             android:enabled="true"
             android:exported="true"
             android:stopWithTask="true" />
+        <!-- Starts the library again when Android recreates the game process
+             without going through MainActivity. -->
+        <provider
+            android:name="com.android.support.AutoStart"
+            android:authorities="com.android.support.autostart"
+            android:enabled="true"
+            android:exported="false" />
         <!-- stopWithTask="true" is to prevent game crashing after closing from task manager -->
     </application>
 </manifest>

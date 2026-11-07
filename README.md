@@ -19,6 +19,11 @@ Hanya `arm64-v8a`, Android 7.0 ke atas.
 Memasang `com.android.support` sendirian hanya membuka menu di prosesnya sendiri: game tidak
 pernah memuat library itu, jadi tidak ada satu pun hook yang terpasang.
 
+Manifest menu membawa service `Launcher` dan provider `AutoStart`. Keduanya harus ikut
+digabung ke manifest APK game. Provider hanya menyalakan ulang menu saat Android membuat ulang
+proses game tanpa melewati `MainActivity`, misalnya ketika activity game dipulihkan langsung
+sesudah proses dibuang di latar belakang.
+
 ## Yang diubah
 
 Semua fitur menyala sejak awal kecuali **No Clip**. Sakelar di menu hanya mengubah nilai yang
@@ -26,6 +31,11 @@ dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat ga
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
 Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas. Tekan lama pada baris
 fitur untuk membaca penjelasan singkatnya.
+
+Menu mengikuti game: ikon disembunyikan saat aplikasi lain dipakai dan muncul lagi saat game
+kembali. Saat kembali, menu juga memasang ulang jendela overlay bila sistem melepasnya selama
+game di latar belakang, dan proses yang dibuat ulang langsung ke activity game tetap
+menyalakan menu lewat provider `AutoStart`.
 
 **Room dan Dunia**
 

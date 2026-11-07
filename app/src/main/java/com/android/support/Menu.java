@@ -2008,8 +2008,32 @@ public class Menu {
     }
 
     public void setVisibility(int view) {
-        if (rootFrame != null) {
-            rootFrame.setVisibility(view);
+        if (rootFrame == null || destroyed)
+            return;
+        // The system can drop an overlay window while the game is in the
+        // background. Toggling visibility alone then does nothing, so the
+        // window is attached again before it is shown.
+        if (view == View.VISIBLE)
+            ensureWindow();
+        rootFrame.setVisibility(view);
+    }
+
+    /**
+     * Re-attaches the overlay window when WindowManager no longer owns it.
+     * Reuses the current layout params, so the saved position is kept.
+     */
+    private void ensureWindow() {
+        if (rootFrame.isAttachedToWindow() || vmParams == null)
+            return;
+        try {
+            if (mWindowManager == null)
+                mWindowManager = (WindowManager) getContext.getSystemService(Context.WINDOW_SERVICE);
+            if (mWindowManager == null)
+                return;
+            mWindowManager.addView(rootFrame, vmParams);
+            Log.d(TAG, "Overlay window restored");
+        } catch (Throwable t) {
+            Log.d(TAG, "Overlay window could not be restored: " + t);
         }
     }
 
