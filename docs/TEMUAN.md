@@ -6,8 +6,8 @@ karena memperbaikinya akan mengubah kontrak Java, fitur, atau cakupan tugas.
 ## Kontrak dan dokumentasi
 
 1. **Jumlah hook di dokumentasi sudah disamakan.** Temuan lama `66` versus `73`
-   ditutup bersama fitur izin room: `targets.def` sekarang berisi 91 target dan
-   runtime memasang 78 hook, yaitu 70 `pasangHook(target(...))` langsung ditambah
+   ditutup bersama fitur izin room: `targets.def` sekarang berisi 93 target dan
+   runtime memasang 79 hook, yaitu 71 `pasangHook(target(...))` langsung ditambah
    delapan target `pasangAkhirMakan<T>`. `README.md`, `AGENTS.md`, dan log runtime
    memakai angka yang sama.
 2. **Tag log Java masih `Mod_Menu`.** `Menu.TAG`, `IkonCache.TAG`, dan

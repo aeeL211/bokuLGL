@@ -35,7 +35,9 @@ fitur untuk membaca penjelasan singkatnya.
 - Ukuran dunia baru bisa dipilih sampai 600x300.
 - **Bangun dan hancurkan di room orang lain** memaksa `Enforce` pada paket tile dan `Across`
   pada paket objek, jadi host menerima pemasangan, penggantian, dan penghapusan tile serta
-  penambahan dan pengambilan objek dari tamu. Kamu tetap harus sudah diterima sebagai tamu;
+  penambahan dan pengambilan objek dari tamu. Ledakan TNT ikut bekerja: tamu menghitung
+  ledakan di perangkatnya sendiri lalu mengirim permintaan hapus per tile dan objek, bukan
+  paket `Explosion_Range` yang ditolak host. Kamu tetap harus sudah diterima sebagai tamu;
   area yang dilindungi dan perubahan pintu yang sudah ada tidak ikut ditembus.
 - **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
   masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Menu membacanya sekali per
@@ -136,7 +138,9 @@ fitur untuk membaca penjelasan singkatnya.
 - **Bangun dan hancurkan di room orang lain** hanya melewati izin build/destroy per-tamu.
   Kamu tetap harus sudah diterima host, tile di area yang dilindungi tetap tidak bisa dihapus,
   dan perubahan pintu yang sudah ada lewat `Tile__Modify__Door` tetap ditolak karena jalur itu
-  tidak membawa `Enforce`/`Across`.
+  tidak membawa `Enforce`/`Across`. Ledakan TNT dihitung dari salinan dunia di perangkat tamu,
+  jadi jangkauannya mengikuti tile yang terlihat di sana, dan pantulan pemain hanya terjadi di
+  perangkat yang menghitung ledakan.
 - Kecepatan, gravitasi, teleport, dan No Clip hanya berlaku untuk pemain lokal. Fitur yang
   berjalan pada state yang sama untuk semua pemain di dalam room — tembak berulang, amunisi
   buster penuh, kotoran, makanan tetap di tangan, dan tidak terpental — juga hanya menyentuh
@@ -179,7 +183,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 91 dari 91 metode ditemukan
+Scan selesai: 93 dari 93 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap
@@ -189,10 +193,11 @@ Field tinggi dunia siap
 Field ukuran tile siap
 Field batas kecepatan siap
 Field tembus dinding siap
-Hook terpasang: 78
+Field zona ledakan OK
+Hook terpasang: 79
 ```
 
-Bila `Hook terpasang` jauh di bawah 78, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 79, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

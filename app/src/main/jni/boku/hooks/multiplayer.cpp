@@ -20,6 +20,10 @@ Field lebarPreset = {};
 Field tinggiPreset = {};
 Field batasMulti = {};
 bool batasSiap = false;
+Field ledakManajer = {};
+Field manajerZona = {};
+Field zonaAktif = {};
+bool zonaSiap = false;
 
 // Host memegang izin build dan destroy dan menolak apa pun yang dicoba guest di
 // luar itu, jadi kedua flag sekarang diteruskan apa adanya. Hanya flag simpan
@@ -97,6 +101,31 @@ void hookKirimObjRemove(void* self, int id, void* key, bool eff, bool name, bool
     asli(self, id, key, eff, name, fitur().izinRoomLain ? true : across, method);
 }
 
+// Ledakan TNT tidak memakai paket Tile__Remove, melainkan Explosion_Range yang
+// ditolak host saat tamu tidak punya izin destroy. Jalur admin di dalam
+// Update__Range_ justru memanggil Update__Range__ di perangkat sendiri, dan
+// dari sana game mengirim permintaan hapus tile serta objek yang sudah dipaksa
+// oleh hook di atas. Saat fitur menyala, jalur lokal itu yang dipakai; di host
+// dan single player hasilnya sama dengan bawaan.
+void hookLedakRentang(void* self, float x, float y, int step, void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*)>(
+        target(T_EXPLODE_RANGE).orig);
+    if (!asli)
+        return;
+    Target& terapkan = target(T_EXPLODE_APPLY);
+    if (!fitur().izinRoomLain || !zonaSiap || !terapkan.method) {
+        asli(self, x, y, step, method);
+        return;
+    }
+    void* zona = bacaPtr(bacaPtr(self, ledakManajer), manajerZona);
+    if (!zona) {
+        asli(self, x, y, step, method);
+        return;
+    }
+    auto lokal = reinterpret_cast<void (*)(void*, int, float, float, int, void*)>(terapkan.method);
+    lokal(self, bacaInt(zona, zonaAktif), x, y, step, terapkan.method);
+}
+
 // Daftar room membuang setiap room yang luas dunianya di atas batas perangkat
 // ini, dan panel join serta info memakai tes yang sama. Menjawab true membuat
 // room itu tetap terdaftar berapa pun ukurannya.
@@ -168,6 +197,14 @@ bool cariFieldUkuranDunia() {
            cariField(kelasField(multiUkuranDunia), "max", batasMulti);
 }
 
+bool cariFieldZonaLedak() {
+    if (!cariField(kelasDari("Tile__Explode"), "a", ledakManajer))
+        return false;
+    if (!cariField(kelasField(ledakManajer), "zone", manajerZona))
+        return false;
+    return cariField(kelasField(manajerZona), "current", zonaAktif);
+}
+
 } // namespace
 
 void pasangHookMultiplayer() {
@@ -182,4 +219,7 @@ void pasangHookMultiplayer() {
     pasangHook(target(T_SEND_TILE_REMOVE), reinterpret_cast<void*>(hookKirimTileRemove));
     pasangHook(target(T_SEND_OBJ_ADD), reinterpret_cast<void*>(hookKirimObjAdd));
     pasangHook(target(T_SEND_OBJ_REMOVE), reinterpret_cast<void*>(hookKirimObjRemove));
+    zonaSiap = cariFieldZonaLedak();
+    LOGI("Field zona ledakan %s", zonaSiap ? "OK" : "tidak ada, ledakan tetap lewat host");
+    pasangHook(target(T_EXPLODE_RANGE), reinterpret_cast<void*>(hookLedakRentang));
 }

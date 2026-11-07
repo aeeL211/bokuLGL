@@ -108,3 +108,8 @@ T_SEND_TILE_REPLACE|Net__Multi__Transfer__Send|Tile__Replace_|11|
 T_SEND_TILE_REMOVE|Net__Multi__Transfer__Send|Tile__Remove|7|
 T_SEND_OBJ_ADD|Net__Multi__Transfer__Send|Obj__Add|8|
 T_SEND_OBJ_REMOVE|Net__Multi__Transfer__Send|Obj__Remove|5|
+# Ledakan TNT tidak lewat facade kirim tile, melainkan paket Explosion_Range
+# yang ditolak host. Update__Range_ memilih antara jalur admin lokal dan paket
+# itu, sedangkan Update__Range__ adalah jalur lokal yang dipakai admin.
+T_EXPLODE_RANGE|Tile__Explode|Update__Range_|2|
+T_EXPLODE_APPLY|Tile__Explode|Update__Range__|3|
