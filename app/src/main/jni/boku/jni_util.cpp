@@ -4,7 +4,7 @@
 #include "jni_bridge.h"
 
 EnvScope::EnvScope() {
-    if (!lekatJni(&env_, &release_)) {
+    if (!attachJni(&env_, &release_)) {
         env_ = nullptr;
         release_ = false;
     }
@@ -22,5 +22,5 @@ void clearException(JNIEnv* env, const char* context) {
     if (!env || !env->ExceptionCheck())
         return;
     env->ExceptionClear();
-    LOGW("Eksepsi JNI dibersihkan: %s", context ? context : "tanpa konteks");
+    LOGW("JNI exception cleared: %s", context ? context : "without context");
 }

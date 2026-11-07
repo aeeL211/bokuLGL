@@ -9,7 +9,7 @@ import android.os.Looper;
 import android.view.View;
 
 public class Launcher extends Service {
-    /** Selang pemeriksaan apakah game masih di depan. */
+    /** Interval for checking whether the game is still in the foreground. */
     private static final long CHECK_MS = 1000L;
 
     Menu menu;
@@ -59,8 +59,8 @@ public class Launcher extends Service {
     //Destroy our View
     @Override
     public void onDestroy() {
-        // Pemeriksa dihentikan lebih dulu; kalau tidak, handler terus berjalan
-        // dan menahan Service ini di memori setelah dihancurkan.
+        // The checker is stopped first; otherwise the handler keeps running
+        // and holds this Service in memory after it is destroyed.
         if (handler != null) {
             handler.removeCallbacksAndMessages(null);
             handler = null;

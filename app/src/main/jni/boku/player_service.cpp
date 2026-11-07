@@ -12,9 +12,9 @@ namespace {
 constexpr double kDelayAction = 0.25;
 constexpr double kDelayList = 0.4;
 
-// Salinan tetap hidup dua detik sesudah pembacaan terakhir. Menu membaca sekali
-// per detik, jadi menutup menu menghentikan pembaruan tanpa menghapus data yang
-// masih ditampilkan.
+// The copy lives two seconds after the last read. The menu reads once per
+// second, so closing the menu stops the updates without dropping data that is
+// still on screen.
 constexpr double kPeriodList = 2.0;
 constexpr double kPeriodPosition = 2.0;
 
@@ -44,23 +44,23 @@ std::mutex keyPosition;
 PositionSummary positionSummary = {};
 std::atomic<double> positionRequested{0.0};
 
-bool enqueue(player::Action::Kind jenis, const char* key, const char* name) {
-    bool needKey = jenis == player::Action::Kind::Kick ||
-                      jenis == player::Action::Kind::KickPermanent ||
-                      jenis == player::Action::Kind::Copy;
+bool enqueue(player::Action::Kind type, const char* key, const char* name) {
+    bool needKey = type == player::Action::Kind::Kick ||
+                      type == player::Action::Kind::KickPermanent ||
+                      type == player::Action::Kind::Copy;
     if (!serviceReady.load() || (needKey && (!key || !*key)) ||
         (key && std::strlen(key) >= player::kCharacterKey))
         return false;
 
     std::lock_guard<std::mutex> hold(actionKey);
-    bool diterima = countQueue < player::kLimitAction;
-    if (diterima) {
+    bool accepted = countQueue < player::kLimitAction;
+    if (accepted) {
         player::Action& action = queue[countQueue++];
-        action.jenis = jenis;
+        action.type = type;
         std::snprintf(action.key, sizeof(action.key), "%s", key ? key : "");
         std::snprintf(action.name, sizeof(action.name), "%s", name && *name ? name : key);
     }
-    return diterima;
+    return accepted;
 }
 
 } // namespace
@@ -85,28 +85,28 @@ void storeList(const Summary* data, int count) {
     countPlayer = count;
 }
 
-void copyList(char* keluaran, std::size_t size) {
-    if (!keluaran || size == 0)
+void copyList(char* output, std::size_t size) {
+    if (!output || size == 0)
         return;
-    keluaran[0] = '\0';
+    output[0] = '\0';
     listRequested.store(nowSeconds() + kPeriodList);
 
-    Summary salinan[kMaxPlayer] = {};
+    Summary copy[kMaxPlayer] = {};
     int count = 0;
     {
         std::lock_guard<std::mutex> hold(listKey);
         count = countPlayer;
-        std::memcpy(salinan, playerList, sizeof(Summary) * static_cast<std::size_t>(count));
+        std::memcpy(copy, playerList, sizeof(Summary) * static_cast<std::size_t>(count));
     }
 
     std::size_t position = 0;
     for (int i = 0; i < count; i++) {
-        int ditulis =
-            std::snprintf(keluaran + position, size - position, "%s%s\t%s\t%s", i ? "\n" : "",
-                          salinan[i].name, salinan[i].key, salinan[i].role);
-        if (ditulis < 0 || static_cast<std::size_t>(ditulis) >= size - position)
+        int written =
+            std::snprintf(output + position, size - position, "%s%s\t%s\t%s", i ? "\n" : "",
+                          copy[i].name, copy[i].key, copy[i].role);
+        if (written < 0 || static_cast<std::size_t>(written) >= size - position)
             break;
-        position += static_cast<std::size_t>(ditulis);
+        position += static_cast<std::size_t>(written);
     }
 }
 
@@ -159,26 +159,26 @@ void storePosition(bool hasTile, float tileX, float tileY, float worldX, float w
     positionSummary.worldY = worldY;
 }
 
-void copyPosition(char* keluaran, std::size_t size) {
-    if (!keluaran || size == 0)
+void copyPosition(char* output, std::size_t size) {
+    if (!output || size == 0)
         return;
-    keluaran[0] = '\0';
+    output[0] = '\0';
     positionRequested.store(nowSeconds() + kPeriodPosition);
 
-    PositionSummary salinan = {};
+    PositionSummary copy = {};
     {
         std::lock_guard<std::mutex> hold(keyPosition);
-        salinan = positionSummary;
+        copy = positionSummary;
     }
 
-    if (!salinan.has)
+    if (!copy.has)
         return;
-    if (salinan.hasTile) {
-        std::snprintf(keluaran, size, "%.2f\t%.2f\t%.1f\t%.1f", salinan.tileX, salinan.tileY,
-                      salinan.worldX, salinan.worldY);
+    if (copy.hasTile) {
+        std::snprintf(output, size, "%.2f\t%.2f\t%.1f\t%.1f", copy.tileX, copy.tileY,
+                      copy.worldX, copy.worldY);
     } else {
-        std::snprintf(keluaran, size, "\t\t%.1f\t%.1f", salinan.worldX, salinan.worldY);
+        std::snprintf(output, size, "\t\t%.1f\t%.1f", copy.worldX, copy.worldY);
     }
 }
 
-} // namespace pemain
+} // namespace player

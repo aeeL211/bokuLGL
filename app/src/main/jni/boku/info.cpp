@@ -15,50 +15,50 @@
 namespace {
 
 bool versionApplication(char* name, size_t size, jint& code) {
-    EnvScope lingkup;
-    if (!lingkup)
+    EnvScope scope;
+    if (!scope)
         return false;
-    JNIEnv* env = lingkup.env();
+    JNIEnv* env = scope.env();
 
     bool success = false;
     code = 0;
 
-    LocalRef<jobject> activity;
+    LocalRef<jobject> activityObject;
     if (klassUnityPlayer()) {
         jfieldID fieldActivity =
             env->GetStaticFieldID(klassUnityPlayer(), "currentActivity", "Landroid/app/Activity;");
         if (fieldActivity)
-            activity = LocalRef<jobject>(
+            activityObject = LocalRef<jobject>(
                 env, env->GetStaticObjectField(klassUnityPlayer(), fieldActivity));
         else
             clearException(env, "UnityPlayer.currentActivity");
     }
 
     const ActivityClass* activity = cacheActivity(env);
-    LocalRef<jstring> packet;
+    LocalRef<jstring> appPackage;
     LocalRef<jobject> manager;
-    if (activity && activity && activity->packetName && activity->managerPacket) {
-        packet = LocalRef<jstring>(
-            env, static_cast<jstring>(env->CallObjectMethod(activity.get(), activity->packetName)));
+    if (activityObject && activity && activity->packageName && activity->managerPackage) {
+        appPackage = LocalRef<jstring>(
+            env, static_cast<jstring>(env->CallObjectMethod(activityObject.get(), activity->packageName)));
         manager =
-            LocalRef<jobject>(env, env->CallObjectMethod(activity.get(), activity->managerPacket));
+            LocalRef<jobject>(env, env->CallObjectMethod(activityObject.get(), activity->managerPackage));
     }
 
-    const PacketManagerClass* infoManager = cacheManagerPacket(env);
-    LocalRef<jobject> informasi;
-    if (manager && packet && infoManager && infoManager->infoPacket) {
-        informasi = LocalRef<jobject>(
-            env, env->CallObjectMethod(manager.get(), infoManager->infoPacket, packet.get(), 0));
+    const PackageManagerClass* infoManager = cacheManagerPackage(env);
+    LocalRef<jobject> infoObject;
+    if (manager && appPackage && infoManager && infoManager->infoPackage) {
+        infoObject = LocalRef<jobject>(
+            env, env->CallObjectMethod(manager.get(), infoManager->infoPackage, appPackage.get(), 0));
     }
 
-    const PacketInfoClass* info = cacheInfoPacket(env);
+    const PackageInfoClass* packageInfo = cacheInfoPackage(env);
     LocalRef<jstring> version;
-    if (informasi && info) {
-        if (info->versionName)
+    if (infoObject && packageInfo) {
+        if (packageInfo->versionName)
             version = LocalRef<jstring>(
-                env, static_cast<jstring>(env->GetObjectField(informasi.get(), info->versionName)));
-        if (info->codeVersion)
-            code = env->GetIntField(informasi.get(), info->codeVersion);
+                env, static_cast<jstring>(env->GetObjectField(infoObject.get(), packageInfo->versionName)));
+        if (packageInfo->versionCode)
+            code = env->GetIntField(infoObject.get(), packageInfo->versionCode);
         if (version) {
             StringUtf character(env, version.get());
             if (character) {
@@ -80,6 +80,6 @@ void recordEnvironment() {
     if (versionApplication(version, sizeof(version), code))
         LOGI("Boku Boku %s (code %d)", version, code);
     else
-        LOGI("Versi Boku Boku tidak terbaca");
+        LOGI("Boku Boku version unreadable");
     LOGI("Mod by Febrian/Ian (code aeeL), build %s", BOKU_BUILD_COMMIT);
 }

@@ -2,9 +2,9 @@
 
 #include <ctime>
 
-// Jam monotonik dipakai untuk irama antrean, masa berlaku daftar pemain, dan
-// pembaruan posisi. Perubahan jam dinding karena zona waktu atau penyetelan
-// pengguna karena itu tidak pernah mengubah jeda fitur.
+// The monotonic clock drives the queue rhythm, the player list lifetime, and
+// position updates. Wall-clock changes from the time zone or a user setting
+// therefore never change the timing of a feature.
 inline double nowSeconds() {
     timespec ts = {};
     clock_gettime(CLOCK_MONOTONIC, &ts);

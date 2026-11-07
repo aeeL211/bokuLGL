@@ -2,11 +2,11 @@
 
 namespace {
 
-Features sakelar;
+Features switchFlag;
 TeleportRequest teleport;
 
 } // namespace
 
-Features& features() { return sakelar; }
+Features& features() { return switchFlag; }
 
 TeleportRequest& teleportRequest() { return teleport; }

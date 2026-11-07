@@ -42,14 +42,14 @@ void Toast(JNIEnv *env, jobject thiz, const char *text, int length) {
         clearException(env, "Toast.makeText string");
         return;
     }
-    LocalRef<jobject> objekToast(env, env->CallStaticObjectMethod(toast->klass, toast->create, thiz,
+    LocalRef<jobject> toastObject(env, env->CallStaticObjectMethod(toast->klass, toast->create, thiz,
                                                                   message.get(),
                                                                   static_cast<jint>(length)));
-    if (!objekToast) {
+    if (!toastObject) {
         clearException(env, "Toast.makeText");
         return;
     }
-    env->CallVoidMethod(objekToast.get(), toast->show);
+    env->CallVoidMethod(toastObject.get(), toast->show);
     clearException(env, "Toast.show");
 }
 
@@ -82,14 +82,14 @@ void startService(JNIEnv *env, jobject ctx) {
     if (!ctx || !context || !context->startService || !intent || !intent->fromContext || !launcher)
         return;
 
-    LocalRef<jobject> objekIntent(env, env->NewObject(intent->klass, intent->fromContext, ctx,
+    LocalRef<jobject> intentObject(env, env->NewObject(intent->klass, intent->fromContext, ctx,
                                                       launcher));
-    if (!objekIntent) {
+    if (!intentObject) {
         clearException(env, "Intent Launcher");
         return;
     }
     LocalRef<jobject> component(
-            env, env->CallObjectMethod(ctx, context->startService, objekIntent.get()));
+            env, env->CallObjectMethod(ctx, context->startService, intentObject.get()));
     if (!component)
         clearException(env, "Context.startService");
 }
@@ -106,38 +106,38 @@ int get_api_sdk(JNIEnv *env) {
     return env->GetStaticIntField(build->klass, build->sdk);
 }
 
-void startActivityPermisson(JNIEnv *env, jobject ctx) {
+void startActivityPermission(JNIEnv *env, jobject ctx) {
     const ContextClass *context = cacheContext(env);
     const ClassMethod *uri = cacheUri(env);
     const IntentClass *intent = cacheIntent(env);
-    if (!ctx || !context || !context->packetName || !context->startActivity || !uri ||
+    if (!ctx || !context || !context->packageName || !context->startActivity || !uri ||
         !uri->method || !intent || !intent->fromUri)
         return;
 
-    LocalRef<jstring> packetName(
-            env, static_cast<jstring>(env->CallObjectMethod(ctx, context->packetName)));
-    if (!packetName) {
+    LocalRef<jstring> packageName(
+            env, static_cast<jstring>(env->CallObjectMethod(ctx, context->packageName)));
+    if (!packageName) {
         clearException(env, "Context.getPackageName");
         return;
     }
-    StringUtf packet(env, packetName.get());
-    if (!packet) {
+    StringUtf packageId(env, packageName.get());
+    if (!packageId) {
         clearException(env, "getPackageName UTF-8");
         return;
     }
 
-    const char *awalan = OBFUSCATE("package:");
-    char addressPacket[512];
-    snprintf(addressPacket, sizeof(addressPacket), "%s%s", awalan, packet.get());
+    const char *prefix = OBFUSCATE("package:");
+    char packageAddress[512];
+    snprintf(packageAddress, sizeof(packageAddress), "%s%s", prefix, packageId.get());
 
-    LocalRef<jstring> address(env, env->NewStringUTF(addressPacket));
+    LocalRef<jstring> address(env, env->NewStringUTF(packageAddress));
     if (!address) {
         clearException(env, "Uri string");
         return;
     }
-    LocalRef<jobject> uriObjek(
+    LocalRef<jobject> uriObject(
             env, env->CallStaticObjectMethod(uri->klass, uri->method, address.get()));
-    if (!uriObjek) {
+    if (!uriObject) {
         clearException(env, "Uri.parse");
         return;
     }
@@ -148,13 +148,13 @@ void startActivityPermisson(JNIEnv *env, jobject ctx) {
         clearException(env, "Intent action");
         return;
     }
-    LocalRef<jobject> objekIntent(env, env->NewObject(intent->klass, intent->fromUri, action.get(),
-                                                      uriObjek.get()));
-    if (!objekIntent) {
+    LocalRef<jobject> intentObject(env, env->NewObject(intent->klass, intent->fromUri, action.get(),
+                                                      uriObject.get()));
+    if (!intentObject) {
         clearException(env, "Intent permission");
         return;
     }
-    env->CallVoidMethod(ctx, context->startActivity, objekIntent.get());
+    env->CallVoidMethod(ctx, context->startActivity, intentObject.get());
     clearException(env, "Context.startActivity");
 }
 
@@ -178,7 +178,7 @@ void CheckOverlayPermission(JNIEnv *env, jclass thiz, jobject ctx) {
                   1);
             Toast(env, ctx, OBFUSCATE("Overlay permission is required in order to show mod menu."),
                   1);
-            startActivityPermisson(env, ctx);
+            startActivityPermission(env, ctx);
 
             pthread_t ptid;
             pthread_create(&ptid, nullptr, exit_thread, nullptr);

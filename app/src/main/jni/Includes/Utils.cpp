@@ -8,8 +8,8 @@ jboolean isGameLibLoaded(JNIEnv* env, jobject thiz) {
     return mainLibLoaded.load(std::memory_order_relaxed);
 }
 
-// Dicari di /proc/self/maps, bukan dengan dlopen, supaya library yang sudah
-// dipetakan game terdeteksi tanpa menaikkan refcount-nya.
+// Found in /proc/self/maps, not through dlopen, so a library already mapped
+// by the game is detected without raising its refcount.
 bool isLibraryLoaded(const char* libraryName) {
     if (mainLibLoaded.load(std::memory_order_relaxed))
         return true;

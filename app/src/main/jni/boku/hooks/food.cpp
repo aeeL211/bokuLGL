@@ -7,31 +7,30 @@
 
 namespace {
 
-// Setiap metode akhir makan dimiliki state pemain, dan state itu menyimpan
-// Player__Manager miliknya. Offset m berbeda per postur, jadi field dicari per
-// target dan disimpan pada instansiasi template masing-masing.
+// Every end-of-eating method is owned by a player state, and that state holds
+// its own Player__Manager. The m offset differs per posture, so the field is
+// looked up per target and stored in each template instantiation.
 template <TargetId id> Field& fieldPlayerEat() {
     static Field field = {};
     return field;
 }
 
-// Makanan hanya keluar dari tangan lewat ...__Eat__End miliknya sendiri, yang
-// meminta id tangan kosong ke Player__Manager.Hh__Change. Setiap makanan dan
-// postur punya salinan metode itu, jadi masing-masing menahan perubahan tangan
-// dan potongannya tetap di tangan. Sushi, es krim, dan popsicle sengaja
-// dibiarkan: satu gigitan menghabiskan item itu, lalu game menaruh pemain pada
-// pose akhir yang mematikan lapisan tangan, sehingga potongan yang ditahan tetap
-// tidak terlihat sampai pemain bergerak. Gingerbread dan hot cross bun
-// mengakhiri gigitan terakhirnya pada pose yang masih menggambar tangan.
+// Food only leaves the hand through its own ...__Eat__End, which asks
+// Player__Manager.Hh__Change for an empty hand id. Every food and posture has a
+// copy of that method, so each one holds the hand change and the piece stays in
+// the hand. Sushi, ice cream, and popsicle are left alone on purpose: one bite
+// finishes that item, then the game puts the player in an end pose that hides
+// the hand layer, so a held piece stays invisible until the player moves.
+// Gingerbread and hot cross bun end their last bite on a pose that still draws
+// the hand.
 //
-// Animasi makan menyembunyikan sprite yang dipegang tepat setelah perubahan
-// tangan itu, jadi tangan disusun ulang di akhir update pemain tersebut, saat
-// mesin state sudah melewati animasi makan. Tanpa itu makanannya masih di
-// tangan tetapi tidak terlihat sampai pemain bergerak dan penyegaran state
-// menyusunnya kembali.
+// The eating animation hides the held sprite right after that hand change, so
+// the hand is rebuilt at the end of that player update, when the state machine
+// has passed the eating animation. Without it the food is still in the hand but
+// invisible until the player moves and the state refresh rebuilds it.
 //
-// Tamu di dalam room menjalankan state yang sama di simulasi lokal, jadi hanya
-// pemain lokal yang tangannya ditahan.
+// Guests inside the room run the same state in the local simulation, so only the
+// local player's hand is held.
 template <TargetId id> void hookEndEat(void* self, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(id).orig);
     if (!original)

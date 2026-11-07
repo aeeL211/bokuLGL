@@ -8,7 +8,7 @@
 
 namespace {
 
-int daftarkan(JNIEnv *env, const char *name, JNINativeMethod *methods, int count) {
+int registerNative(JNIEnv *env, const char *name, JNINativeMethod *methods, int count) {
     LocalRef<jclass> clazz(env, env->FindClass(name));
     if (!clazz) {
         clearException(env, "FindClass menu");
@@ -54,7 +54,7 @@ int RegisterMenu(JNIEnv *env) {
              reinterpret_cast<void *>(CopyPlayerSkin)},
     };
 
-    return daftarkan(env, OBFUSCATE("com/android/support/Menu"), methods,
+    return registerNative(env, OBFUSCATE("com/android/support/Menu"), methods,
                      static_cast<int>(sizeof(methods) / sizeof(methods[0])));
 }
 
@@ -64,7 +64,7 @@ int RegisterPreferences(JNIEnv *env) {
              OBFUSCATE("(Landroid/content/Context;ILjava/lang/String;IJZLjava/lang/String;)V"),
              reinterpret_cast<void *>(Changes)},
     };
-    return daftarkan(env, OBFUSCATE("com/android/support/Preferences"), methods,
+    return registerNative(env, OBFUSCATE("com/android/support/Preferences"), methods,
                      static_cast<int>(sizeof(methods) / sizeof(methods[0])));
 }
 
@@ -73,7 +73,7 @@ int RegisterMain(JNIEnv *env) {
             {OBFUSCATE("CheckOverlayPermission"), OBFUSCATE("(Landroid/content/Context;)V"),
              reinterpret_cast<void *>(CheckOverlayPermission)},
     };
-    return daftarkan(env, OBFUSCATE("com/android/support/Main"), methods,
+    return registerNative(env, OBFUSCATE("com/android/support/Main"), methods,
                      static_cast<int>(sizeof(methods) / sizeof(methods[0])));
 }
 
@@ -84,14 +84,14 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env;
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK)
         return JNI_ERR;
-    // Satu-satunya JNI_OnLoad di library ini: milik menu, yang juga menyerahkan
-    // JavaVM dan kelas activity ke sisi mod.
+    // The only JNI_OnLoad in this library: it belongs to the menu, which also
+    // hands the JavaVM and activity class to the mod side.
     setupMod(vm, env);
 
-    // Kelas menu hanya ada saat pustaka ini dimuat dari APK yang sudah digabung
-    // dengan template. Bila pustaka disuntikkan ke game asli, kelas itu tidak
-    // terdaftar; hook tetap harus berjalan dengan sakelar bawaannya, jadi
-    // kegagalan pendaftaran dicatat dan tidak membatalkan pemuatan.
+    // The menu classes exist only when this library is loaded from an APK merged
+    // with the template. If the library is injected into the stock game they are
+    // not registered; the hooks must still run with their default switches, so
+    // a failed registration is logged and does not abort loading.
     bool menuRegistered = true;
     if (RegisterMenu(env) != 0)
         menuRegistered = false;
@@ -99,11 +99,11 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
         menuRegistered = false;
     if (RegisterMain(env) != 0)
         menuRegistered = false;
-    // Kelas pembantu diikat setelah pendaftaran. Bila kelas menu tidak ada,
-    // setiap entri cache gagal sendiri-sendiri dan pemanggilnya memakai jalur
-    // aman tanpa JNI.
+    // Helper classes are bound after registration. If the menu classes are
+    // missing, each cache entry fails on its own and its caller uses the safe
+    // path without JNI.
     prepareJniCache(env);
     if (!menuRegistered)
-        LOGI("Kelas menu tidak terdaftar, fitur berjalan tanpa menu");
+        LOGI("Menu class not registered, features run without a menu");
     return JNI_VERSION_1_6;
 }

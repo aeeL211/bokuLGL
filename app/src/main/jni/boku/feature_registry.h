@@ -2,14 +2,14 @@
 
 #include <jni.h>
 
-// Nomor fitur adalah kontrak dengan Java: nilainya tertulis di daftar fitur dan
-// dikirim kembali oleh Preferences.Changes. Konstanta ini hanya menamai angka
-// yang sudah ada; urutannya tidak boleh berubah.
+// Feature numbers are a contract with Java: the values are written in the
+// feature list and sent back by Preferences.Changes. These constants only name
+// numbers that already exist; their order must not change.
 namespace feature_number {
 constexpr jint kIap = 0;
 constexpr jint kSlot = 1;
 constexpr jint kInputText = 2;
-constexpr jint kWordRude = 4;
+constexpr jint kRudeWord = 4;
 constexpr jint kSaveWorldAndRoom = 5;
 constexpr jint kPasswordRoom = 6;
 constexpr jint kPrivacy = 7;
@@ -23,18 +23,18 @@ constexpr jint kKnockback = 16;
 constexpr jint kNoClip = 19;
 constexpr jint kTeleportX = 20;
 constexpr jint kTeleportY = 21;
-constexpr jint kTeleportJalankan = 22;
+constexpr jint kTeleportRun = 22;
 constexpr jint kSpeed = 23;
 constexpr jint kGravity = 24;
 constexpr jint kResetSpeed = 25;
 constexpr jint kResetGravity = 26;
 constexpr jint kRangeSkin = 27;
-constexpr jint kPecahan = 28;
+constexpr jint kDebris = 28;
 constexpr jint kPermissionRoomOther = 29;
 constexpr jint kValueSpeedInitial = 10;
 constexpr jint kValueGravityInitial = 10;
-} // namespace fitur_nomor
+} // namespace feature_number
 
-// Menulis satu perubahan dari menu ke state atomik. Nomor yang tidak dikenal
-// diabaikan, sama seperti switch bawaan.
+// Writes one change from the menu into the atomic state. Unknown numbers are
+// ignored, the same as the stock switch.
 void applyFeatureChange(jint number, jboolean active, jint value);

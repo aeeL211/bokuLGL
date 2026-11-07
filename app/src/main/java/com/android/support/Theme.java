@@ -25,16 +25,16 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Palet, radius, dan pembuat drawable untuk menu bergaya panel kayu pixel-art.
+ * Palette, radii, and drawable builders for the pixel-art wood panel menu.
  *
- * Semua warna dan ukuran sudut dipusatkan di sini, jadi Menu.java tidak lagi
- * menulis nilai hex atau angka dp sendiri.
+ * Every color and corner size lives here, so Menu.java no longer writes its own
+ * hex values or dp numbers.
  */
 public final class Theme {
     private Theme() {
     }
 
-    // Palet panel kayu.
+    // Wood panel palette.
     public static final int HEADER = 0xFF996C34;
     public static final int BODY = 0xFFFACA82;
     public static final int ROW = 0xFFDCB983;
@@ -50,55 +50,55 @@ public final class Theme {
     public static final int TRACK = 0xFF936832;
     public static final int ACTIVE_BORDER = 0xFFF6F6F6;
 
-    // Tombol sudut seperti tombol kembali di game: kotak hitam, garis putih.
+    // Corner button like the in-game back button: black box, white line.
     public static final int BOX_CORNER = 0xFF000000;
     public static final int BOX_CORNER_PRESS = 0xFF3A3A3A;
 
-    // Warna saat ditekan: baris sedikit lebih gelap, tombol berisi TRACK.
+    // Pressed colors: rows slightly darker, filled buttons use TRACK.
     public static final int ROW_PRESS = 0xFFCDA874;
     public static final int HEADER_PRESS = 0xFF86602D;
 
-    // Tiga nada ikon pixel-art game (diambil dari ikon CRT filter / Vignette / Light Effect).
+    // Three game pixel-art icon tones (taken from the CRT filter / Vignette / Light Effect icons).
     public static final int ICON_LIGHT = 0xFFCCAA77;
     public static final int ICON_MID = 0xFFBB8855;
     public static final int ICON_DARK = 0xFF996633;
 
-    // Garis tombol kayu: krem terang di atas isi cokelat tua.
+    // Wood button edge: light cream over a dark brown fill.
     public static final int BUTTON_BORDER = 0xFFDCB983;
 
-    // Turunan palet yang dipakai berulang.
+    // Palette derivatives used repeatedly.
     public static final int FOOTER = HEADER;
     public static final int MUTED = ICON_BOX;
     public static final int ACCENT = TITLE_TEXT;
 
-    // Sudut, dalam dp. Semua drawable mengambil nilai dari sini.
+    // Corners, in dp. Every drawable takes its values from here.
     public static final float RADIUS_PANEL = 3f;
     public static final float RADIUS_ROW = 5f;
     public static final float RADIUS_ICON = 5f;
     public static final float RADIUS_THUMB = 3f;
     public static final float RADIUS_KNOB = 10f;
 
-    // Tebal garis, dalam dp.
+    // Line thickness, in dp.
     public static final float BOLD_PANEL = 3f;
     public static final float BOLD_CONTROL = 3f;
     public static final float BOLD_FOCUS = 3f;
 
-    // Ukuran teks. Tidak ada bold di seluruh menu.
+    // Text sizes. No bold anywhere in the menu.
     public static final float TITLE_SP = 22f;
     public static final float SECTION_SP = 18f;
     public static final float ROW_SP = 16f;
     public static final float DESC_SP = 14f;
 
-    /** Ukuran sentuh minimum setiap kontrol, dalam dp. */
+    /** Minimum touch size of every control, in dp. */
     public static final float TARGET_DP = 48f;
 
-    // Slider seperti semula: SeekBar setinggi 28dp, track 4dp (inset 12dp atas-bawah), thumb 10x24dp.
-    /** Tinggi SeekBar. */
+    // Slider as before: 28dp-tall SeekBar, 4dp track (12dp inset top and bottom), 10x24dp thumb.
+    /** SeekBar height. */
     public static final float SLIDER_HEIGHT_DP = 28f;
     private static final float SLIDER_INSET_DP = 12f;
     private static final float SLIDER_THUMB_WIDTH_DP = 10f;
     private static final float SLIDER_THUMB_HEIGHT_DP = 24f;
-    private static final float ZIGZAG_JARI_DP = 3f;
+    private static final float ZIGZAG_FINGER_DP = 3f;
     private static final float ZIGZAG_STEP_DP = 8f;
 
     private static final String FONT_ASSET = "fonts/itim.ttf";
@@ -110,7 +110,7 @@ public final class Theme {
                 sFont = Typeface.createFromAsset(context.getApplicationContext().getAssets(),
                         FONT_ASSET);
             } catch (Throwable t) {
-                Log.d(BKLog.TAG, "Font gagal dimuat: " + t);
+                Log.d(BKLog.TAG, "Failed to load font: " + t);
                 sFont = Typeface.DEFAULT;
             }
         }
@@ -118,8 +118,9 @@ public final class Theme {
     }
 
     /**
-     * Memasang font game ke semua TextView, Button, Switch, CheckBox, EditText,
-     * dan turunannya. Bold dari Html.fromHtml ikut dilepas supaya tetap regular.
+     * Applies the game font to every TextView, Button, Switch, CheckBox, EditText,
+     * and their subclasses. Bold spans from Html.fromHtml are stripped too so the
+     * text stays regular.
      */
     public static void applyFont(View view) {
         if (view == null)
@@ -145,7 +146,7 @@ public final class Theme {
         if (!(content instanceof Spanned))
             return;
 
-        // Teks tidak dibuat ulang bila memang tidak ada span tebal.
+        // Text is not rebuilt when there is no bold span at all.
         StyleSpan[] old = ((Spanned) content).getSpans(0, content.length(), StyleSpan.class);
         boolean hasBold = false;
         for (StyleSpan span : old) {
@@ -186,10 +187,10 @@ public final class Theme {
     private static final double GAMMA = 2.2;
 
     /**
-     * Campuran dua warna ARGB tanpa boxing, aman dipanggil tiap frame. Hasilnya
-     * sama dengan ArgbEvaluator bawaan Android: RGB dicampur di ruang linear
-     * (gamma 2.2), alpha dicampur biasa. Dicampur langsung di sRGB akan
-     * membuat warna di tengah animasi tampak sedikit lebih gelap.
+     * Blends two ARGB colors without boxing, safe to call every frame. The
+     * result matches Android's stock ArgbEvaluator: RGB is mixed in linear space
+     * (gamma 2.2), alpha is mixed plainly. Mixing directly in sRGB would make
+     * mid-animation colors look slightly darker.
      */
     public static int mix(int from, int to, float f) {
         if (f <= 0f)
@@ -198,13 +199,13 @@ public final class Theme {
             return to;
         int a0 = from >>> 24;
         int a = Math.round(a0 + ((to >>> 24) - a0) * f);
-        int r = kanal((from >> 16) & 0xFF, (to >> 16) & 0xFF, f);
-        int g = kanal((from >> 8) & 0xFF, (to >> 8) & 0xFF, f);
-        int b = kanal(from & 0xFF, to & 0xFF, f);
+        int r = channel((from >> 16) & 0xFF, (to >> 16) & 0xFF, f);
+        int g = channel((from >> 8) & 0xFF, (to >> 8) & 0xFF, f);
+        int b = channel(from & 0xFF, to & 0xFF, f);
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private static int kanal(int from, int to, float f) {
+    private static int channel(int from, int to, float f) {
         double d = Math.pow(from / 255.0, GAMMA);
         double k = Math.pow(to / 255.0, GAMMA);
         double v = d + (k - d) * f;
@@ -221,15 +222,15 @@ public final class Theme {
         return drawable;
     }
 
-    /** Drawable dengan satu tampilan biasa dan satu tampilan saat ditekan. */
-    private static Drawable press(Drawable biasa, Drawable pressed) {
+    /** Drawable with one normal state and one pressed state. */
+    private static Drawable press(Drawable normal, Drawable pressed) {
         StateListDrawable drawable = new StateListDrawable();
         drawable.addState(new int[]{android.R.attr.state_pressed}, pressed);
-        drawable.addState(new int[]{}, biasa);
+        drawable.addState(new int[]{}, normal);
         return drawable;
     }
 
-    /** Bingkai luar panel: isi gelap 3dp, jadi padding view membentuk outline. */
+    /** Panel outer frame: 3dp dark fill, so the view padding forms the outline. */
     public static Drawable panel(Context context) {
         return box(ICON_BOX, RADIUS_PANEL, 0f, ICON_BOX, context);
     }
@@ -250,53 +251,53 @@ public final class Theme {
         return drawable;
     }
 
-    /** Kepala section: pita cokelat polos, tanpa garis tebal. */
+    /** Section header: plain brown band, no thick stroke. */
     public static Drawable sectionHeader(Context context) {
         return box(HEADER, RADIUS_ROW, 0f, HEADER, context);
     }
 
-    /** Kepala section yang bisa diketuk: sedikit lebih gelap saat ditekan. */
+    /** Tappable section header: slightly darker when pressed. */
     public static Drawable sectionHeaderPress(Context context) {
         return press(sectionHeader(context),
                 box(HEADER_PRESS, RADIUS_ROW, 0f, HEADER_PRESS, context));
     }
 
-    /** Isi section transparan: baris di dalamnya langsung duduk di atas BODY. */
+    /** Transparent section body: the rows inside sit directly on BODY. */
     public static Drawable sectionBody(Context context) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(0x00000000);
         return drawable;
     }
 
-    /** Baris kontrol game: datar #DCB983 tanpa garis, sudut melengkung ±5dp. */
+    /** Game control row: flat #DCB983 with no stroke, ~5dp rounded corners. */
     public static Drawable row(Context context) {
         return box(ROW, RADIUS_ROW, 0f, ROW, context);
     }
 
-    /** Tombol utama dialog: seperti tombol aktif (garis putih), dengan umpan balik tekan. */
+    /** Dialog main button: like an active button (white stroke), with press feedback. */
     public static Drawable mainButton(Context context) {
         return press(activeButton(context),
                 box(TRACK, RADIUS_PANEL, BOLD_FOCUS, ACTIVE_BORDER, context));
     }
 
-    /** Kolom isian dialog: baris ROW dengan garis tipis, bukan garis bawah bawaan. */
+    /** Dialog input field: a ROW box with a thin stroke instead of the default underline. */
     public static Drawable dialogInput(Context context) {
         return box(ROW, RADIUS_ROW, 1f, STROKE_CONTROL, context);
     }
 
-    /** Kartu yang bisa diketuk: sedikit lebih gelap saat ditekan. */
+    /** Tappable card: slightly darker when pressed. */
     public static Drawable card(Context context) {
         return press(box(ROW, RADIUS_ROW, 0f, ROW, context),
                 box(ROW_PRESS, RADIUS_ROW, 0f, ROW_PRESS, context));
     }
 
-    /** Kartu pemain yang sedang dipilih memakai garis fokus putih. */
+    /** The selected player card uses a white focus stroke. */
     public static Drawable cardSelected(Context context) {
         return press(box(ROW, RADIUS_ROW, BOLD_FOCUS, ACTIVE_BORDER, context),
                 box(ROW_PRESS, RADIUS_ROW, BOLD_FOCUS, ACTIVE_BORDER, context));
     }
 
-    /** Tombol kayu: isi cokelat tua dengan garis krem 3dp, sudut kecil. */
+    /** Wood button: dark brown fill with a 3dp cream stroke, small corners. */
     public static Drawable button(Context context) {
         return box(ICON_BOX, RADIUS_PANEL, BOLD_CONTROL, BUTTON_BORDER, context);
     }
@@ -309,15 +310,15 @@ public final class Theme {
         return box(TRACK, RADIUS_PANEL, BOLD_CONTROL, STROKE_CONTROL, context);
     }
 
-    /** Tombol kecil: isi berubah menjadi TRACK saat ditekan supaya terasa responsif. */
+    /** Small button: the fill turns TRACK when pressed so it feels responsive. */
     public static Drawable smallButton(Context context) {
         return smallButton(context, 0f);
     }
 
     /**
-     * Tombol kecil dengan ruang sentuh lebih tinggi dari gambarnya. View-nya
-     * setinggi 48dp, tetapi kotaknya digambar menyusut {@code insetVertDp} di
-     * atas dan bawah, jadi tampilan tetap sama dan jari tetap kena.
+     * Small button with more touch area than its drawing. The view is 48dp
+     * tall, but the box is drawn shrunk by {@code insetVertDp} at the top and
+     * bottom, so the look stays the same and fingers still land.
      */
     public static Drawable smallButton(Context context, float insetVertDp) {
         Drawable drawable = press(
@@ -329,29 +330,29 @@ public final class Theme {
         return new InsetDrawable(drawable, 0, v, 0, v);
     }
 
-    /** Tombol kayu penuh (footer) dengan umpan balik tekan. */
+    /** Full wood button (footer) with press feedback. */
     public static Drawable pressButton(Context context) {
         return press(button(context),
                 box(TRACK, RADIUS_PANEL, BOLD_CONTROL, BUTTON_BORDER, context));
     }
 
     /**
-     * Lapisan tipis untuk Button di dalam kotak tombol yang sudah punya garis:
-     * transparan biasanya, terang sedikit saat ditekan.
+     * Thin layer for a Button inside a button box that already has a border:
+     * usually transparent, slightly brighter when pressed.
      */
     public static Drawable pressOverlay(Context context) {
         return press(box(0x00000000, RADIUS_PANEL, 0f, 0x00000000, context),
                 box(0x26FFFFFF, RADIUS_PANEL, 0f, 0x26FFFFFF, context));
     }
 
-    /** Baris yang bisa diketuk: sedikit lebih gelap saat ditekan. */
+    /** Tappable row: slightly darker when pressed. */
     public static Drawable rowPress(Context context) {
         return press(row(context),
                 box(ROW_PRESS, RADIUS_ROW, 0f, ROW_PRESS, context));
     }
 
-    /** Scrollbar tipis berwarna TRACK, seperti penanda gulir di game. */
-    public static void gayaScrollbar(Context context, ScrollView scrollView) {
+    /** Thin TRACK-colored scrollbar, like the scroll marker in the game. */
+    public static void scrollbarStyle(Context context, ScrollView scrollView) {
         scrollView.setVerticalScrollBarEnabled(true);
         scrollView.setScrollBarSize((int) dp(context, 3f));
         if (Build.VERSION.SDK_INT >= 29)
@@ -363,9 +364,9 @@ public final class Theme {
     }
 
     /**
-     * Track tipis 4dp seperti slider game: garis #936832, bagian yang sudah
-     * terisi memakai cokelat tua #81521D supaya posisi tetap terbaca di atas
-     * baris #DCB983. Tinggi SeekBar 28dp dengan inset 12dp atas-bawah.
+     * Thin 4dp track like the game slider: #936832 line, the filled part uses
+     * dark brown #81521D so the position stays readable over the #DCB983 row.
+     * The SeekBar is 28dp tall with a 12dp inset at the top and bottom.
      */
     public static Drawable seekbarProgress(Context context) {
         GradientDrawable track = box(TRACK, 2f, 0f, TRACK, context);
@@ -379,7 +380,7 @@ public final class Theme {
         return layers;
     }
 
-    /** Thumb persegi panjang tegak #936832 seperti game, tanpa garis hitam. */
+    /** Upright rectangular #936832 thumb like the game, with no black border. */
     public static Drawable seekbarThumb(Context context) {
         GradientDrawable drawable = box(TRACK, RADIUS_THUMB, 0f, TRACK, context);
         drawable.setSize((int) dp(context, SLIDER_THUMB_WIDTH_DP),
@@ -388,67 +389,67 @@ public final class Theme {
     }
 
     /**
-     * Tepi bergelombang pemisah header/body, mirip tepi bergerigi di game.
-     * Setengah lingkaran berwarna {@code warnaBump} digambar berderet di atas
-     * latar view. Bila {@code menggantung} benar, gelombang menggantung dari
-     * tepi atas (di bawah header); bila salah, naik dari tepi bawah (di atas
-     * footer).
+     * Wavy edge that separates the header and body, like the jagged edge in
+     * the game. Half circles colored {@code bumpColor} are drawn in a row over
+     * the view background. When {@code hanging} is true the waves hang from
+     * the top edge (below the header); when false they rise from the bottom
+     * edge (above the footer).
      */
     public static class Zigzag extends View {
-        private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float jariDp;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float fingerDp;
         private final float step;
-        private final boolean menggantung;
+        private final boolean hanging;
 
-        public Zigzag(Context context, int bumpColor, boolean menggantung) {
+        public Zigzag(Context context, int bumpColor, boolean hanging) {
             super(context);
-            this.menggantung = menggantung;
-            this.jariDp = dp(context, ZIGZAG_JARI_DP);
+            this.hanging = hanging;
+            this.fingerDp = dp(context, ZIGZAG_FINGER_DP);
             this.step = dp(context, ZIGZAG_STEP_DP);
-            cat.setStyle(Paint.Style.FILL);
-            cat.setColor(bumpColor);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(bumpColor);
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             float width = getWidth();
             float height = getHeight();
-            float jari = Math.min(height, jariDp);
-            float cy = menggantung ? 0f : height;
+            float finger = Math.min(height, fingerDp);
+            float cy = hanging ? 0f : height;
             for (float x = step / 2f; x < width + step; x += step)
-                canvas.drawCircle(x, cy, jari, cat);
+                canvas.drawCircle(x, cy, finger, paint);
         }
     }
 
     /**
-     * Panah lipatan kecil (kanan atau bawah). Ikon fitur memakai IkonFitur
-     * karena bentuknya grid 16x16. Path dibuat sekali saat ukuran berubah.
+     * Small fold arrow (right or down). Feature icons use IconPattern because
+     * they are a 16x16 grid. The path is built once whenever the size changes.
      */
     public static class Icon extends View {
         public static final int ARROW_RIGHT = 2;
         public static final int ARROW_DOWN = 3;
 
-        private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
         private final int sizePx;
-        private int jenis;
+        private int kind;
 
-        public static Icon polos(Context context, int jenis, int glyphColor, int sizeDp) {
-            return new Icon(context, jenis, glyphColor, sizeDp);
+        public static Icon plain(Context context, int kind, int glyphColor, int sizeDp) {
+            return new Icon(context, kind, glyphColor, sizeDp);
         }
 
-        private Icon(Context context, int jenis, int glyphColor, int sizeDp) {
+        private Icon(Context context, int kind, int glyphColor, int sizeDp) {
             super(context);
-            this.jenis = jenis;
+            this.kind = kind;
             this.sizePx = (int) dp(context, sizeDp);
-            cat.setStyle(Paint.Style.FILL);
-            cat.setColor(glyphColor);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(glyphColor);
         }
 
-        public void setJenis(int jenis) {
-            if (this.jenis == jenis)
+        public void setKind(int kind) {
+            if (this.kind == kind)
                 return;
-            this.jenis = jenis;
+            this.kind = kind;
             shape(getWidth(), getHeight());
             invalidate();
         }
@@ -470,7 +471,7 @@ public final class Theme {
             float cy = height / 2f;
             float s = Math.min(width, height);
             path.reset();
-            if (jenis == ARROW_DOWN) {
+            if (kind == ARROW_DOWN) {
                 path.moveTo(cx - s * 0.24f, cy - s * 0.14f);
                 path.lineTo(cx + s * 0.24f, cy - s * 0.14f);
                 path.lineTo(cx, cy + s * 0.22f);
@@ -484,7 +485,7 @@ public final class Theme {
 
         @Override
         protected void onDraw(Canvas canvas) {
-            canvas.drawPath(path, cat);
+            canvas.drawPath(path, paint);
         }
     }
 }

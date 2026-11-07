@@ -10,37 +10,37 @@ import android.graphics.RectF;
 import android.view.View;
 
 /**
- * Kotak ikon fitur: pola pixel-art dari {@link PolaIkon} di atas kotak cokelat.
+ * Feature icon box: pixel-art pattern from {@link IconPattern} on a brown box.
  *
- * Kotak ikon menempel penuh di tepi kiri baris (tanpa margin dan tanpa garis),
- * persis seperti kotak ikon di menu game. Hanya sudut kiri yang melengkung,
- * dengan radius yang sama seperti baris.
+ * The icon box is flush with the left edge of the row (no margin and no line),
+ * exactly like the icon box in the game menu. Only the left corner is rounded,
+ * with the same radius as the row.
  *
- * Semua objek gambar dibuat sekali di konstruktor atau onSizeChanged, jadi
- * onDraw tidak mengalokasikan apa pun.
+ * All drawing objects are created once in the constructor or onSizeChanged, so
+ * onDraw allocates nothing.
  */
 public class FeatureIcon extends View {
-    /** Lebar kotak ikon dalam dp. Tingginya mengikuti tinggi baris. */
+    /** Icon box width in dp. The height follows the row height. */
     public static final int WIDTH_DP = 48;
 
-    /** Bagian sisi terpendek kotak yang dipakai pola, seperti di game. */
+    /** Fraction of the box's shortest side used by the pattern, like in the game. */
     private static final float FRACTION_PATTERN = 0.70f;
 
     private final Paint catBox = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catPattern = PixelArt.catTajam();
+    private final Paint patternPaint = PixelArt.crispPaint();
     private final Path box = new Path();
     private final RectF area = new RectF();
     private final Rect target = new Rect();
     private final float[] corner = new float[8];
     private final Bitmap bitmap;
-    private int sel = 1;
+    private int cell = 1;
 
     public FeatureIcon(Context context, String[] pattern, boolean cornerLeft) {
         super(context);
-        bitmap = PixelArt.standar(pattern);
+        bitmap = PixelArt.defaultPattern(pattern);
         catBox.setStyle(Paint.Style.FILL);
 
-        // Urutan sudut: kiri-atas, kanan-atas, kanan-bawah, kiri-bawah.
+        // Corner order: top-left, top-right, bottom-right, bottom-left.
         float radius = Theme.dp(context, Theme.RADIUS_ROW);
         float right = cornerLeft ? 0f : radius;
         corner[0] = radius;
@@ -55,9 +55,9 @@ public class FeatureIcon extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int sisi = (int) Theme.dp(getContext(), WIDTH_DP);
-        setMeasuredDimension(resolveSize(sisi, widthMeasureSpec),
-                resolveSize(sisi, heightMeasureSpec));
+        int side = (int) Theme.dp(getContext(), WIDTH_DP);
+        setMeasuredDimension(resolveSize(side, widthMeasureSpec),
+                resolveSize(side, heightMeasureSpec));
     }
 
     @Override
@@ -66,7 +66,7 @@ public class FeatureIcon extends View {
         area.set(0f, 0f, w, h);
         box.reset();
         box.addRoundRect(area, corner, Path.Direction.CW);
-        sel = PixelArt.sel(w, h, FRACTION_PATTERN);
+        cell = PixelArt.cell(w, h, FRACTION_PATTERN);
     }
 
     @Override
@@ -77,9 +77,9 @@ public class FeatureIcon extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        // Hanya view yang bisa diketuk atau berada di baris yang bisa diketuk yang berstatus ditekan.
+        // Only a view that is clickable or inside a clickable row gets the pressed state.
         catBox.setColor(isPressed() ? Theme.TRACK : Theme.ICON_BOX);
         canvas.drawPath(box, catBox);
-        PixelArt.image(canvas, bitmap, catPattern, target, getWidth(), getHeight(), sel);
+        PixelArt.image(canvas, bitmap, patternPaint, target, getWidth(), getHeight(), cell);
     }
 }

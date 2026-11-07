@@ -3,53 +3,53 @@
 #include "features.h"
 
 void applyFeatureChange(jint number, jboolean active, jint value) {
-    Features& sakelar = features();
+    Features& switchFlag = features();
     switch (number) {
     case feature_number::kIap:
-        sakelar.iap = active;
+        switchFlag.iap = active;
         break;
     case feature_number::kSlot:
-        sakelar.slot = active;
+        switchFlag.slot = active;
         break;
     case feature_number::kInputText:
-        sakelar.inputText = active;
+        switchFlag.inputText = active;
         break;
-    case feature_number::kWordRude:
-        sakelar.wordRude = active;
+    case feature_number::kRudeWord:
+        switchFlag.rudeWord = active;
         break;
     case feature_number::kSaveWorldAndRoom:
-        sakelar.saveWorld = active;
-        sakelar.roomSize = active;
+        switchFlag.saveWorld = active;
+        switchFlag.roomSize = active;
         break;
     case feature_number::kPasswordRoom:
-        sakelar.roomPassword = active;
+        switchFlag.roomPassword = active;
         break;
     case feature_number::kPrivacy:
-        sakelar.privacy = active;
+        switchFlag.privacy = active;
         break;
     case feature_number::kChatPrivate:
-        sakelar.privateChat = active;
+        switchFlag.privateChat = active;
         break;
     case feature_number::kShootAutomatic:
-        sakelar.shootAutomatic = active;
+        switchFlag.shootAutomatic = active;
         break;
     case feature_number::kBusterFull:
-        sakelar.busterFull = active;
+        switchFlag.busterFull = active;
         break;
     case feature_number::kFeces:
-        sakelar.feces = active;
+        switchFlag.feces = active;
         break;
     case feature_number::kFood:
-        sakelar.food = active;
+        switchFlag.food = active;
         break;
     case feature_number::kShake:
-        sakelar.shake = active;
+        switchFlag.shake = active;
         break;
     case feature_number::kKnockback:
-        sakelar.knockback = active;
+        switchFlag.knockback = active;
         break;
     case feature_number::kNoClip:
-        sakelar.noClip = active;
+        switchFlag.noClip = active;
         break;
     case feature_number::kTeleportX:
         teleportRequest().x.store(value);
@@ -57,29 +57,29 @@ void applyFeatureChange(jint number, jboolean active, jint value) {
     case feature_number::kTeleportY:
         teleportRequest().y.store(value);
         break;
-    case feature_number::kTeleportJalankan:
-        teleportRequest().menunggu.store(true);
+    case feature_number::kTeleportRun:
+        teleportRequest().waiting.store(true);
         break;
     case feature_number::kSpeed:
-        sakelar.speedPlayer.store(value);
+        switchFlag.speedPlayer.store(value);
         break;
     case feature_number::kGravity:
-        sakelar.gravityPlayer.store(value);
+        switchFlag.gravityPlayer.store(value);
         break;
     case feature_number::kResetSpeed:
-        sakelar.speedPlayer.store(feature_number::kValueSpeedInitial);
+        switchFlag.speedPlayer.store(feature_number::kValueSpeedInitial);
         break;
     case feature_number::kResetGravity:
-        sakelar.gravityPlayer.store(feature_number::kValueGravityInitial);
+        switchFlag.gravityPlayer.store(feature_number::kValueGravityInitial);
         break;
     case feature_number::kRangeSkin:
-        sakelar.skinRange.store(value);
+        switchFlag.skinRange.store(value);
         break;
-    case feature_number::kPecahan:
-        sakelar.pecahan = active;
+    case feature_number::kDebris:
+        switchFlag.debris = active;
         break;
     case feature_number::kPermissionRoomOther:
-        sakelar.permissionRoomOther = active;
+        switchFlag.permissionRoomOther = active;
         break;
     default:
         break;

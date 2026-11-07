@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Membandingkan hasil refaktor dengan baseline di docs/baseline/.
+"""Compares the refactored source with the baseline in docs/baseline/.
 
-Dijalankan lokal tanpa NDK: skrip ini membaca sumber C++ dan memastikan daftar
-fitur, tabel RegisterNatives, dan urutan hook tidak berubah. Kompilasi tetap
-dilakukan di CI.
+Runs locally without the NDK: the script reads the C++ sources and checks that
+the feature list, RegisterNatives table, and hook order did not change.
+Compilation still happens in CI.
 """
 
 from __future__ import annotations
@@ -14,193 +14,193 @@ import sys
 from pathlib import Path
 
 
-def cari_root(mulai: Path) -> Path:
-    for kandidat in [mulai, *mulai.parents]:
-        if (kandidat / "docs" / "baseline" / "baseline_hooks.txt").is_file():
-            return kandidat
-    raise SystemExit("docs/baseline tidak ditemukan")
+def find_root(start: Path) -> Path:
+    for candidate in [start, *start.parents]:
+        if (candidate / "docs" / "baseline" / "baseline_hooks.txt").is_file():
+            return candidate
+    raise SystemExit("docs/baseline not found")
 
 
-def baca_baseline_daftar(path: Path) -> tuple[list[str], list[str]]:
-    teks = path.read_text(encoding="utf-8")
-    bagian = teks.split("=== ")
-    fitur: list[str] = []
-    setelan: list[str] = []
-    for blok in bagian[1:]:
-        judul, _, isi = blok.partition("===\n")
-        baris = [b for b in isi.splitlines() if b.strip()]
-        if judul.startswith("GetFeatureList"):
-            fitur = baris
-        elif judul.startswith("SettingsList"):
-            setelan = baris
-    if not fitur or not setelan:
-        raise SystemExit("baseline daftar tidak lengkap")
-    return fitur, setelan
+def read_baseline_lists(path: Path) -> tuple[list[str], list[str]]:
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("=== ")
+    features: list[str] = []
+    settings: list[str] = []
+    for block in parts[1:]:
+        title, _, body = block.partition("===\n")
+        lines = [line for line in body.splitlines() if line.strip()]
+        if title.startswith("GetFeatureList"):
+            features = lines
+        elif title.startswith("SettingsList"):
+            settings = lines
+    if not features or not settings:
+        raise SystemExit("baseline list is incomplete")
+    return features, settings
 
 
-def daftar_sumber(path: Path, fungsi: str) -> list[str]:
-    teks = path.read_text(encoding="utf-8")
-    awal = teks.index(f"jobjectArray {fungsi}(")
-    badan = teks[awal:]
-    akhir = badan.index("};")
-    return re.findall(r'OBFUSCATE\("([^"]*)"\)', badan[:akhir])
+def source_list(path: Path, function: str) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    start = text.index(f"jobjectArray {function}(")
+    body = text[start:]
+    end = body.index("};")
+    return re.findall(r'OBFUSCATE\("([^"]*)"\)', body[:end])
 
 
-def tabel_jni(path: Path) -> dict[str, list[tuple[str, str]]]:
-    teks = path.read_text(encoding="utf-8")
-    hasil: dict[str, list[tuple[str, str]]] = {}
-    for kelas in ("Menu", "Preferences", "Main"):
-        awal = teks.index(f"int Register{kelas}(")
-        badan = teks[awal:]
-        akhir = badan.index("return daftarkan")
-        nama_kelas = re.search(r'daftarkan\(env, OBFUSCATE\("([^"]+)"\)', badan[akhir:])
-        if not nama_kelas:
-            raise SystemExit(f"kelas {kelas} tidak ditemukan")
-        blok = badan[:akhir]
-        pasangan: list[tuple[str, str]] = []
-        for metode in re.finditer(
+def jni_table(path: Path) -> dict[str, list[tuple[str, str]]]:
+    text = path.read_text(encoding="utf-8")
+    result: dict[str, list[tuple[str, str]]] = {}
+    for klass in ("Menu", "Preferences", "Main"):
+        start = text.index(f"int Register{klass}(")
+        body = text[start:]
+        end = body.index("return registerNative")
+        class_name = re.search(r'registerNative\(env, OBFUSCATE\("([^"]+)"\)', body[end:])
+        if not class_name:
+            raise SystemExit(f"class {klass} not found")
+        block = body[:end]
+        pairs: list[tuple[str, str]] = []
+        for method in re.finditer(
                 r'\{OBFUSCATE\("([^"]+)"\),\s*OBFUSCATE\(((?:\s*"[^"]*")+)\)',
-                blok):
-            tanda = "".join(re.findall(r'"([^"]*)"', metode.group(2)))
-            pasangan.append((metode.group(1), tanda))
-        hasil[nama_kelas.group(1).replace("/", ".")] = sorted(pasangan)
-    return hasil
+                block):
+            signature = "".join(re.findall(r'"([^"]*)"', method.group(2)))
+            pairs.append((method.group(1), signature))
+        result[class_name.group(1).replace("/", ".")] = sorted(pairs)
+    return result
 
 
 def baseline_jni(path: Path) -> dict[str, list[tuple[str, str]]]:
-    hasil: dict[str, list[tuple[str, str]]] = {}
-    kelas: str | None = None
-    for baris in path.read_text(encoding="utf-8").splitlines():
-        judul = re.match(r"\s+(com\.android\.support\.\w+) \(", baris)
-        if judul:
-            kelas = judul.group(1)
-            hasil[kelas] = []
+    result: dict[str, list[tuple[str, str]]] = {}
+    current: str | None = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        title = re.match(r"\s+(com\.android\.support\.\w+) \(", line)
+        if title:
+            current = title.group(1)
+            result[current] = []
             continue
-        isi = re.match(r"\s+(\w+)\s+(\S.*)$", baris)
-        if kelas and isi and isi.group(2).startswith("("):
-            hasil[kelas].append((isi.group(1), isi.group(2).strip()))
-    return {kelas: sorted(metode) for kelas, metode in hasil.items()}
+        entry = re.match(r"\s+(\w+)\s+(\S.*)$", line)
+        if current and entry and entry.group(2).startswith("("):
+            result[current].append((entry.group(1), entry.group(2).strip()))
+    return {klass: sorted(method) for klass, method in result.items()}
 
 
-def badan_fungsi(teks: str, nama: str) -> str:
-    pola = re.compile(r"void\s+" + re.escape(nama) + r"\s*\([^)]*\)\s*\{")
-    cocok = pola.search(teks)
-    if not cocok:
-        raise SystemExit(f"fungsi {nama} tidak ditemukan")
-    mulai = cocok.end()
-    kedalaman = 1
-    for i in range(mulai, len(teks)):
-        if teks[i] == "{":
-            kedalaman += 1
-        elif teks[i] == "}":
-            kedalaman -= 1
-            if kedalaman == 0:
-                return teks[mulai:i]
-    raise SystemExit(f"badan {nama} tidak tertutup")
+def function_body(text: str, name: str) -> str:
+    pattern = re.compile(r"void\s+" + re.escape(name) + r"\s*\([^)]*\)\s*\{")
+    match = pattern.search(text)
+    if not match:
+        raise SystemExit(f"function {name} not found")
+    start = match.end()
+    depth = 1
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i]
+    raise SystemExit(f"body {name} is not closed")
 
 
-POLA_PASANG = re.compile(
-    r"pasangHook\(target\((T_[A-Z0-9_]+)\)"
-    r"|pasangAkhirMakan<(T_[A-Z0-9_]+)>\(\)"
-    r"|(pasang[A-Z][A-Za-z0-9_]*)\(\)"
+INSTALL_PATTERN = re.compile(
+    r"installHook\(target\((T_[A-Z0-9_]+)\)"
+    r"|installEndEat<(T_[A-Z0-9_]+)>\(\)"
+    r"|(install[A-Z][A-Za-z0-9_]*)\(\)"
 )
 
 
-def kumpulkan_hook(nama: str, teks: str, terlihat: set[str]) -> list[str]:
-    if nama in terlihat:
-        raise SystemExit(f"rekursi pasang hook: {nama}")
-    terlihat.add(nama)
-    hasil: list[str] = []
-    for cocok in POLA_PASANG.finditer(badan_fungsi(teks, nama)):
-        langsung, makan, bantuan = cocok.groups()
-        if langsung or makan:
-            hasil.append(langsung or makan)
-        elif bantuan:
-            hasil.extend(kumpulkan_hook(bantuan, teks, terlihat))
-    terlihat.remove(nama)
-    return hasil
+def collect_hooks(name: str, text: str, seen: set[str]) -> list[str]:
+    if name in seen:
+        raise SystemExit(f"recursive hook install: {name}")
+    seen.add(name)
+    result: list[str] = []
+    for match in INSTALL_PATTERN.finditer(function_body(text, name)):
+        direct, end_eat, helper = match.groups()
+        if direct or end_eat:
+            result.append(direct or end_eat)
+        elif helper:
+            result.extend(collect_hooks(helper, text, seen))
+    seen.remove(name)
+    return result
 
 
-def urutan_hook(root: Path) -> list[str]:
+def hook_order(root: Path) -> list[str]:
     jni = root / "app" / "src" / "main" / "jni"
-    main_teks = (jni / "boku" / "main.cpp").read_text(encoding="utf-8")
-    panggilan = re.findall(r"^(?:\s{4})(pasangHook[A-Z][A-Za-z0-9_]*)\(\);",
-                           main_teks, re.MULTILINE)
-    if len(panggilan) != 21:
-        raise SystemExit(f"jumlah pasangHookX di main.cpp {len(panggilan)}, bukan 21")
-    hasil: list[str] = []
-    for nama in panggilan:
-        for berkas in sorted((jni / "boku" / "hooks").glob("*.cpp")):
-            teks = berkas.read_text(encoding="utf-8")
-            if re.search(r"void\s+" + re.escape(nama) + r"\s*\(", teks):
-                hasil.extend(kumpulkan_hook(nama, teks, set()))
+    main_text = (jni / "boku" / "main.cpp").read_text(encoding="utf-8")
+    calls = re.findall(r"^(?:\s{4})(install[A-Z][A-Za-z0-9_]*)\(\);",
+                       main_text, re.MULTILINE)
+    if len(calls) != 21:
+        raise SystemExit(f"installHookX count in main.cpp is {len(calls)}, not 21")
+    result: list[str] = []
+    for name in calls:
+        for file in sorted((jni / "boku" / "hooks").glob("*.cpp")):
+            text = file.read_text(encoding="utf-8")
+            if re.search(r"void\s+" + re.escape(name) + r"\s*\(", text):
+                result.extend(collect_hooks(name, text, set()))
                 break
         else:
-            raise SystemExit(f"fungsi {nama} tidak ditemukan di hooks/")
-    return hasil
+            raise SystemExit(f"function {name} not found in hooks/")
+    return result
 
 
-def baseline_hook(path: Path) -> list[str]:
-    hasil: list[str] = []
-    for baris in path.read_text(encoding="utf-8").splitlines():
-        cocok = re.match(r"\d{2}\|(T_[A-Z0-9_]+)\|", baris)
-        if cocok:
-            hasil.append(cocok.group(1))
-    return hasil
+def baseline_hooks(path: Path) -> list[str]:
+    result: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"\d{2}\|(T_[A-Z0-9_]+)\|", line)
+        if match:
+            result.append(match.group(1))
+    return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=None)
     args = parser.parse_args()
-    root = args.root or cari_root(Path(__file__).resolve())
+    root = args.root or find_root(Path(__file__).resolve())
     jni = root / "app" / "src" / "main" / "jni"
 
-    gagal = False
+    failed = False
 
-    fitur_baseline, setelan_baseline = baca_baseline_daftar(
+    feature_baseline, settings_baseline = read_baseline_lists(
         root / "docs" / "baseline" / "baseline_daftar.txt")
-    fitur_sumber = daftar_sumber(jni / "Menu" / "FeatureList.cpp", "daftarFitur")
-    setelan_sumber = daftar_sumber(jni / "Menu" / "FeatureList.cpp", "daftarSetelan")
-    for nama, harap, dapat in (
-        ("GetFeatureList", fitur_baseline, fitur_sumber),
-        ("SettingsList", setelan_baseline, setelan_sumber),
+    feature_source = source_list(jni / "Menu" / "FeatureList.cpp", "featureList")
+    settings_source = source_list(jni / "Menu" / "FeatureList.cpp", "settingList")
+    for name, expected, actual in (
+        ("GetFeatureList", feature_baseline, feature_source),
+        ("SettingsList", settings_baseline, settings_source),
     ):
-        if harap == dapat:
-            print(f"OK   daftar {nama}: {len(dapat)} entri identik")
+        if expected == actual:
+            print(f"OK   list {name}: {len(actual)} identical entries")
         else:
-            gagal = True
-            print(f"FAIL daftar {nama}: baseline {len(harap)}, sumber {len(dapat)}")
-            for i, (a, b) in enumerate(zip(harap, dapat)):
+            failed = True
+            print(f"FAIL list {name}: baseline {len(expected)}, source {len(actual)}")
+            for i, (a, b) in enumerate(zip(expected, actual)):
                 if a != b:
-                    print(f"     baris {i + 1}: {a!r} != {b!r}")
+                    print(f"     line {i + 1}: {a!r} != {b!r}")
                     break
 
     jni_baseline = baseline_jni(root / "docs" / "baseline" / "baseline_jni_symbols.txt")
-    jni_sumber = tabel_jni(jni / "Menu" / "Setup.cpp")
-    if jni_baseline == jni_sumber:
-        total = sum(len(v) for v in jni_sumber.values())
-        print(f"OK   tabel JNI: {total} metode di {len(jni_sumber)} kelas identik")
+    jni_source = jni_table(jni / "Menu" / "Setup.cpp")
+    if jni_baseline == jni_source:
+        total = sum(len(v) for v in jni_source.values())
+        print(f"OK   JNI table: {total} methods in {len(jni_source)} identical classes")
     else:
-        gagal = True
-        print("FAIL tabel JNI berbeda")
-        for kelas in sorted(set(jni_baseline) | set(jni_sumber)):
-            if jni_baseline.get(kelas) != jni_sumber.get(kelas):
-                print(f"     {kelas}: {jni_baseline.get(kelas)} != {jni_sumber.get(kelas)}")
+        failed = True
+        print("FAIL JNI table differs")
+        for klass in sorted(set(jni_baseline) | set(jni_source)):
+            if jni_baseline.get(klass) != jni_source.get(klass):
+                print(f"     {klass}: {jni_baseline.get(klass)} != {jni_source.get(klass)}")
 
-    harap_hook = baseline_hook(root / "docs" / "baseline" / "baseline_hooks.txt")
-    dapat_hook = urutan_hook(root)
-    if harap_hook == dapat_hook:
-        print(f"OK   urutan hook: {len(dapat_hook)} pemasangan runtime identik")
+    expected_hooks = baseline_hooks(root / "docs" / "baseline" / "baseline_hooks.txt")
+    actual_hooks = hook_order(root)
+    if expected_hooks == actual_hooks:
+        print(f"OK   hook order: {len(actual_hooks)} identical runtime installs")
     else:
-        gagal = True
-        print(f"FAIL urutan hook: baseline {len(harap_hook)}, sumber {len(dapat_hook)}")
-        for i, (a, b) in enumerate(zip(harap_hook, dapat_hook)):
+        failed = True
+        print(f"FAIL hook order: baseline {len(expected_hooks)}, source {len(actual_hooks)}")
+        for i, (a, b) in enumerate(zip(expected_hooks, actual_hooks)):
             if a != b:
-                print(f"     urutan {i + 1}: {a} != {b}")
+                print(f"     order {i + 1}: {a} != {b}")
                 break
 
-    return 1 if gagal else 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

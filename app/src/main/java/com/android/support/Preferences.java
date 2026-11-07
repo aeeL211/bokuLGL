@@ -54,8 +54,8 @@ public class Preferences {
     }
 
     /**
-     * Bernilai benar bila fitur ini sudah pernah disimpan. Dipakai slider yang
-     * nilai 0-nya sah (gravitasi), jadi nilai bawaan tidak bisa ditebak dari 0.
+     * True when this feature has ever been saved. Used by sliders whose
+     * 0 value is valid (gravity), so the default cannot be guessed from 0.
      */
     public static boolean alreadySaved(String featureName, int featureNum) {
         if (!loadPref)

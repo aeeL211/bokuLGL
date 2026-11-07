@@ -24,50 +24,51 @@ void installSpoofHook();
 void installRoomHook();
 void installPlayerHook();
 
-// Bernilai benar bila manajer pemain ini adalah pemain lokal. Dipakai hook yang
-// berjalan untuk semua pemain supaya fitur tidak menyentuh badan tamu. Selama
-// field pembanding belum siap, hasilnya benar agar fitur tidak mati diam-diam.
+// True when this player manager is the local player. Used by hooks that run for
+// every player so a feature never touches a guest body. While the comparison
+// fields are not ready the result is true, so a feature never dies silently.
 bool isLocalPlayerHook(void* manager);
 
-// Mencari dua field pembanding pemain lokal. Dipanggil sebelum hook fitur
-// dipasang, lalu diulang oleh pasangHookPemain.
+// Finds the two local player comparison fields. Called before the feature hooks
+// are installed, then repeated by installPlayerHook.
 void findLocalPlayerFields();
 
-// Dipanggil dari hook update pemain, di thread game. Menangani Teleport dan
-// No Clip hanya untuk pemain lokal.
+// Called from the player update hook, on the game thread. Handles Teleport and
+// No Clip for the local player only.
 void onPlayerUpdate(void* manager);
 
-// Paket yang hanya diterima host dikirim dengan kunci host milik room, dan
-// penggantiannya hanya hidup selama satu panggilan kirim.
+// Packets only the host receives are sent with the room's host key, and the
+// replacement lives for exactly one send call.
 void startSpoof(void* multi);
 void stopSpoof();
 void* hostKeyFrom(void* multi);
 
-// Kunci pemain sendiri, dibaca hanya setelah room punya objek photon. Di luar
-// room hasilnya nullptr, karena getter game melempar NullReferenceException.
+// The player's own key, read only after the room has a photon object. Outside a
+// room the result is nullptr, because the game getter throws
+// NullReferenceException.
 void* safePlayerKey(void* player);
 
-// Bernilai benar selama tombol interaksi ditahan untuk pemain ini.
+// True while the interaction button is held for this player.
 bool isActionButtonPressed(void* manager);
 void findActionFields();
 
-// Dinaikkan oleh fitur yang menahan itemnya di tangan padahal panggilan stok
-// akan mengosongkan slot tangan.
+// Raised by features that keep their item in hand even though the stock call
+// would empty the hand slot.
 void setHoldHand(bool hold);
 
-// Mengembalikan id yang terakhir dipegang ke tangan setelah animasi makan
-// menyembunyikan sprite-nya, jadi makanan yang ditahan tetap terlihat.
+// Restores the last held id to the hand after the eating animation hides its
+// sprite, so a held food item stays visible.
 void refreshHand();
 
-// Hasil salin skin satu tamu. Slot hanya diisi untuk Tersimpan dan SudahAda.
+// Result of copying one guest's skin. A slot is only filled for Saved and Exists.
 enum class CopyResult { Failed, Saved, Exists, Missing };
 
-// Menulis model tamu ke slot kosong pertama, beserta nama pemiliknya. Model
-// diambil dari cache Guest__Manager.Add/Init__Model, lalu dari model hidup tamu
-// bila cache belum terisi. Pemanggilnya hanya menyebut kunci dan nama tamu.
-// Dipanggil di thread game.
+// Writes a guest model into the first empty slot, along with its owner's name.
+// The model comes from the Guest__Manager.Add/Init__Model cache, then from the
+// guest's live model when the cache is not filled. The caller only passes the
+// key and the guest name. Called on the game thread.
 CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name, int& slot);
 
-// Salinan daftar pemain, antrean aksi, dan posisi pemain lokal berada di
-// boku/player_service.h. Hook room hanya mengisi salinan itu, dan menu hanya
-// membacanya.
+// The player list copy, action queue, and local player position live in
+// boku/player_service.h. The room hooks only fill that copy, and the menu only
+// reads it.

@@ -8,9 +8,9 @@
 #include <cstring>
 #include <cstdlib>
 
-// Menu menunggu libil2cpp.so sebelum menyusun daftar fitur, sehingga hasil
-// pemindaian /proc/self/maps disimpan sekali. Thread pemindaian dan thread UI
-// membacanya bersamaan, jadi nilainya atomik.
+// The menu waits for libil2cpp.so before building the feature list, so the
+// /proc/self/maps scan result is stored once. The scan thread and the UI thread
+// read it together, so the value is atomic.
 extern std::atomic<bool> mainLibLoaded;
 
 jboolean isGameLibLoaded(JNIEnv* env, jobject thiz);

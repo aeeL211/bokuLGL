@@ -15,10 +15,10 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject);
 
 jobjectArray GetFeatureList(JNIEnv *env, jobject context);
 
-// Section Room: teks "nama<TAB>kunci<TAB>peran" per tamu, dipisah newline.
+// Room section: "name<TAB>key<TAB>role" text per guest, separated by newlines.
 jstring PlayerList(JNIEnv *env, jclass clazz);
 
-// Baris posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY".
+// Local player position line: "tileX<TAB>tileY<TAB>worldX<TAB>worldY".
 jstring PlayerPosition(JNIEnv *env, jclass clazz);
 
 jboolean KickPlayer(JNIEnv *env, jclass clazz, jstring key, jstring name,

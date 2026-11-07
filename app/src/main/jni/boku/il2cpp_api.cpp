@@ -11,9 +11,9 @@ namespace {
 
 Api api = {};
 
-// Nama sederhana yang sama bisa ada di beberapa assembly ("Iap" dan "_Unlock"
-// sama-sama terduplikasi), jadi setiap kelas yang dibutuhkan didaftarkan di sini
-// dan baru diikat setelah scan mencocokkan salah satu metodenya.
+// The same simple name can exist in several assemblies ("Iap" and "_Unlock" are
+// both duplicated), so every needed class is registered here and only bound
+// after the scan matches one of its methods.
 struct SlotKlass {
     const char* name;
     void* klass;
@@ -62,8 +62,8 @@ SlotKlass listKlass[] = {
     {"Input__Began__Net", nullptr},
 };
 
-// Di arm64, kepala array berisi klass, monitor, dan bounds (pointer) ditambah
-// max_length (int32) dan empat byte padding, jadi data dimulai di 0x20.
+// On arm64 the array header holds klass, monitor, and bounds (pointers) plus
+// max_length (int32) and four bytes of padding, so data starts at 0x20.
 constexpr size_t kDataArray = 4 * sizeof(void*);
 
 } // namespace
@@ -109,66 +109,66 @@ void* fieldElementClass(const Field& field) {
     return api.elementClass(klass);
 }
 
-void* readPtr(void* objek, const Field& field) {
-    if (!objek || !field.field)
+void* readPtr(void* object, const Field& field) {
+    if (!object || !field.field)
         return nullptr;
-    return *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + field.offset);
+    return *reinterpret_cast<void**>(reinterpret_cast<char*>(object) + field.offset);
 }
 
-int32_t readInt(void* objek, const Field& field) {
-    if (!objek || !field.field)
+int32_t readInt(void* object, const Field& field) {
+    if (!object || !field.field)
         return 0;
-    return *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + field.offset);
+    return *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(object) + field.offset);
 }
 
-void writeInt(void* objek, const Field& field, int32_t value) {
-    if (!objek || !field.field)
+void writeInt(void* object, const Field& field, int32_t value) {
+    if (!object || !field.field)
         return;
-    *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(objek) + field.offset) = value;
+    *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(object) + field.offset) = value;
 }
 
-float readFloat(void* objek, const Field& field) {
-    if (!objek || !field.field)
+float readFloat(void* object, const Field& field) {
+    if (!object || !field.field)
         return 0.0f;
-    return *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + field.offset);
+    return *reinterpret_cast<float*>(reinterpret_cast<char*>(object) + field.offset);
 }
 
-void writeFloat(void* objek, const Field& field, float value) {
-    if (!objek || !field.field)
+void writeFloat(void* object, const Field& field, float value) {
+    if (!object || !field.field)
         return;
-    *reinterpret_cast<float*>(reinterpret_cast<char*>(objek) + field.offset) = value;
+    *reinterpret_cast<float*>(reinterpret_cast<char*>(object) + field.offset) = value;
 }
 
-bool readBool(void* objek, const Field& field) {
-    if (!objek || !field.field)
+bool readBool(void* object, const Field& field) {
+    if (!object || !field.field)
         return false;
-    return *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + field.offset) != 0;
+    return *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(object) + field.offset) != 0;
 }
 
-void writeBool(void* objek, const Field& field, bool value) {
-    if (!objek || !field.field)
+void writeBool(void* object, const Field& field, bool value) {
+    if (!object || !field.field)
         return;
-    *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(objek) + field.offset) =
+    *reinterpret_cast<unsigned char*>(reinterpret_cast<char*>(object) + field.offset) =
         value ? 1 : 0;
 }
 
-// il2cpp_field_set_value pada build ini menyimpan referensinya langsung: fungsi
-// penyetelnya menerima pointer objek dan tidak pernah membacanya. Memberi pointer
-// ke variabel lokal menaruh alamat stack di field, lalu pengumpul sampah membebaskan
-// string yang seharusnya dijaga hidup oleh field itu. Pembacaan ulang menutup build
-// yang justru mengharapkan pointer ke nilai.
-void setRef(void* objek, const Field& field, void* value) {
-    if (!objek || !field.field)
+// il2cpp_field_set_value in this build stores the reference directly: the setter
+// accepts an object pointer and never reads it. Passing a pointer to a local
+// variable puts a stack address in the field, then the garbage collector frees
+// the string that field was supposed to keep alive. Reading it back also covers
+// builds that expect a pointer to the value.
+void setRef(void* object, const Field& field, void* value) {
+    if (!object || !field.field)
         return;
     if (api.fieldSetValue) {
-        api.fieldSetValue(objek, field.field, value);
-        if (readPtr(objek, field) == value)
+        api.fieldSetValue(object, field.field, value);
+        if (readPtr(object, field) == value)
             return;
-        api.fieldSetValue(objek, field.field, &value);
-        if (readPtr(objek, field) == value)
+        api.fieldSetValue(object, field.field, &value);
+        if (readPtr(object, field) == value)
             return;
     }
-    *reinterpret_cast<void**>(reinterpret_cast<char*>(objek) + field.offset) = value;
+    *reinterpret_cast<void**>(reinterpret_cast<char*>(object) + field.offset) = value;
 }
 
 int32_t lengthArray(void* array) {
@@ -218,9 +218,9 @@ void* stringUtf16New(const uint16_t* character, int32_t length) {
 
 namespace {
 
-// Urutan yang rusak dibaca satu byte dan menjadi U+FFFD, jadi sisa teks tetap
-// tersalin. Mengembalikan jumlah byte yang dipakai.
-size_t readPointCode(const char* text, size_t tersedia, uint32_t& code) {
+// A broken sequence is read as one byte and becomes U+FFFD, so the rest of the
+// text still gets copied. Returns the number of bytes consumed.
+size_t readPointCode(const char* text, size_t available, uint32_t& code) {
     unsigned char initial = static_cast<unsigned char>(text[0]);
     size_t length = 0;
     if (initial < 0x80) {
@@ -240,19 +240,19 @@ size_t readPointCode(const char* text, size_t tersedia, uint32_t& code) {
         code = 0xFFFD;
         return 1;
     }
-    if (length > tersedia) {
+    if (length > available) {
         code = 0xFFFD;
         return 1;
     }
     for (size_t i = 1; i < length; i++) {
-        unsigned char lanjut = static_cast<unsigned char>(text[i]);
-        if ((lanjut & 0xC0) != 0x80) {
+        unsigned char more = static_cast<unsigned char>(text[i]);
+        if ((more & 0xC0) != 0x80) {
             code = 0xFFFD;
             return 1;
         }
-        code = (code << 6) | (lanjut & 0x3F);
+        code = (code << 6) | (more & 0x3F);
     }
-    // Bentuk terpendek ditolak supaya satu karakter tidak punya dua ejaan.
+    // The shortest form is rejected so one character cannot have two encodings.
     if ((length == 2 && code < 0x80) || (length == 3 && code < 0x800) ||
         (length == 4 && code < 0x10000) || code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
         code = 0xFFFD;
@@ -261,28 +261,27 @@ size_t readPointCode(const char* text, size_t tersedia, uint32_t& code) {
     return length;
 }
 
-// Paling banyak empat byte, jadi pemanggil yang menyisakan empat byte punya ruang
-// untuk kode apa pun.
-size_t writePointCode(uint32_t code, char* keluaran) {
+// At most four bytes, so a caller that leaves four bytes has room for any code.
+size_t writePointCode(uint32_t code, char* output) {
     if (code < 0x80) {
-        keluaran[0] = static_cast<char>(code);
+        output[0] = static_cast<char>(code);
         return 1;
     }
     if (code < 0x800) {
-        keluaran[0] = static_cast<char>(0xC0 | (code >> 6));
-        keluaran[1] = static_cast<char>(0x80 | (code & 0x3F));
+        output[0] = static_cast<char>(0xC0 | (code >> 6));
+        output[1] = static_cast<char>(0x80 | (code & 0x3F));
         return 2;
     }
     if (code < 0x10000) {
-        keluaran[0] = static_cast<char>(0xE0 | (code >> 12));
-        keluaran[1] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
-        keluaran[2] = static_cast<char>(0x80 | (code & 0x3F));
+        output[0] = static_cast<char>(0xE0 | (code >> 12));
+        output[1] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+        output[2] = static_cast<char>(0x80 | (code & 0x3F));
         return 3;
     }
-    keluaran[0] = static_cast<char>(0xF0 | (code >> 18));
-    keluaran[1] = static_cast<char>(0x80 | ((code >> 12) & 0x3F));
-    keluaran[2] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
-    keluaran[3] = static_cast<char>(0x80 | (code & 0x3F));
+    output[0] = static_cast<char>(0xF0 | (code >> 18));
+    output[1] = static_cast<char>(0x80 | ((code >> 12) & 0x3F));
+    output[2] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+    output[3] = static_cast<char>(0x80 | (code & 0x3F));
     return 4;
 }
 
@@ -292,40 +291,40 @@ void* stringFromUtf8(const char* text) {
     if (!text)
         return nullptr;
     size_t length = strlen(text);
-    static const uint16_t kosong = 0;
+    static const uint16_t empty = 0;
     if (!length)
-        return stringUtf16New(&kosong, 0);
-    // Satu titik kode UTF-8 menjadi paling banyak dua unit UTF-16, dan jumlah
-    // byte menjadi batas atas jumlah titik kode.
-    size_t kapasitas = length * 2 + 2;
-    auto* buf = static_cast<uint16_t*>(malloc(kapasitas * sizeof(uint16_t)));
+        return stringUtf16New(&empty, 0);
+    // One UTF-8 code point becomes at most two UTF-16 units, and the byte count
+    // is an upper bound for the number of code points.
+    size_t capacity = length * 2 + 2;
+    auto* buf = static_cast<uint16_t*>(malloc(capacity * sizeof(uint16_t)));
     if (!buf)
         return nullptr;
 
-    int32_t terpakai = 0;
+    int32_t used = 0;
     for (size_t i = 0; i < length;) {
         uint32_t code = 0;
         i += readPointCode(text + i, length - i, code);
         if (code >= 0x10000) {
             code -= 0x10000;
-            buf[terpakai++] = static_cast<uint16_t>(0xD800 + (code >> 10));
-            buf[terpakai++] = static_cast<uint16_t>(0xDC00 + (code & 0x3FF));
+            buf[used++] = static_cast<uint16_t>(0xD800 + (code >> 10));
+            buf[used++] = static_cast<uint16_t>(0xDC00 + (code & 0x3FF));
         } else {
-            buf[terpakai++] = static_cast<uint16_t>(code);
+            buf[used++] = static_cast<uint16_t>(code);
         }
     }
-    void* result = stringUtf16New(buf, terpakai);
+    void* result = stringUtf16New(buf, used);
     free(buf);
     return result;
 }
 
-bool toUtf8(void* text, char* keluaran, size_t size) {
+bool toUtf8(void* text, char* output, size_t size) {
     int32_t length = lengthString(text);
     const uint16_t* character = characterString(text);
     if (length <= 0 || !character)
         return false;
 
-    size_t terpakai = 0;
+    size_t used = 0;
     for (int32_t i = 0; i < length; i++) {
         uint32_t code = character[i];
         if (code >= 0xD800 && code <= 0xDBFF && i + 1 < length) {
@@ -337,11 +336,11 @@ bool toUtf8(void* text, char* keluaran, size_t size) {
         }
         if (code >= 0xD800 && code <= 0xDFFF)
             code = 0xFFFD;
-        if (terpakai + 4 >= size)
+        if (used + 4 >= size)
             return false;
-        terpakai += writePointCode(code, keluaran + terpakai);
+        used += writePointCode(code, output + used);
     }
-    keluaran[terpakai] = '\0';
+    output[used] = '\0';
     return true;
 }
 
@@ -352,8 +351,8 @@ void* dataFieldStatic(void* klass) {
 }
 
 bool nearValue(float value, float target) {
-    float selisih = value - target;
-    return selisih > -0.01f && selisih < 0.01f;
+    float delta = value - target;
+    return delta > -0.01f && delta < 0.01f;
 }
 
 void* addressMethod(void* method) { return method ? *reinterpret_cast<void**>(method) : nullptr; }
@@ -362,23 +361,23 @@ bool ownBody(void* address) {
     if (!address)
         return false;
     uintptr_t position = reinterpret_cast<uintptr_t>(address);
-    Dl_info informasi;
-    if (!dladdr(reinterpret_cast<void*>(position), &informasi) || !informasi.dli_fbase)
+    Dl_info information;
+    if (!dladdr(reinterpret_cast<void*>(position), &information) || !information.dli_fbase)
         return false;
     return *reinterpret_cast<uint32_t*>(position) != 0xd65f03c0;
 }
 
 bool bindApi() {
-    void* pustaka = dlopen("libil2cpp.so", RTLD_LAZY | RTLD_NOLOAD);
-    if (!pustaka)
-        pustaka = dlopen("libil2cpp.so", RTLD_LAZY);
-    if (!pustaka)
+    void* library = dlopen("libil2cpp.so", RTLD_LAZY | RTLD_NOLOAD);
+    if (!library)
+        library = dlopen("libil2cpp.so", RTLD_LAZY);
+    if (!library)
         return false;
 
-#define IKAT(anggota, simbol)                                                                      \
-    api.anggota = reinterpret_cast<decltype(api.anggota)>(dlsym(pustaka, simbol));                 \
-    if (!api.anggota) {                                                                            \
-        LOGE("Simbol tidak ditemukan: %s", simbol);                                                \
+#define IKAT(member, symbol)                                                                      \
+    api.member = reinterpret_cast<decltype(api.member)>(dlsym(library, symbol));                 \
+    if (!api.member) {                                                                            \
+        LOGE("Symbol not found: %s", symbol);                                                      \
         return false;                                                                              \
     }
 
@@ -400,23 +399,23 @@ bool bindApi() {
 #undef IKAT
 
     api.fieldType =
-        reinterpret_cast<decltype(api.fieldType)>(dlsym(pustaka, "il2cpp_field_get_type"));
+        reinterpret_cast<decltype(api.fieldType)>(dlsym(library, "il2cpp_field_get_type"));
     api.classFromType = reinterpret_cast<decltype(api.classFromType)>(
-        dlsym(pustaka, "il2cpp_class_from_il2cpp_type"));
+        dlsym(library, "il2cpp_class_from_il2cpp_type"));
     api.elementClass = reinterpret_cast<decltype(api.elementClass)>(
-        dlsym(pustaka, "il2cpp_class_get_element_class"));
+        dlsym(library, "il2cpp_class_get_element_class"));
     api.staticFieldData = reinterpret_cast<decltype(api.staticFieldData)>(
-        dlsym(pustaka, "il2cpp_class_get_static_field_data"));
+        dlsym(library, "il2cpp_class_get_static_field_data"));
     api.fieldSetValue =
-        reinterpret_cast<decltype(api.fieldSetValue)>(dlsym(pustaka, "il2cpp_field_set_value"));
+        reinterpret_cast<decltype(api.fieldSetValue)>(dlsym(library, "il2cpp_field_set_value"));
     api.stringChars =
-        reinterpret_cast<decltype(api.stringChars)>(dlsym(pustaka, "il2cpp_string_chars"));
+        reinterpret_cast<decltype(api.stringChars)>(dlsym(library, "il2cpp_string_chars"));
     api.stringNewUtf16 =
-        reinterpret_cast<decltype(api.stringNewUtf16)>(dlsym(pustaka, "il2cpp_string_new_utf16"));
+        reinterpret_cast<decltype(api.stringNewUtf16)>(dlsym(library, "il2cpp_string_new_utf16"));
     api.classGetType =
-        reinterpret_cast<decltype(api.classGetType)>(dlsym(pustaka, "il2cpp_class_get_type"));
+        reinterpret_cast<decltype(api.classGetType)>(dlsym(library, "il2cpp_class_get_type"));
     api.typeGetObject =
-        reinterpret_cast<decltype(api.typeGetObject)>(dlsym(pustaka, "il2cpp_type_get_object"));
+        reinterpret_cast<decltype(api.typeGetObject)>(dlsym(library, "il2cpp_type_get_object"));
     return true;
 }
 
@@ -431,8 +430,8 @@ void* findClass(const char* name) {
     if (!name)
         return nullptr;
 
-    // Hanya kelas Unity yang dicari di luar tabel target, jadi hasilnya disimpan
-    // di sini dan pemindaian penuh tidak diulang.
+    // Only Unity classes are looked up outside the target table, so results are
+    // kept here and the full scan is not repeated.
     constexpr int kLimitKlassExtra = 8;
     static const char* nameSaved[kLimitKlassExtra] = {};
     static void* klassSaved[kLimitKlassExtra] = {};
@@ -441,9 +440,9 @@ void* findClass(const char* name) {
             return klassSaved[i];
     }
 
-    void* dikenal = classOf(name);
-    if (dikenal)
-        return dikenal;
+    void* known = classOf(name);
+    if (known)
+        return known;
 
     Api& a = api;
     void* domain = a.domain ? a.domain() : nullptr;
@@ -490,8 +489,8 @@ void* findKlassField(const char* name, const char* nameField) {
     if (!assemblies)
         return nullptr;
 
-    // Kelas dengan nama sama bisa lebih dari satu, jadi kandidat baru diterima
-    // setelah field yang diminta benar-benar ada di dalamnya.
+    // More than one class can share the same name, so a candidate is accepted
+    // only after the requested field actually exists in it.
     for (size_t i = 0; i < countAssembly; i++) {
         void* image = a.image(assemblies[i]);
         if (!image)

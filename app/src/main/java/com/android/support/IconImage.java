@@ -21,16 +21,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * Pengganti WebView untuk ikon melayang. Hanya memakai decoder bawaan Android,
- * jadi tidak ada proses renderer Chromium, tidak ada HTML, dan memori jauh lebih kecil.
+ * WebView replacement for floating icons. It only uses Android's built-in decoders,
+ * so there is no Chromium renderer process, no HTML, and far less memory.
  *
- * Android 9 ke atas: ImageDecoder. GIF dan WebP bergerak menjadi
- * AnimatedImageDrawable yang didekode di thread sendiri milik sistem.
- * Android 8 ke bawah: GIF memakai android.graphics.Movie, gambar lain memakai
+ * Android 9 and up: ImageDecoder. Animated GIF and WebP become
+ * AnimatedImageDrawable decoded on the system's own thread.
+ * Android 8 and below: GIF uses android.graphics.Movie, other images use
  * BitmapFactory.
  *
- * Gambar selalu didekode dengan sisi terpanjang paling besar {@link #MAKS_PX},
- * jauh di atas ukuran ikon di layar, supaya GIF besar tidak memakan memori.
+ * Images are always decoded with the longest side at most {@link #MAX_PX},
+ * far above the on-screen icon size, so large GIFs do not consume memory.
  */
 public final class IconImage {
     private static final int MAX_PX = 256;
@@ -38,7 +38,7 @@ public final class IconImage {
     private IconImage() {
     }
 
-    /** Null bila bukan gambar yang bisa didekode. Aman dipanggil dari thread latar. */
+    /** Null when this is not a decodable image. Safe to call from a background thread. */
     public static Drawable create(Resources res, byte[] content) {
         if (content == null || content.length == 0)
             return null;
@@ -51,12 +51,12 @@ public final class IconImage {
         }
     }
 
-    /** Movie hanya benar bila digambar lewat software layer. */
+    /** A Movie is only correct when drawn through a software layer. */
     public static boolean needSoftware(Drawable d) {
         return d instanceof GifOld;
     }
 
-    public static void jalankan(Drawable d, boolean run) {
+    public static void setRunning(Drawable d, boolean run) {
         if (!(d instanceof Animatable))
             return;
         Animatable anim = (Animatable) d;
@@ -75,9 +75,9 @@ public final class IconImage {
                                         ImageDecoder.Source source) {
                 int w = info.getSize().getWidth();
                 int h = info.getSize().getHeight();
-                int terpanjang = Math.max(w, h);
-                if (terpanjang > MAX_PX) {
-                    float scale = (float) MAX_PX / terpanjang;
+                int longest = Math.max(w, h);
+                if (longest > MAX_PX) {
+                    float scale = (float) MAX_PX / longest;
                     decoder.setTargetSize(Math.max(1, Math.round(w * scale)),
                             Math.max(1, Math.round(h * scale)));
                 }
@@ -99,20 +99,20 @@ public final class IconImage {
         BitmapFactory.Options limit = new BitmapFactory.Options();
         limit.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(content, 0, content.length, limit);
-        int terpanjang = Math.max(limit.outWidth, limit.outHeight);
-        if (terpanjang <= 0)
+        int longest = Math.max(limit.outWidth, limit.outHeight);
+        if (longest <= 0)
             return null;
 
         int sample = 1;
-        while (terpanjang / (sample * 2) >= MAX_PX)
+        while (longest / (sample * 2) >= MAX_PX)
             sample *= 2;
-        BitmapFactory.Options opsi = new BitmapFactory.Options();
-        opsi.inSampleSize = sample;
-        Bitmap bitmap = BitmapFactory.decodeByteArray(content, 0, content.length, opsi);
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sample;
+        Bitmap bitmap = BitmapFactory.decodeByteArray(content, 0, content.length, options);
         return bitmap == null ? null : new BitmapDrawable(res, bitmap);
     }
 
-    /** GIF bergerak untuk Android 8 ke bawah. Hanya berjalan selama start() aktif. */
+    /** Animated GIF for Android 8 and below. Only runs while start() is active. */
     private static final class GifOld extends Drawable implements Animatable {
         private final Movie movie;
         private final int duration;

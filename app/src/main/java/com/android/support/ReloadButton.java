@@ -10,24 +10,24 @@ import android.util.TypedValue;
 import android.view.View;
 
 /**
- * Tombol "Muat ulang" berlabel untuk daftar pemain, dengan tiga keadaan yang
- * terlihat jelas:
+ * Labeled "Muat ulang" (reload) button for the player list, with three clearly
+ * visible states:
  * <ul>
- * <li>diam: glyph dan teks "Muat ulang" di atas kotak kayu gelap;</li>
- * <li>memuat: glyph berputar per 90 derajat dan teks "Memuat…". Putaran 90 derajat
- * kelipatan bulat menjaga piksel tetap tajam, dan glyph simetris terhadap
- * putaran 180 derajat sehingga tidak ada lompatan;</li>
- * <li>selesai: kotak berubah terang seperti switch aktif dan teks "Diperbarui",
- * lalu kembali ke keadaan diam.</li>
+ * <li>idle: glyph and the text "Muat ulang" on a dark wood box;</li>
+ * <li>loading: the glyph rotates in 90 degree steps and the text reads
+ * "Memuat…". Whole multiples of 90 degrees keep the pixels sharp, and the glyph
+ * is symmetric under a 180 degree rotation so there is no jump;</li>
+ * <li>done: the box turns bright like an active switch and the text reads
+ * "Diperbarui", then it returns to idle.</li>
  * </ul>
- * Kotaknya setinggi {@link #TINGGI_DP}, sedangkan view-nya {@link Theme#TARGET_DP}
- * (48dp) supaya area sentuhnya cukup. Lebarnya tetap untuk ketiga label sehingga
- * header tidak bergeser saat label berganti.
+ * The box is {@link #HEIGHT_DP} tall, while the view is {@link Theme#TARGET_DP}
+ * (48dp) so the touch area is big enough. The width is fixed for all three
+ * labels so the header does not shift when the label changes.
  */
 final class ReloadButton extends View {
-    private static final int DIAM = 0;
-    private static final int MEMUAT = 1;
-    private static final int SELESAI = 2;
+    private static final int IDLE = 0;
+    private static final int LOADING = 1;
+    private static final int DONE = 2;
 
     private static final String LABEL_IDLE = "Muat ulang";
     private static final String LABEL_LOADING = "Memuat…";
@@ -37,17 +37,17 @@ final class ReloadButton extends View {
     private static final float LINE_DP = 2f;
     private static final float PAD_DP = 10f;
     private static final float GLYPH_DP = 20f;
-    private static final float JARAK_DP = 6f;
+    private static final float GAP_DP = 6f;
 
-    /** Satu langkah putaran (90 derajat) tiap LANGKAH_MS; 6 langkah = satu setengah putaran. */
+    /** One rotation step (90 degrees) every STEP_MS; 6 steps = one and a half turns. */
     private static final long STEP_MS = 130L;
     private static final int COUNT_STEP = 6;
     private static final long SHOW_DONE_MS = 1000L;
 
     private final Runnable action;
-    private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catText = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catGlyph = PixelArt.catTajam();
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint glyphPaint = PixelArt.crispPaint();
     private final RectF box = new RectF();
     private final RectF line = new RectF();
     private final Rect target = new Rect();
@@ -57,11 +57,11 @@ final class ReloadButton extends View {
     private final float linePx;
     private final float radiusPx;
     private final float padPx;
-    private final float jarakPx;
-    private final int sel;
+    private final float gapPx;
+    private final int cell;
     private final int glyphPx;
 
-    private int keadaan = DIAM;
+    private int state = IDLE;
     private int rotate;
 
     private final Runnable step = new Runnable() {
@@ -69,7 +69,7 @@ final class ReloadButton extends View {
         public void run() {
             rotate++;
             if (rotate >= COUNT_STEP) {
-                change(SELESAI);
+                change(DONE);
                 postDelayed(back, SHOW_DONE_MS);
             } else {
                 invalidate();
@@ -81,13 +81,13 @@ final class ReloadButton extends View {
     private final Runnable back = new Runnable() {
         @Override
         public void run() {
-            change(DIAM);
+            change(IDLE);
         }
     };
 
     /**
-     * @param pola glyph 16x16 yang simetris terhadap putaran 180 derajat
-     * @param aksi dijalankan di thread utama setiap kali tombol diketuk
+     * @param pattern glyph 16x16 that is symmetric under a 180 degree rotation
+     * @param action run on the main thread every time the button is tapped
      */
     ReloadButton(Context context, String[] pattern, Runnable action) {
         super(context);
@@ -98,14 +98,14 @@ final class ReloadButton extends View {
         linePx = Theme.dp(context, LINE_DP);
         radiusPx = Theme.dp(context, Theme.RADIUS_PANEL);
         padPx = Theme.dp(context, PAD_DP);
-        jarakPx = Theme.dp(context, JARAK_DP);
-        sel = Math.max(1, (int) Math.floor(Theme.dp(context, GLYPH_DP) / PixelArt.COLUMNS));
-        glyphPx = sel * PixelArt.COLUMNS;
+        gapPx = Theme.dp(context, GAP_DP);
+        cell = Math.max(1, (int) Math.floor(Theme.dp(context, GLYPH_DP) / PixelArt.COLUMNS));
+        glyphPx = cell * PixelArt.COLUMNS;
 
-        catText.setTypeface(Theme.font(context));
-        catText.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, Theme.DESC_SP,
+        textPaint.setTypeface(Theme.font(context));
+        textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, Theme.DESC_SP,
                 context.getResources().getDisplayMetrics()));
-        catText.setTextAlign(Paint.Align.CENTER);
+        textPaint.setTextAlign(Paint.Align.CENTER);
 
         setClickable(true);
         setFocusable(true);
@@ -125,34 +125,34 @@ final class ReloadButton extends View {
             action.run();
         rotate = 0;
         if (!Transition.active(getContext())) {
-            // Animasi sistem mati: langsung tampilkan hasilnya tanpa putaran.
-            change(SELESAI);
+            // System animations are off: show the result immediately with no rotation.
+            change(DONE);
             postDelayed(back, SHOW_DONE_MS);
             return;
         }
-        change(MEMUAT);
+        change(LOADING);
         postDelayed(step, STEP_MS);
     }
 
     private void change(int fresh) {
-        keadaan = fresh;
-        if (fresh == DIAM)
+        state = fresh;
+        if (fresh == IDLE)
             rotate = 0;
-        setContentDescription(fresh == MEMUAT ? "Memuat daftar pemain"
-                : fresh == SELESAI ? "Daftar pemain diperbarui" : "Muat ulang daftar pemain");
+        setContentDescription(fresh == LOADING ? "Memuat daftar pemain"
+                : fresh == DONE ? "Daftar pemain diperbarui" : "Muat ulang daftar pemain");
         invalidate();
     }
 
     private String label() {
-        return keadaan == MEMUAT ? LABEL_LOADING : keadaan == SELESAI ? LABEL_DONE : LABEL_IDLE;
+        return state == LOADING ? LABEL_LOADING : state == DONE ? LABEL_DONE : LABEL_IDLE;
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        // Lebar mengikuti label terpanjang supaya ukuran tombol tidak berubah saat label berganti.
-        float text = Math.max(catText.measureText(LABEL_IDLE),
-                Math.max(catText.measureText(LABEL_LOADING), catText.measureText(LABEL_DONE)));
-        int width = (int) Math.ceil(padPx * 2 + glyphPx + jarakPx + text);
+        // Width follows the longest label so the button size does not change when the label switches.
+        float text = Math.max(textPaint.measureText(LABEL_IDLE),
+                Math.max(textPaint.measureText(LABEL_LOADING), textPaint.measureText(LABEL_DONE)));
+        int width = (int) Math.ceil(padPx * 2 + glyphPx + gapPx + text);
         int height = (int) Theme.dp(getContext(), Theme.TARGET_DP);
         setMeasuredDimension(resolveSize(width, widthMeasureSpec),
                 resolveSize(height, heightMeasureSpec));
@@ -175,42 +175,42 @@ final class ReloadButton extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        boolean done = keadaan == SELESAI;
-        cat.setStyle(Paint.Style.FILL);
-        cat.setColor(done ? Theme.SWITCH_ON_TRACK : isPressed() ? Theme.TRACK : Theme.ICON_BOX);
-        canvas.drawRoundRect(box, radiusPx, radiusPx, cat);
+        boolean done = state == DONE;
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(done ? Theme.SWITCH_ON_TRACK : isPressed() ? Theme.TRACK : Theme.ICON_BOX);
+        canvas.drawRoundRect(box, radiusPx, radiusPx, paint);
 
-        cat.setStyle(Paint.Style.STROKE);
-        cat.setStrokeWidth(linePx);
-        cat.setColor(Theme.BUTTON_BORDER);
-        canvas.drawRoundRect(line, radiusPx, radiusPx, cat);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(linePx);
+        paint.setColor(Theme.BUTTON_BORDER);
+        canvas.drawRoundRect(line, radiusPx, radiusPx, paint);
 
         int height = getHeight();
         int labelColor = done ? Theme.TEXT : Theme.TITLE_TEXT;
 
-        // Glyph: kotak sisi glyphPx di sisi kiri, diputar di titik tengahnya sendiri.
+        // Glyph: a glyphPx-sided box on the left, rotated around its own center.
         canvas.save();
         canvas.translate(Math.round(padPx), Math.round((height - glyphPx) / 2f));
-        if (keadaan == MEMUAT)
+        if (state == LOADING)
             canvas.rotate(90f * (rotate % 4), glyphPx / 2f, glyphPx / 2f);
-        PixelArt.image(canvas, done ? glyphDark : glyphBright, catGlyph, target,
-                glyphPx, glyphPx, sel);
+        PixelArt.image(canvas, done ? glyphDark : glyphBright, glyphPaint, target,
+                glyphPx, glyphPx, cell);
         canvas.restore();
 
-        float leftText = padPx + glyphPx + jarakPx;
+        float leftText = padPx + glyphPx + gapPx;
         float centerText = leftText + (getWidth() - padPx - leftText) / 2f;
-        Paint.FontMetrics fm = catText.getFontMetrics();
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
         float lineBase = height / 2f - (fm.ascent + fm.descent) / 2f;
-        catText.setColor(labelColor);
-        canvas.drawText(label(), centerText, lineBase, catText);
+        textPaint.setColor(labelColor);
+        canvas.drawText(label(), centerText, lineBase, textPaint);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         removeCallbacks(step);
         removeCallbacks(back);
-        // Bila dipasang kembali, jangan tersangkut di tengah animasi.
-        keadaan = DIAM;
+        // When reattached, do not get stuck mid-animation.
+        state = IDLE;
         rotate = 0;
         super.onDetachedFromWindow();
     }

@@ -12,7 +12,7 @@ Field fieldHold = {};
 
 } // namespace
 
-// Tombol interaksi sedang ditahan selama objek input-nya menyimpan aksi.
+// The interaction button is held while the input object stores an action.
 bool isActionButtonPressed(void* manager) {
     void* input = readPtr(manager, fieldInput);
     void* managerInput = readPtr(input, fieldManagerInput);
@@ -20,7 +20,7 @@ bool isActionButtonPressed(void* manager) {
     return action && readBool(action, fieldHold);
 }
 
-// Dipakai bersama oleh setiap fitur yang mengulang aksinya selama tombol ditahan.
+// Shared by every feature that repeats its action while the button is held.
 void findActionFields() {
     void* managerClass = classOf("Player__Manager");
     bool ok = findField(managerClass, "input", fieldInput) &&
@@ -28,7 +28,7 @@ void findActionFields() {
               findField(fieldClass(fieldManagerInput), "action", fieldAction) &&
               findField(fieldClass(fieldAction), "keep", fieldHold);
     if (ok)
-        LOGI("Field input aksi OK");
+        LOGI("Field input action OK");
     else
-        LOGE("Field input aksi tidak ditemukan; ulangan tombol tahan tetap mati");
+        LOGE("Field input action not found; held button repeat stays off");
 }

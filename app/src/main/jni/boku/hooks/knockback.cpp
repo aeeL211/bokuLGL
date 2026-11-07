@@ -12,10 +12,10 @@ namespace {
 
 Field fieldManager = {};
 
-// Ledakan memanggil ini untuk membuat pemain terpental menjauh dari titik
-// ledakan. Membuang panggilannya membuat pemain tetap berdiri sementara tile dan
-// efeknya tetap pecah. State ini juga dimiliki tamu di dalam room, jadi hanya
-// badan pemain lokal yang dibiarkan tanpa pantulan.
+// An explosion calls this to knock players away from the blast point. Dropping
+// the call keeps the player standing while the tiles and effects still break.
+// This state is also owned by guests inside the room, so only the local player's
+// body is left without the knockback.
 void hookKnockback(void* self, int32_t a, float b, float c, int32_t d, void* method) {
     auto original = reinterpret_cast<void (*)(void*, int32_t, float, float, int32_t, void*)>(
         target(T_TUMBLE_EXPLODE).orig);
@@ -34,6 +34,6 @@ void hookKnockback(void* self, int32_t a, float b, float c, int32_t d, void* met
 void installKnockbackHook() {
     if (!findField(classOf("Player__State__Std__Air"), "m", fieldManager))
         LOGE(
-            "Field pemain state udara tidak ditemukan; Terpental tetap berlaku untuk semua pemain");
+            "Air player state field not found; knockback still applies to all players");
     installHook(target(T_TUMBLE_EXPLODE), reinterpret_cast<void*>(hookKnockback));
 }

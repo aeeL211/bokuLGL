@@ -29,10 +29,10 @@ void saveKlassUnityPlayer(JNIEnv* env) {
         auto global = static_cast<jclass>(env->NewGlobalRef(klass));
         env->DeleteLocalRef(klass);
         if (global) {
-            jclass kosong = nullptr;
-            // Dua thread bisa menyimpan kelas yang sama; yang kalah menghapus
-            // referensi globalnya sendiri supaya tidak ada yang bocor.
-            if (!klassUnity.compare_exchange_strong(kosong, global))
+            jclass empty = nullptr;
+            // Two threads may store the same class; the loser deletes its own
+            // global reference so nothing leaks.
+            if (!klassUnity.compare_exchange_strong(empty, global))
                 env->DeleteGlobalRef(global);
         }
     }
@@ -56,7 +56,7 @@ JavaVM* findVmJava() {
     return vm;
 }
 
-bool lekatJni(JNIEnv** env, bool* release) {
+bool attachJni(JNIEnv** env, bool* release) {
     JavaVM* vm = findVmJava();
     if (!vm)
         return false;
@@ -72,7 +72,7 @@ bool lekatJni(JNIEnv** env, bool* release) {
 bool rootStorageExternal(char* out, size_t size) {
     JNIEnv* env = nullptr;
     bool release = false;
-    if (!lekatJni(&env, &release))
+    if (!attachJni(&env, &release))
         return false;
 
     bool success = false;
@@ -110,7 +110,7 @@ bool rootStorageExternal(char* out, size_t size) {
     return success;
 }
 
-bool packetApplication(char* out, size_t size) {
+bool packageApplication(char* out, size_t size) {
     int fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return false;
@@ -121,8 +121,8 @@ bool packetApplication(char* out, size_t size) {
         return false;
     buffer[n] = '\0';
 
-    // Proses sekunder menambahkan ":name" pada nama paket, jadi hanya bagian
-    // sebelum titik dua yang termasuk direktori aplikasi.
+    // Secondary processes append ":name" to the package name, so only the part
+    // before the colon belongs to the app directory.
     char* pointTwo = strchr(buffer, ':');
     if (pointTwo)
         *pointTwo = '\0';

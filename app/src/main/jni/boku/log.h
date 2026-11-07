@@ -1,22 +1,22 @@
 #pragma once
 
-// Pencatatan ke berkas bersifat opsional: -DBOKU_LOG=OFF membuang setiap panggilan
-// log dan penangan crash, yang menghasilkan .so paling kecil.
+// File logging is optional: -DBOKU_LOG=OFF drops every log call and the crash
+// handler, producing the smallest .so.
 #ifdef BOKU_LOG
 
-void printLog(char tingkat, const char* fmt, ...);
+void printLog(char level, const char* fmt, ...);
 void openLogFile();
 void installCrashLog();
 
-// Memotret ulang daftar modul tanpa memasang penangan lagi. Panggil setelah
-// pustaka game selesai dimuat, supaya nama modul muncul di blok crash.
+// Re-captures the module list without installing the handler again. Call after
+// the game libraries finish loading, so module names appear in the crash block.
 void refreshModules();
 
-// Mencatat pemanggil abort() dan __stack_chk_fail() supaya SIGABRT berikutnya
-// menyebut kode yang memutuskan mematikan proses. Panggil setelah ShadowHook siap.
+// Records the caller of abort() and __stack_chk_fail() so the next SIGABRT names
+// the code that decided to kill the process. Call after ShadowHook is ready.
 void installCrashProbe();
 
-// Path lengkap berkas yang ditulis sesi ini, atau nullptr sebelum dibuka.
+// Full path of the file written by this session, or nullptr before it is opened.
 const char* logFilePath();
 
 #define LOGI(...) printLog('I', __VA_ARGS__)

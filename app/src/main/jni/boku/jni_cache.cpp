@@ -23,37 +23,37 @@ jclass getClass(JNIEnv* env, const char* name) {
     return global;
 }
 
-jmethodID getStaticMethod(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+jmethodID getStaticMethod(JNIEnv* env, jclass klass, const char* name, const char* mark) {
     if (!klass)
         return nullptr;
-    jmethodID method = env->GetStaticMethodID(klass, name, tanda);
+    jmethodID method = env->GetStaticMethodID(klass, name, mark);
     if (!method)
         env->ExceptionClear();
     return method;
 }
 
-jmethodID getMethod(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+jmethodID getMethod(JNIEnv* env, jclass klass, const char* name, const char* mark) {
     if (!klass)
         return nullptr;
-    jmethodID method = env->GetMethodID(klass, name, tanda);
+    jmethodID method = env->GetMethodID(klass, name, mark);
     if (!method)
         env->ExceptionClear();
     return method;
 }
 
-jfieldID getStaticField(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+jfieldID getStaticField(JNIEnv* env, jclass klass, const char* name, const char* mark) {
     if (!klass)
         return nullptr;
-    jfieldID field = env->GetStaticFieldID(klass, name, tanda);
+    jfieldID field = env->GetStaticFieldID(klass, name, mark);
     if (!field)
         env->ExceptionClear();
     return field;
 }
 
-jfieldID getField(JNIEnv* env, jclass klass, const char* name, const char* tanda) {
+jfieldID getField(JNIEnv* env, jclass klass, const char* name, const char* mark) {
     if (!klass)
         return nullptr;
-    jfieldID field = env->GetFieldID(klass, name, tanda);
+    jfieldID field = env->GetFieldID(klass, name, mark);
     if (!field)
         env->ExceptionClear();
     return field;
@@ -92,11 +92,11 @@ std::atomic<bool> contextReady{false};
 ActivityClass activity = {};
 std::atomic<bool> activityReady{false};
 
-PacketManagerClass managerPacket = {};
-std::atomic<bool> managerPacketReady{false};
+PackageManagerClass managerPackage = {};
+std::atomic<bool> managerPackageReady{false};
 
-PacketInfoClass infoPacket = {};
-std::atomic<bool> infoPacketReady{false};
+PackageInfoClass infoPackage = {};
+std::atomic<bool> infoPackageReady{false};
 
 jclass klassStringGlobal = nullptr;
 std::atomic<bool> stringReady{false};
@@ -269,7 +269,7 @@ const ContextClass* cacheContext(JNIEnv* env) {
                         OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
         context.startActivity = getMethod(env, context.klass, OBFUSCATE("startActivity"),
                                              OBFUSCATE("(Landroid/content/Intent;)V"));
-        context.packetName = getMethod(env, context.klass, OBFUSCATE("getPackageName"),
+        context.packageName = getMethod(env, context.klass, OBFUSCATE("getPackageName"),
                                         OBFUSCATE("()Ljava/lang/String;"));
         contextReady.store(true, std::memory_order_release);
     }
@@ -284,46 +284,46 @@ const ActivityClass* cacheActivity(JNIEnv* env) {
     std::lock_guard<std::mutex> hold(cacheKey);
     if (!activityReady.load(std::memory_order_relaxed)) {
         activity.klass = getClass(env, OBFUSCATE("android/app/Activity"));
-        activity.managerPacket = getMethod(env, activity.klass, OBFUSCATE("getPackageManager"),
+        activity.managerPackage = getMethod(env, activity.klass, OBFUSCATE("getPackageManager"),
                                              OBFUSCATE("()Landroid/content/pm/PackageManager;"));
-        activity.packetName = getMethod(env, activity.klass, OBFUSCATE("getPackageName"),
+        activity.packageName = getMethod(env, activity.klass, OBFUSCATE("getPackageName"),
                                           OBFUSCATE("()Ljava/lang/String;"));
         activityReady.store(true, std::memory_order_release);
     }
     return activity.klass ? &activity : nullptr;
 }
 
-const PacketManagerClass* cacheManagerPacket(JNIEnv* env) {
-    if (managerPacketReady.load(std::memory_order_acquire))
-        return managerPacket.klass ? &managerPacket : nullptr;
+const PackageManagerClass* cacheManagerPackage(JNIEnv* env) {
+    if (managerPackageReady.load(std::memory_order_acquire))
+        return managerPackage.klass ? &managerPackage : nullptr;
     if (!env)
         return nullptr;
     std::lock_guard<std::mutex> hold(cacheKey);
-    if (!managerPacketReady.load(std::memory_order_relaxed)) {
-        managerPacket.klass = getClass(env, OBFUSCATE("android/content/pm/PackageManager"));
-        managerPacket.infoPacket =
-            getMethod(env, managerPacket.klass, OBFUSCATE("getPackageInfo"),
+    if (!managerPackageReady.load(std::memory_order_relaxed)) {
+        managerPackage.klass = getClass(env, OBFUSCATE("android/content/pm/PackageManager"));
+        managerPackage.infoPackage =
+            getMethod(env, managerPackage.klass, OBFUSCATE("getPackageInfo"),
                         OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
-        managerPacketReady.store(true, std::memory_order_release);
+        managerPackageReady.store(true, std::memory_order_release);
     }
-    return managerPacket.klass ? &managerPacket : nullptr;
+    return managerPackage.klass ? &managerPackage : nullptr;
 }
 
-const PacketInfoClass* cacheInfoPacket(JNIEnv* env) {
-    if (infoPacketReady.load(std::memory_order_acquire))
-        return infoPacket.klass ? &infoPacket : nullptr;
+const PackageInfoClass* cacheInfoPackage(JNIEnv* env) {
+    if (infoPackageReady.load(std::memory_order_acquire))
+        return infoPackage.klass ? &infoPackage : nullptr;
     if (!env)
         return nullptr;
     std::lock_guard<std::mutex> hold(cacheKey);
-    if (!infoPacketReady.load(std::memory_order_relaxed)) {
-        infoPacket.klass = getClass(env, OBFUSCATE("android/content/pm/PackageInfo"));
-        infoPacket.versionName = getField(env, infoPacket.klass, OBFUSCATE("versionName"),
+    if (!infoPackageReady.load(std::memory_order_relaxed)) {
+        infoPackage.klass = getClass(env, OBFUSCATE("android/content/pm/PackageInfo"));
+        infoPackage.versionName = getField(env, infoPackage.klass, OBFUSCATE("versionName"),
                                          OBFUSCATE("Ljava/lang/String;"));
-        infoPacket.codeVersion =
-            getField(env, infoPacket.klass, OBFUSCATE("versionCode"), OBFUSCATE("I"));
-        infoPacketReady.store(true, std::memory_order_release);
+        infoPackage.versionCode =
+            getField(env, infoPackage.klass, OBFUSCATE("versionCode"), OBFUSCATE("I"));
+        infoPackageReady.store(true, std::memory_order_release);
     }
-    return infoPacket.klass ? &infoPacket : nullptr;
+    return infoPackage.klass ? &infoPackage : nullptr;
 }
 
 void prepareJniCache(JNIEnv* env) {
@@ -341,6 +341,6 @@ void prepareJniCache(JNIEnv* env) {
     cacheSettings(env);
     cacheContext(env);
     cacheActivity(env);
-    cacheManagerPacket(env);
-    cacheInfoPacket(env);
+    cacheManagerPackage(env);
+    cacheInfoPackage(env);
 }

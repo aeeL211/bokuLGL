@@ -12,52 +12,52 @@ import android.widget.Button;
 import android.widget.Toast;
 
 /**
- * Dialog dengan tautan yang dipanggil dari native. Tampilannya memakai
- * {@link DialogMenu}, sama dengan semua dialog lain di menu.
+ * Link dialog called from native. It is shown with {@link MenuDialog}, the same
+ * as every other dialog in the menu.
  */
 public class DialogHelper {
     private static final long DELAY_COUNT_MS = 1000L;
 
     public static void showDialogWithLink(final Context context, final String title,
-                                          final String message, final String LinkBtnTitle,
-                                          final String CloseBtnTitle, final int sec,
+                                          final String message, final String linkBtnTitle,
+                                          final String closeBtnTitle, final int sec,
                                           final String url) {
         if (context == null)
             return;
-        // Dialog hanya boleh dibuat di thread utama.
+        // The dialog may only be created on the main thread.
         if (Looper.myLooper() != Looper.getMainLooper()) {
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
-                    showDialogWithLink(context, title, message, LinkBtnTitle, CloseBtnTitle, sec, url);
+                    showDialogWithLink(context, title, message, linkBtnTitle, closeBtnTitle, sec, url);
                 }
             });
             return;
         }
 
         MenuDialog menu = new MenuDialog(context);
-        // Context selain Activity (mis. Service) hanya bisa menampilkan dialog lewat jendela overlay.
+        // A non-Activity Context (e.g. a Service) can only show a dialog through an overlay window.
         menu.setOverlay(!(context instanceof Activity));
 
-        MenuDialog.Button tautan = null;
+        MenuDialog.Action link = null;
         if (url != null) {
-            tautan = new MenuDialog.Button(LinkBtnTitle, new Runnable() {
+            link = new MenuDialog.Action(linkBtnTitle, new Runnable() {
                 @Override
                 public void run() {
                     openUrlSafely(context, url);
                 }
             });
         }
-        final String labelClose = CloseBtnTitle == null ? "" : CloseBtnTitle;
-        String labelInitial = sec > 0 ? labelClose + "(" + sec + ")" : labelClose;
+        final String closeLabel = closeBtnTitle == null ? "" : closeBtnTitle;
+        String initialLabel = sec > 0 ? closeLabel + "(" + sec + ")" : closeLabel;
 
-        MenuDialog.Result result = menu.display(title, message, null, null, tautan, null,
-                new MenuDialog.Button(labelInitial, null), true);
+        MenuDialog.Result result = menu.display(title, message, null, null, link, null,
+                new MenuDialog.Action(initialLabel, null), true);
         if (result != null && sec > 0)
-            startCountdown(result, labelClose, sec);
+            startCountdown(result, closeLabel, sec);
     }
 
-    /** Tombol tutup menghitung mundur dan menekan dirinya sendiri saat habis. */
+    /** The close button counts down and clicks itself when it reaches zero. */
     private static void startCountdown(final MenuDialog.Result result, final String label,
                                           final int second) {
         final Handler handler = new Handler(Looper.getMainLooper());
@@ -69,7 +69,7 @@ public class DialogHelper {
             public void run() {
                 if (!result.dialog.isShowing())
                     return;
-                Button close = result.negatif;
+                Button close = result.negative;
                 if (close == null)
                     return;
                 if (remaining > 0) {
@@ -81,7 +81,7 @@ public class DialogHelper {
                 }
             }
         };
-        // Dialog yang ditutup lebih awal tidak boleh meninggalkan callback yang menggantung.
+        // A dialog that is closed early must not leave a dangling callback.
         result.dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
             @Override
             public void onDismiss(DialogInterface dialog) {

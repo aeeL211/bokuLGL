@@ -12,20 +12,19 @@ struct Target {
     void* addr;
     void* method;
     void* orig;
-    // Stub milik ShadowHook untuk unhook. Selama mod berjalan tidak pernah
-    // dilepas, tetapi disimpan supaya pemasangan bisa dilacak dan di-unhook
-    // dengan benar bila suatu saat dibutuhkan.
+    // ShadowHook's stub for unhooking. It is never released while the mod runs,
+    // but it is kept so the installation can be traced and unhooked correctly
+    // if that is ever needed.
     void* stub;
     bool installed;
 };
 
 Target& target(TargetId id);
 
-// Mendekripsi tabel nama target dengan kunci build. Nama target tidak pernah
-// tertulis polos di pustaka, dan setiap build memakai kunci berbeda.
+// Decrypts the target name table with the build key. Target names are never
+// stored in plain text in the library, and every build uses a different key.
 bool initializeTargets();
 
-// Mencari setiap target berdasarkan nama kelas, nama method, dan jumlah parameter.
-// Mengembalikan berapa yang ditemukan, yang bernilai T_COUNT bila semuanya berjalan
-// sehat.
+// Finds every target by class name, method name, and parameter count. Returns
+// how many were found, which equals T_COUNT when everything is healthy.
 int scan();

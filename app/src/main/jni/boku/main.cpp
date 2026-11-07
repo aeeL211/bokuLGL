@@ -19,56 +19,56 @@
 
 namespace {
 
-void* pekerja(void*) {
-    LOGI("Pekerja mulai");
-    // JNI_OnLoad berjalan setelah konstruktor kembali, jadi kelas activity bisa
-    // belum tersimpan saat thread ini mulai.
+void* worker(void*) {
+    LOGI("Worker started");
+    // JNI_OnLoad runs after the constructor returns, so the activity class may
+    // not be cached yet when this thread starts.
     for (int i = 0; i < 10 && !klassUnityPlayer(); i++)
         usleep(100000);
     recordEnvironment();
     if (!initializeTargets())
         return nullptr;
 
-    // Menu menanyakan IsGameLibLoaded() sebelum menampilkan daftar fitur, jadi
-    // penantian ini sekaligus menandai bahwa libil2cpp.so sudah tersedia.
+    // The menu asks IsGameLibLoaded() before showing the feature list, so this
+    // wait also marks that libil2cpp.so is available.
     for (int i = 0; i < 120 && !isLibraryLoaded("libil2cpp.so"); i++) {
         sleep(1);
     }
     sleep(2);
 
     if (!bindApi()) {
-        LOGE("API IL2CPP tidak ditemukan");
+        LOGE("IL2CPP API not found");
         return nullptr;
     }
-    // ShadowHook memasang penangan SIGSEGV/SIGBUS sendiri untuk proteksi saat
-    // menulis kode. Penangan crash mod dipasang lebih dulu, lalu ShadowHook
-    // diinisialisasi setelah Unity selesai memasang penangannya, sehingga
-    // rantainya bytesig -> log mod -> penangan Unity. Probe dipasang setelah
-    // tabel modul yang dipakai untuk menyelesaikannya dipotret.
+    // ShadowHook installs its own SIGSEGV/SIGBUS handler for write protection.
+    // The mod crash handler is installed first, then ShadowHook is initialized
+    // after Unity has installed its handler, so the chain is
+    // bytesig -> mod log -> Unity handler. The probes are installed after the
+    // module table used to resolve them is captured.
     installCrashLog();
-    // Kegagalan inisialisasi tidak menghentikan mod: setiap hook akan mencatat
-    // kegagalannya sendiri, fitur yang hanya membaca field tetap berjalan, dan
-    // permainan dibiarkan pada perilaku vanilla.
+    // Initialization failure does not stop the mod: each hook logs its own
+    // failure, read-only field features keep working, and the game is left on
+    // vanilla behavior.
     if (initializeHooks())
         installCrashProbe();
-    // libil2cpp dan pustaka pendampingnya selesai dimuat sebelum titik ini,
-    // jadi tabel modul dipotret ulang supaya frame crash nanti bisa dinamai.
+    // libil2cpp and its companion libraries finish loading before this point,
+    // so the module table is captured again so later crash frames can be named.
     refreshModules();
-    LOGI("API IL2CPP terikat");
+    LOGI("IL2CPP API bound");
 
     void* domain = nullptr;
     for (int i = 0; i < 60 && !(domain = apiIl2cpp().domain()); i++) {
         sleep(1);
     }
     if (!domain) {
-        LOGE("Domain IL2CPP belum siap");
+        LOGE("IL2CPP domain not ready");
         return nullptr;
     }
 
-    LOGI("Domain siap, scan dimulai");
+    LOGI("Domain ready, scan starting");
     apiIl2cpp().attach(domain);
-    int ditemukan = scan();
-    LOGI("Scan selesai: %d dari %d metode ditemukan", ditemukan, T_COUNT);
+    int found = scan();
+    LOGI("Scan complete: %d of %d methods found", found, T_COUNT);
 
     installIapHook();
     installMultiplayerHook();
@@ -94,7 +94,7 @@ void* pekerja(void*) {
     installRoomHook();
     installPlayerHook();
     refreshModules();
-    LOGI("Hook terpasang: %d", countHookInstalled());
+    LOGI("Hooks installed: %d", countHookInstalled());
     toastEnter();
     return nullptr;
 }
@@ -110,11 +110,11 @@ void setupMod(JavaVM* vm, JNIEnv* env) {
 
 __attribute__((constructor)) static void onLoad() {
     openLogFile();
-    LOGI("Library dimuat");
+    LOGI("Library loaded");
     pthread_t t;
-    if (pthread_create(&t, nullptr, pekerja, nullptr) == 0) {
+    if (pthread_create(&t, nullptr, worker, nullptr) == 0) {
         pthread_detach(t);
     } else {
-        LOGE("Thread gagal dibuat");
+        LOGE("Failed to create thread");
     }
 }

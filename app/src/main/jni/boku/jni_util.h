@@ -2,9 +2,9 @@
 
 #include <jni.h>
 
-// Pemegang JNIEnv untuk satu blok kode. Thread yang belum terpasang ke VM akan
-// dipasang saat konstruksi dan dilepas lagi saat destruksi, jadi setiap jalur
-// keluar tetap berpasangan tanpa penanganan manual.
+// Holds the JNIEnv for one code block. A thread not yet attached to the VM is
+// attached on construction and detached on destruction, so every exit path stays
+// paired without manual handling.
 class EnvScope {
 public:
     EnvScope();
@@ -21,8 +21,8 @@ private:
     bool release_ = false;
 };
 
-// Referensi lokal JNI selalu dibebaskan, termasuk saat ada jalur keluar lebih
-// awal atau pemanggilan Java melempar eksepsi.
+// JNI local references are always released, including on early exit paths or
+// when a Java call throws an exception.
 template <typename T> class LocalRef {
 public:
     LocalRef() = default;
@@ -56,7 +56,7 @@ public:
     T get() const { return ref_; }
     explicit operator bool() const { return ref_ != nullptr; }
 
-    // Melepas referensi tanpa menghapusnya, untuk nilai yang dikembalikan ke Java.
+    // Releases the reference without deleting it, for values returned to Java.
     T release() {
         T ref = ref_;
         ref_ = nullptr;
@@ -74,8 +74,8 @@ private:
     T ref_ = nullptr;
 };
 
-// Pinjaman karakter UTF-8 dari jstring. GetStringUTFChars dan
-// ReleaseStringUTFChars selalu berpasangan.
+// Borrowed UTF-8 characters from a jstring. GetStringUTFChars and
+// ReleaseStringUTFChars are always paired.
 class StringUtf {
 public:
     StringUtf(JNIEnv* env, jstring text) : env_(env), text_(text) {
@@ -100,7 +100,6 @@ private:
     const char* content_ = nullptr;
 };
 
-// Eksepsi Java yang tertinggal membuat setiap panggilan JNI berikutnya gagal.
-// Semua titik panggil membersihkannya, dan kegagalan dicatat ke logcat dengan
-// tag yang sama seperti log native.
+// A leftover Java exception makes every following JNI call fail. All call sites
+// clear it, and failures are logged to logcat with the same tag as native logs.
 void clearException(JNIEnv* env, const char* context);

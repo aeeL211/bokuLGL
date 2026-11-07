@@ -10,13 +10,12 @@
 
 namespace {
 
-// Game membawa 9999 slot per jenis penyimpanan. INT32_MAX membuat setiap
-// penyimpanan tanpa batas, yang ditawarkan mod ini sebagai ganti membeli slot
-// satu per satu.
+// The game ships 9999 slots per storage type. INT32_MAX makes every storage
+// unlimited, which this mod offers instead of buying slots one at a time.
 constexpr int32_t kLimitSlot = INT32_MAX;
 
-// Setiap jenis penyimpanan adalah field Global, mungkin satu tingkat di bawahnya,
-// yang kelasnya membawa penghitung data_Slot_Num yang diisi loader saat mulai.
+// Each storage type is a Global field, possibly one level below it, whose class
+// carries the data_Slot_Num counter filled by the loader at startup.
 struct Slot {
     const char* first;
     const char* secondary;
@@ -51,8 +50,8 @@ bool findFieldSlot(Slot& slot) {
     return findField(klassHolder, "data_Slot_Num", slot.fieldCount);
 }
 
-// Loader bisa saja sudah berjalan sebelum hook ini dipasang, jadi nilai yang
-// ditinggalkannya dinaikkan sekali saat start juga.
+// The loader may already have run before this hook was installed, so the value
+// it left is raised once at startup as well.
 void raiseSlot(void* base, const Slot& slot) {
     if (!slot.fieldCount.field)
         return;
@@ -64,9 +63,9 @@ void raiseSlot(void* base, const Slot& slot) {
         writeInt(holder, slot.fieldCount, kLimitSlot);
 }
 
-// Setiap jenis penyimpanan memuat jumlah slot miliknya lewat satu fungsi ini.
-// Menaikkan jumlahnya ke batas membuka seluruh penyimpanan tanpa membeli slot
-// satu per satu.
+// Each storage type loads its slot count through this single function. Raising
+// the count to the limit unlocks the whole storage without buying slots one at
+// a time.
 void hookLoad(int32_t* count, void* key, int32_t standalone, void* method) {
     auto original =
         reinterpret_cast<void (*)(int32_t*, void*, int32_t, void*)>(target(T_SLOT_LOAD).orig);
@@ -87,9 +86,9 @@ void installSlotHook() {
     for (Slot& slot : slots) {
         if (!findFieldSlot(slot)) {
             if (slot.secondary)
-                LOGE("Field slot tidak ditemukan: %s.%s", slot.first, slot.secondary);
+                LOGE("Slot field not found: %s.%s", slot.first, slot.secondary);
             else
-                LOGE("Field slot tidak ditemukan: %s", slot.first);
+                LOGE("Slot field not found: %s", slot.first);
             continue;
         }
         raiseSlot(base, slot);
@@ -98,10 +97,10 @@ void installSlotHook() {
 
     int count = static_cast<int>(sizeof(slots) / sizeof(slots[0]));
     if (ready == count)
-        LOGI("Field slot OK");
+        LOGI("Slot fields OK");
     else
-        LOGE("Field slot: %d dari %d ditemukan", ready, count);
-    LOGI("Batas slot %d", kLimitSlot);
+        LOGE("Slot fields: %d of %d found", ready, count);
+    LOGI("Slot limit %d", kLimitSlot);
 
     installHook(target(T_SLOT_LOAD), reinterpret_cast<void*>(hookLoad));
 }

@@ -3,12 +3,12 @@ package com.android.support;
 import java.util.Locale;
 
 /**
- * Teks dialog yang muncul saat sebuah baris fitur ditekan lama.
+ * Dialog text shown when a feature row is long-pressed.
  *
- * Isinya mengikuti README, jadi kalau perilaku sebuah fitur berubah, teks di
- * sini ikut diubah. Baris yang nomornya dihitung sendiri oleh featureList
- * (daftar pemain, posisi pemain, tautan) dikenali dari namanya lebih dulu
- * supaya tidak bertabrakan dengan nomor fitur 0.
+ * The content follows the README, so when a feature's behavior changes, the text
+ * here changes with it. Rows whose number is computed by featureList itself
+ * (player list, player position, link) are recognized by name first
+ * so they do not collide with feature number 0.
  */
 public final class Explanation {
     private Explanation() {
@@ -19,7 +19,7 @@ public final class Explanation {
 
         if (n.contains("pemain di room"))
             return "Menampilkan host, pemain sendiri, dan tamu yang sedang ada di room. "
-                    + "Ketuk Kick untuk tendangan sementara; tahan tombolnya untuk tendangan "
+                    + "Ketuk Kick untuk kick sementara; tahan tombolnya untuk kick "
                     + "permanen yang juga menghapus tamu dari daftar. Kartu host punya tombol "
                     + "Kick host yang mengirim paket berulang, bisa membuat host lag lalu keluar "
                     + "dan menutup room. Tombol Kick semua menendang seluruh tamu secara "

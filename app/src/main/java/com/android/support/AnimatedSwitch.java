@@ -10,33 +10,33 @@ import android.view.animation.OvershootInterpolator;
 import android.widget.CompoundButton;
 
 /**
- * Sakelar pil gaya game: pil 52x26dp, garis 3dp #B28950, knob bulat 20dp yang
- * mengisi penuh bagian dalam pil.
+ * Game-style pill switch: 52x26dp pill, 3dp #B28950 stroke, 20dp round knob
+ * that fills the inside of the pill.
  *
- * MATI : track #B28950, knob #CEA972 di kiri.
- * HIDUP: track #F8B551, knob #FFF799 di kanan.
+ * OFF : #B28950 track, #CEA972 knob on the left.
+ * ON  : #F8B551 track, #FFF799 knob on the right.
  *
- * Tetap turunan CompoundButton supaya aksesibilitas dan penanganan klik sama
- * seperti Switch bawaan. View-nya setinggi 48dp agar area sentuh memenuhi
- * ukuran minimum, pilnya digambar di tengah.
+ * Still a CompoundButton subclass so accessibility and click handling match
+ * the stock Switch. The view is 48dp tall so the touch area meets the minimum
+ * size; the pill itself is drawn in the center.
  *
- * Animasi digerakkan dari onDraw, bukan ValueAnimator, karena tiga hal yang
- * membuat animasi sebelumnya kadang tidak terlihat:
+ * The animation is driven from onDraw, not ValueAnimator, for three reasons
+ * that made the previous animation sometimes invisible:
  *
- * 1. ValueAnimator mengikuti "animator duration scale" sistem. Dengan penghemat
- *    baterai atau opsi pengembang bernilai 0, animasi langsung selesai.
- * 2. Listener perubahan dipanggil sebelum animasi mulai. Bila pekerjaan di
- *    listener (JNI ke native) menahan thread utama, frame pertama datang
- *    terlambat dan ValueAnimator melompat ke akhir. Sekarang animasi mulai
- *    lebih dulu dan listener dipanggil sesudah beberapa frame.
- * 3. Terlepas dari window di tengah animasi meninggalkan knob setengah jalan.
- *    Sekarang posisi selalu dikembalikan ke status sebenarnya.
+ * 1. ValueAnimator follows the system "animator duration scale". With battery
+ *    saver or a developer option set to 0, the animation finishes instantly.
+ * 2. The change listener is called before the animation starts. If the work in
+ *    the listener (JNI to native) blocks the main thread, the first frame
+ *    arrives late and ValueAnimator jumps to the end. Now the animation starts
+ *    first and the listener is called a few frames later.
+ * 3. Unplugging the window mid-animation left the knob halfway. Now the
+ *    position is always returned to the real state.
  *
- * Kemajuan per frame dibatasi {@link #BATAS_FRAME_MS}, jadi sekalipun satu
- * frame tertahan, knob tetap bergerak bertahap dan tidak lompat.
+ * Progress per frame is capped at {@link #FRAME_LIMIT_MS}, so even when one
+ * frame stalls, the knob still moves in steps instead of jumping.
  */
 public class AnimatedSwitch extends CompoundButton {
-    private static final float DURASI = 190f;
+    private static final float DURATION = 190f;
     private static final float DURATION_PRESS = 90f;
     private static final float LIMIT_FRAME_MS = 20f;
     private static final long DELAY_NOTIFY_MS = 50L;
@@ -47,14 +47,14 @@ public class AnimatedSwitch extends CompoundButton {
     private static final float PRESS_STRETCH_DP = 4f;
     private static final float TARGET_HEIGHT_DP = Theme.TARGET_DP;
 
-    private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final RectF field = new RectF();
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF rect = new RectF();
     private final OvershootInterpolator bounce = new OvershootInterpolator(0.9f);
-    private final DecelerateInterpolator mengerem = new DecelerateInterpolator();
+    private final DecelerateInterpolator brake = new DecelerateInterpolator();
 
-    // posisi 0 = mati, 1 = hidup (boleh sedikit melewati batas saat overshoot).
+    // position 0 = off, 1 = on (may slightly overshoot during the bounce).
     private float position;
-    // tekan 0..1 = knob melar saat jari menyentuh.
+    // press 0..1 = the knob stretches while a finger touches.
     private float press;
     private float pressTarget;
 
@@ -68,25 +68,25 @@ public class AnimatedSwitch extends CompoundButton {
     private boolean running;
     private long lastMs;
 
-    // Ukuran dalam piksel dihitung sekali di konstruktor, bukan tiap frame.
+    // Pixel sizes are computed once in the constructor, not every frame.
     private final float pillWidthPx;
     private final float pillHeightPx;
     private final float linePx;
     private final float stretchPx;
     private final int targetHeightPx;
 
-    private OnCheckedChangeListener pendengar;
-    private boolean lastDikabarkan;
+    private OnCheckedChangeListener listener;
+    private boolean lastNotified;
 
-    private final Runnable kabarkan = new Runnable() {
+    private final Runnable notifyChange = new Runnable() {
         @Override
         public void run() {
             boolean now = isChecked();
-            if (now == lastDikabarkan)
+            if (now == lastNotified)
                 return;
-            lastDikabarkan = now;
-            if (pendengar != null)
-                pendengar.onCheckedChanged(AnimatedSwitch.this, now);
+            lastNotified = now;
+            if (listener != null)
+                listener.onCheckedChanged(AnimatedSwitch.this, now);
         }
     };
 
@@ -106,13 +106,13 @@ public class AnimatedSwitch extends CompoundButton {
     }
 
     /**
-     * Listener tidak diteruskan ke CompoundButton supaya tidak dipanggil di
-     * tengah setChecked, sebelum animasi mulai.
+     * The listener is not passed on to CompoundButton so it is not called in
+     * the middle of setChecked, before the animation starts.
      */
     @Override
     public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
-        pendengar = listener;
-        lastDikabarkan = isChecked();
+        this.listener = listener;
+        lastNotified = isChecked();
     }
 
     @Override
@@ -122,18 +122,18 @@ public class AnimatedSwitch extends CompoundButton {
     }
 
     /**
-     * Nilai dari restore dipasang tanpa animasi dan tanpa kabar, karena view
-     * belum punya ukuran saat Preferences.loadPrefBool dipanggil. Ketukan
-     * sesudah layout selalu dianimasikan dari posisi sekarang, jadi ketukan
-     * cepat bisa dibalik tanpa lompat.
+     * Values from restore are set without animation and without notifying,
+     * because the view has no size yet when Preferences.loadPrefBool is called.
+     * Taps after layout always animate from the current position, so a quick tap
+     * can be reversed without jumping.
      */
     @Override
     public void setChecked(boolean checked) {
         super.setChecked(checked);
 
         float target = checked ? 1f : 0f;
-        boolean terlihat = isLaidOut() && isShown();
-        if (!terlihat) {
+        boolean visible = isLaidOut() && isShown();
+        if (!visible) {
             stopAnimation();
             position = target;
             invalidate();
@@ -143,11 +143,12 @@ public class AnimatedSwitch extends CompoundButton {
         if (drag ? dragTarget != target : position != target)
             startDrag(target);
 
-        // Kabar ditunda beberapa frame agar knob sudah mulai bergerak sebelum
-        // pekerjaan berat di listener. Ketukan beruntun digabung: yang dikabarkan
-        // hanya keadaan akhir, dan hanya bila berbeda dari kabar terakhir.
-        removeCallbacks(kabarkan);
-        postDelayed(kabarkan, DELAY_NOTIFY_MS);
+        // Notification is delayed a few frames so the knob is already moving
+        // before the heavy work in the listener. Rapid taps are coalesced: only
+        // the final state is reported, and only if it differs from the last
+        // report.
+        removeCallbacks(notifyChange);
+        postDelayed(notifyChange, DELAY_NOTIFY_MS);
     }
 
     @Override
@@ -160,14 +161,14 @@ public class AnimatedSwitch extends CompoundButton {
     }
 
     private void startDrag(float target) {
-        float jarak = Math.abs(target - position);
+        float distance = Math.abs(target - position);
         dragInitial = position;
         dragTarget = target;
         dragProgress = 0f;
-        dragDuration = DURASI * Math.max(0.45f, jarak);
-        // Geser jauh sedikit memantul di ujung seperti saklar fisik; geser
-        // pendek (membalik di tengah jalan) hanya mengerem.
-        dragBounce = jarak > 0.6f;
+        dragDuration = DURATION * Math.max(0.45f, distance);
+        // A long move bounces a little at the end like a physical switch; a
+        // short move (reversing midway) only decelerates.
+        dragBounce = distance > 0.6f;
         drag = true;
         startFrame();
     }
@@ -180,12 +181,12 @@ public class AnimatedSwitch extends CompoundButton {
         postInvalidateOnAnimation();
     }
 
-    /** Memajukan animasi satu frame. True bila masih perlu frame berikutnya. */
+    /** Advances the animation one frame. True when another frame is still needed. */
     private boolean step() {
         long now = SystemClock.uptimeMillis();
         float dt = Math.min((float) (now - lastMs), LIMIT_FRAME_MS);
         lastMs = now;
-        boolean lanjut = false;
+        boolean needsFrame = false;
 
         if (drag) {
             dragProgress += dt / dragDuration;
@@ -195,24 +196,24 @@ public class AnimatedSwitch extends CompoundButton {
             } else {
                 float t = dragBounce
                         ? bounce.getInterpolation(dragProgress)
-                        : mengerem.getInterpolation(dragProgress);
+                        : brake.getInterpolation(dragProgress);
                 position = dragInitial + (dragTarget - dragInitial) * t;
-                lanjut = true;
+                needsFrame = true;
             }
         }
 
         if (press != pressTarget) {
-            float maju = dt / DURATION_PRESS;
+            float step = dt / DURATION_PRESS;
             press = press < pressTarget
-                    ? Math.min(pressTarget, press + maju)
-                    : Math.max(pressTarget, press - maju);
+                    ? Math.min(pressTarget, press + step)
+                    : Math.max(pressTarget, press - step);
             if (press != pressTarget)
-                lanjut = true;
+                needsFrame = true;
         }
-        return lanjut;
+        return needsFrame;
     }
 
-    /** Menghentikan animasi dan mengembalikan tampilan ke status yang sebenarnya. */
+    /** Stops the animation and resets the drawing to the real state. */
     private void stopAnimation() {
         drag = false;
         running = false;
@@ -229,18 +230,18 @@ public class AnimatedSwitch extends CompoundButton {
 
     @Override
     protected void onDetachedFromWindow() {
-        // Kabar yang tertunda dikirim sekarang supaya tidak hilang, dan knob
-        // tidak tertinggal setengah jalan.
-        removeCallbacks(kabarkan);
-        kabarkan.run();
+        // A pending notification is delivered now so it is not lost, and the
+        // knob is not left halfway.
+        removeCallbacks(notifyChange);
+        notifyChange.run();
         stopAnimation();
         super.onDetachedFromWindow();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        boolean lanjut = running && step();
-        if (lanjut)
+        boolean needsFrame = running && step();
+        if (needsFrame)
             postInvalidateOnAnimation();
         else
             running = false;
@@ -255,33 +256,33 @@ public class AnimatedSwitch extends CompoundButton {
         float top = (height - pillHeight) / 2f;
         float radius = pillHeight / 2f;
 
-        // Warna mengikuti posisi tetapi dijepit supaya overshoot tidak membuat
-        // warna keluar dari rentang. Theme.campur tidak membuat objek baru.
+        // Colors follow the position but are clamped so the overshoot does not
+        // push them out of range. Theme.mix allocates no new object.
         float f = Math.max(0f, Math.min(1f, position));
         int trackColor = Theme.mix(Theme.SWITCH_OFF_TRACK, Theme.SWITCH_ON_TRACK, f);
         int knobColor = Theme.mix(Theme.SWITCH_OFF_KNOB, Theme.SWITCH_ON_KNOB, f);
 
-        // Garis luar #B28950 sebagai pil penuh, lalu track di dalamnya. Saat mati
-        // track memang berwarna sama dengan garis, persis seperti di game.
-        cat.setStyle(Paint.Style.FILL);
-        cat.setColor(Theme.STROKE_CONTROL);
-        field.set(left, top, left + pillWidth, top + pillHeight);
-        canvas.drawRoundRect(field, radius, radius, cat);
+        // Outer #B28950 line as a full pill, then the track inside. When off the
+        // track is the same color as the line, exactly like the game.
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Theme.STROKE_CONTROL);
+        rect.set(left, top, left + pillWidth, top + pillHeight);
+        canvas.drawRoundRect(rect, radius, radius, paint);
 
-        cat.setColor(trackColor);
-        field.set(left + line, top + line, left + pillWidth - line, top + pillHeight - line);
+        paint.setColor(trackColor);
+        rect.set(left + line, top + line, left + pillWidth - line, top + pillHeight - line);
         float radiusInside = radius - line;
-        canvas.drawRoundRect(field, radiusInside, radiusInside, cat);
+        canvas.drawRoundRect(rect, radiusInside, radiusInside, paint);
 
-        // Knob bulat mengisi penuh tinggi bagian dalam. Saat ditekan knob melar
-        // ke arah tengah supaya tepi luarnya tidak lompat.
+        // The round knob fills the full inner height. When pressed the knob
+        // stretches toward the center so its outer edge does not jump.
         float diameter = pillHeight - 2f * line;
         float stretch = stretchPx * press;
-        float jalur = pillWidth - 2f * line - diameter;
-        float knobLeft = left + line + jalur * position - stretch * position;
-        field.set(knobLeft, top + line, knobLeft + diameter + stretch, top + line + diameter);
+        float travel = pillWidth - 2f * line - diameter;
+        float knobLeft = left + line + travel * position - stretch * position;
+        rect.set(knobLeft, top + line, knobLeft + diameter + stretch, top + line + diameter);
 
-        cat.setColor(knobColor);
-        canvas.drawRoundRect(field, diameter / 2f, diameter / 2f, cat);
+        paint.setColor(knobColor);
+        canvas.drawRoundRect(rect, diameter / 2f, diameter / 2f, paint);
     }
 }

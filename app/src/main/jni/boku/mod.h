@@ -2,7 +2,7 @@
 
 #include <jni.h>
 
-// Dipanggil sekali dari JNI_OnLoad milik menu, karena library ini hanya boleh
-// mengekspor satu JNI_OnLoad. Library dimuat di proses game, jadi activity
-// Unity sudah ada saat pemanggilan ini.
+// Called once from the menu's JNI_OnLoad, because this library may export only
+// one JNI_OnLoad. The library is loaded in the game process, so the Unity
+// activity already exists when this call happens.
 void setupMod(JavaVM* vm, JNIEnv* env);

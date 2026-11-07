@@ -11,13 +11,13 @@
 
 namespace {
 
-// Entri lemparan menskalakan kecepatannya dengan nilai ini, jadi ujung atas
-// rentangnya adalah lemparan terkuat yang bisa dibuat kotoran.
+// Throw entries scale their speed with this value, so the top of
+// the range is the strongest throw the feces can produce.
 constexpr float kPowerFull = 1.0f;
 
-// Lemparan bawaan mengisi charge selama tombol ditekan dan hanya melepas saat
-// tombol dilepas, jadi tombol yang ditahan butuh pemicunya sendiri. Jendelanya
-// sama dengan pengulangan pistol dan buster.
+// The vanilla throw fills charge while the button is held and only releases
+// when the button is let go, so a held button needs its own trigger. The window
+// matches the pistol and buster repeat.
 constexpr long long kRhythmThrowMs = 180;
 
 Field fieldManager = {};
@@ -26,8 +26,8 @@ Field fieldThrowManager = {};
 Field fieldCharge = {};
 Field fieldChargeActive = {};
 
-// Setiap pemain melempar dari objek state-nya sendiri, jadi irama, arah lempar
-// terakhir, dan frame charge mengikuti manajer pemain.
+// Each player throws from its own state object, so the rhythm, the last throw
+// direction, and the charge frame follow the player manager.
 struct Throw {
     void* manager;
     long long lastMs;
@@ -45,23 +45,22 @@ long long nowMs() {
 }
 
 Throw& throwFor(void* manager) {
-    Throw* slotKosong = nullptr;
+    Throw* slotEmpty = nullptr;
     for (Throw& throwItem : throwList) {
         if (throwItem.manager == manager)
             return throwItem;
-        if (!throwItem.manager && !slotKosong)
-            slotKosong = &throwItem;
+        if (!throwItem.manager && !slotEmpty)
+            slotEmpty = &throwItem;
     }
 
-    Throw& slot = slotKosong ? *slotKosong : throwList[throwNext];
+    Throw& slot = slotEmpty ? *slotEmpty : throwList[throwNext];
     throwNext = (throwNext + 1) % kCountThrow;
     slot = {};
     slot.manager = manager;
     return slot;
 }
 
-// Bernilai benar paling sering sekali per jendela, jadi tombol yang ditahan
-// melempar dengan laju tetap.
+// True at most once per window, so a held button throws at a steady rate.
 bool rhythmReady(Throw& throwItem) {
     long long now = nowMs();
     if (now - throwItem.lastMs < kRhythmThrowMs)
@@ -70,9 +69,8 @@ bool rhythmReady(Throw& throwItem) {
     return true;
 }
 
-// Mencatat arah lemparan yang sedang mulai dan memasang iramanya, jadi
-// pengulangan pertama menunggu satu jendela daripada menumpuk pada lemparan
-// bawaan.
+// Records the direction of the throw now starting and arms the rhythm, so the
+// first repeat waits one window instead of stacking on the vanilla throw.
 void markThrow(void* own, bool up) {
     void* manager = readPtr(own, fieldManager);
     if (!manager)
@@ -83,8 +81,8 @@ void markThrow(void* own, bool up) {
     throwItem.frameCharge = 0;
 }
 
-// Charge membuat penangan pelepasan tetap siap, jadi charge dibuang setelah
-// lemparan sudah meninggalkan tangan dan pelepasan akan menambah lemparan kedua.
+// Charge keeps the release handler armed, so charge is cleared after
+// the throw has left the hand and the release would add a second throw.
 void clearCharge(void* manager) {
     void* state = readPtr(manager, fieldStateManager);
     void* dataThrow = readPtr(state, fieldThrowManager);
@@ -93,10 +91,10 @@ void clearCharge(void* manager) {
         writeBool(charge, fieldChargeActive, false);
 }
 
-// Lemparan mandiri memanggil satu entri yang menerima kekuatan, jadi entri yang
-// sama dipakai ulang untuk pengulangan. Method info tersembunyinya adalah yang
-// disimpan scan untuk entri itu, karena badan yang membacanya tidak boleh
-// melihat nilai null.
+// A standalone throw calls one entry that takes the power, so the same
+// entry is reused for the repeat. Its hidden method info is the one the
+// scan stored for that entry, because the body that reads it must not
+// see a null value.
 void throwNow(void* own, bool up) {
     Target& entry = target(up ? T_FECES_ACTION_UP : T_FECES_ACTION_STD);
     if (entry.addr)
@@ -104,11 +102,11 @@ void throwNow(void* own, bool up) {
                                                                     entry.method);
 }
 
-// Charge lurus dimasuki dari setiap bidikan, dan charge melihat ke atas
-// menggantikannya saat pemain membidik ke atas, jadi entri charge terakhir
-// adalah arah yang harus diulang tombol yang ditahan. Hanya perubahan arah yang
-// memasang ulang hitungan frame, jadi charge baru sempat menyelesaikan
-// bidikannya tanpa menahan entri yang berulang.
+// Straight charge is entered from every aim, and the upward charge
+// replaces it when the player aims up, so the last charge entry is the
+// direction the held button must repeat. Only a direction change
+// re-arms the frame count, so a fresh charge can finish its aim
+// without holding back the repeating entry.
 void setDirectionCharge(void* own, bool up) {
     void* manager = readPtr(own, fieldManager);
     if (!manager || !isLocalPlayerHook(manager))
@@ -133,8 +131,8 @@ void hookChargeStd(void* own, void* method) {
         setDirectionCharge(own, false);
 }
 
-// Charge melihat ke atas hanya punya satu pemanggil, yaitu sakelar input yang
-// berjalan selama pemain membidik ke atas saat charge.
+// The upward charge has a single caller, the input switch that runs while
+// the player aims up during charge.
 void hookChargeUp(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_FECES_CHARGE_UP).orig);
     if (!original)
@@ -144,9 +142,9 @@ void hookChargeUp(void* own, void* method) {
         setDirectionCharge(own, true);
 }
 
-// Id tangan kosong di akhir lemparan mengeluarkan kotoran dari tangan. Menahan
-// perubahan itu membuat kotorannya tetap di tempat, jadi kotoran yang sama bisa
-// terbang lagi, dan kekuatannya dipaksa supaya setiap lemparan terkuat.
+// The bare hand id at the end of a throw removes the feces from the hand.
+// Holding back that change keeps the feces in place, so the same feces can
+// fly again, and the power is forced so every throw is the strongest.
 void hookActionStd(void* own, float power, void* method) {
     auto original = reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_STD).orig);
     if (!original)
@@ -165,7 +163,7 @@ void hookActionStd(void* own, float power, void* method) {
     setHoldHand(false);
 }
 
-// Lemparan melihat ke atas butuh perlakuan yang sama.
+// The upward throw needs the same treatment.
 void hookActionUp(void* own, float power, void* method) {
     auto original = reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_UP).orig);
     if (!original)
@@ -184,9 +182,9 @@ void hookActionUp(void* own, float power, void* method) {
     setHoldHand(false);
 }
 
-// Berjalan setiap frame selama aksi lempar ada di layar, dan jalur bawaan
-// mengakhiri aksi itu begitu sprite mencapai step terakhirnya. Memulai lemparan
-// setelahnya melempar lagi selama tombol ditahan.
+// Runs every frame while the throw action is on screen, and the vanilla path
+// ends that action once the sprite reaches its last step. Starting a throw
+// after that throws again while the button is held.
 void hookUpdateThrow(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_FECES_UPDATE).orig);
     if (!original)
@@ -203,11 +201,11 @@ void hookUpdateThrow(void* own, void* method) {
         throwNow(own, throwItem.up);
 }
 
-// Berjalan setiap frame state charge. Tombol yang ditahan langsung melempar
-// daripada menunggu pelepasan, jadi lemparan pertama saat tombol ditahan jatuh
-// sama seperti setiap pengulangan. Sakelar bidikan berjalan pada lintasan input
-// berikutnya, jadi frame charge pertama hanya menghitung dan lemparan mulai
-// satu frame kemudian dengan arah yang sudah mantap.
+// Runs every frame of the charge state. A held button throws immediately
+// instead of waiting for release, so the first throw when the button is held
+// lands the same as every repeat. The aim switch runs on the next input
+// pass, so the first charge frame only counts and the throw starts
+// one frame later with a direction that is already settled.
 void hookUpdateCharge(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_FECES_CHARGE_UPDATE).orig);
     if (!original)
@@ -243,10 +241,10 @@ bool findFieldFeces() {
 
 void installFecesHook() {
     if (!findFieldFeces()) {
-        LOGE("Field kotoran tidak ditemukan; lemparan tetap vanilla");
+        LOGE("Feces field not found; throw stays vanilla");
         return;
     }
-    LOGI("Field kotoran siap");
+    LOGI("Feces field ready");
 
     installHook(target(T_FECES_CHARGE_UPDATE), reinterpret_cast<void*>(hookUpdateCharge));
     installHook(target(T_FECES_CHARGE_STD), reinterpret_cast<void*>(hookChargeStd));

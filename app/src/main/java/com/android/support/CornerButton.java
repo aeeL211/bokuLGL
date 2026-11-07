@@ -9,19 +9,19 @@ import android.graphics.RectF;
 import android.view.View;
 
 /**
- * Tombol sudut bergaya game: kotak hitam, garis putih, glyph pixel putih.
+ * Game-style corner button: black box, white line, white pixel glyph.
  *
- * Gambarnya 34dp seperti sebelumnya, tetapi view-nya {@link Theme#TARGET_DP}
- * (48dp) supaya area sentuhnya memenuhi ukuran minimum. Glyph digambar dari
- * grid pixel 16x16 lewat {@link Piksel}, sama seperti ikon fitur.
+ * The drawing is 34dp as before, but the view is {@link Theme#TARGET_DP}
+ * (48dp) so the touch area meets the minimum size. The glyph is drawn from
+ * a 16x16 pixel grid through {@link PixelArt}, just like the feature icons.
  */
 final class CornerButton extends View {
     private static final float BOX_DP = 34f;
     private static final float LINE_DP = 2f;
     private static final float FRACTION_GLYPH = 0.70f;
 
-    private final Paint cat = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint catGlyph = PixelArt.catTajam();
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint glyphPaint = PixelArt.crispPaint();
     private final RectF box = new RectF();
     private final RectF line = new RectF();
     private final Rect target = new Rect();
@@ -29,7 +29,7 @@ final class CornerButton extends View {
     private final float boxPx;
     private final float linePx;
     private final float radiusPx;
-    private int sel = 1;
+    private int cell = 1;
 
     CornerButton(Context context, String[] pattern) {
         super(context);
@@ -43,21 +43,21 @@ final class CornerButton extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int sisi = (int) Theme.dp(getContext(), Theme.TARGET_DP);
-        setMeasuredDimension(resolveSize(sisi, widthMeasureSpec),
-                resolveSize(sisi, heightMeasureSpec));
+        int side = (int) Theme.dp(getContext(), Theme.TARGET_DP);
+        setMeasuredDimension(resolveSize(side, widthMeasureSpec),
+                resolveSize(side, heightMeasureSpec));
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        float sisi = Math.min(boxPx, Math.min(w, h));
-        float left = (w - sisi) / 2f;
-        float top = (h - sisi) / 2f;
-        box.set(left, top, left + sisi, top + sisi);
+        float side = Math.min(boxPx, Math.min(w, h));
+        float left = (w - side) / 2f;
+        float top = (h - side) / 2f;
+        box.set(left, top, left + side, top + side);
         float enter = linePx / 2f;
         line.set(box.left + enter, box.top + enter, box.right - enter, box.bottom - enter);
-        sel = PixelArt.sel((int) sisi, (int) sisi, FRACTION_GLYPH);
+        cell = PixelArt.cell((int) side, (int) side, FRACTION_GLYPH);
     }
 
     @Override
@@ -68,15 +68,15 @@ final class CornerButton extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        cat.setStyle(Paint.Style.FILL);
-        cat.setColor(isPressed() ? Theme.BOX_CORNER_PRESS : Theme.BOX_CORNER);
-        canvas.drawRoundRect(box, radiusPx, radiusPx, cat);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(isPressed() ? Theme.BOX_CORNER_PRESS : Theme.BOX_CORNER);
+        canvas.drawRoundRect(box, radiusPx, radiusPx, paint);
 
-        cat.setStyle(Paint.Style.STROKE);
-        cat.setStrokeWidth(linePx);
-        cat.setColor(Theme.ACTIVE_BORDER);
-        canvas.drawRoundRect(line, radiusPx, radiusPx, cat);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(linePx);
+        paint.setColor(Theme.ACTIVE_BORDER);
+        canvas.drawRoundRect(line, radiusPx, radiusPx, paint);
 
-        PixelArt.image(canvas, glyph, catGlyph, target, getWidth(), getHeight(), sel);
+        PixelArt.image(canvas, glyph, glyphPaint, target, getWidth(), getHeight(), cell);
     }
 }

@@ -16,29 +16,29 @@
 
 namespace {
 
-// String model berisi beberapa ratus field yang dipisah. Batas ini hanya
-// menghentikan panjang yang rusak agar tidak berjalan melewati string.
+// The model string holds several hundred separated fields. This limit only
+// stops broken lengths from running past the string.
 constexpr int32_t kLimitCharacterModel = 16384;
-// Satu entri per skin berbeda yang bisa tampil dalam satu sesi; pengulangan hanya
-// memakan satu pencarian tabel.
+// One entry per distinct skin that can appear in a single session; a repeat only
+// costs one table lookup.
 constexpr int kLimitHash = 512;
 constexpr int kSizeTableHash = 1024;
 constexpr int kMaskTableHash = kSizeTableHash - 1;
 constexpr int kLimitSlot = 1000;
 constexpr size_t kLimitBytePath = 1024;
-// Kunci tamu itu pendek; yang lebih panjang tidak layak jadi entri cache.
+// Guest keys are short; longer ones are not worth a cache entry.
 constexpr size_t kLimitByteUser = 64;
-// Satu entri per tamu yang modelnya bisa disalin dari menu.
+// One entry per guest whose model can be copied from the menu.
 constexpr int kMaxGuest = 16;
-// Berkas dibaca per potongan, jadi tidak ada buffer sebesar string model.
+// The file is read in pieces, so no buffer the size of the model string is needed.
 constexpr size_t kLimitBytePiece = 1024;
 constexpr uint64_t kInitialHash = 1469598103934665603ull;
-constexpr uint64_t kPrimaHash = 1099511628211ull;
+constexpr uint64_t kPrimeHash = 1099511628211ull;
 
 char textPath[kLimitBytePath];
 
-// Hash model yang sudah punya slot, beserta nomor slotnya, supaya permintaan
-// salin berikutnya bisa menyebut tempat skin itu sudah tersimpan.
+// Hash of a model that already owns a slot, plus its slot number, so the next
+// copy request can point at where that skin is already stored.
 struct SlotModel {
     uint64_t hash;
     int slot;
@@ -49,9 +49,9 @@ int countHashModel = 0;
 int slotNext = 1;
 bool slotReady = false;
 
-// Model tamu disimpan di memori saat mereka masuk room. Penulisan ke slot baru
-// terjadi ketika pemain memintanya dari menu, jadi tidak ada skin yang masuk
-// tanpa persetujuan pemakai.
+// Guest models are kept in memory when they enter the room. Writing to a slot
+// only happens when the player asks for it from the menu, so no skin is saved
+// without the user's consent.
 struct ModelGuest {
     char key[kLimitByteUser];
     char* model;
@@ -61,16 +61,16 @@ ModelGuest guestList[kMaxGuest];
 int countGuest = 0;
 int guestNext = 0;
 
-// Hook masuk tamu dan hook update tamu bisa berjalan di thread yang berbeda,
-// jadi cache-nya dijaga kunci. Pembaca menyalin modelnya lalu melepas kunci,
-// supaya entri yang diganti tidak terbaca setengah jadi.
+// The guest join hook and the guest update hook can run on different threads,
+// so the cache is guarded by a lock. Readers copy the model and then release the
+// lock, so a replaced entry is never read half-written.
 pthread_mutex_t guestKey = PTHREAD_MUTEX_INITIALIZER;
 
-// Model milik satu tamu, disalin dari cache supaya entrinya boleh diganti
-// setelah fungsi pengambil selesai.
-struct SalinanModel {
+// Model owned by a single guest, copied from the cache so the entry can be
+// replaced after the getter returns.
+struct ModelCopy {
     char* text = nullptr;
-    ~SalinanModel() { free(text); }
+    ~ModelCopy() { free(text); }
 };
 
 Field fieldGuest = {};
@@ -90,14 +90,14 @@ uint64_t hashText(const char* text, size_t length, uint64_t initial = kInitialHa
     uint64_t result = initial;
     for (size_t i = 0; i < length; i++) {
         result ^= static_cast<uint8_t>(text[i]);
-        result *= kPrimaHash;
+        result *= kPrimeHash;
     }
     return result;
 }
 
-// Tabel terbuka dengan indeks dari hash itu sendiri, jadi skin yang sudah ada
-// ditemukan tanpa memindai daftar. Hash nol dipindahkan ke satu supaya tidak
-// pernah terbaca sebagai slot kosong.
+// Open table indexed by the hash itself, so an existing skin is found without
+// scanning a list. A zero hash is moved to one so it is never read as an empty
+// slot.
 int findSlot(uint64_t value) {
     if (!value)
         value = 1;
@@ -131,27 +131,27 @@ void releaseModelGuest(ModelGuest& entry) {
     entry.key[0] = '\0';
 }
 
-// Slot dipakai ulang dari awal saat daftar penuh, jadi tamu yang paling lama
-// tidak lagi bisa disalin tanpa keluar dan masuk lagi.
+// Slots are reused from the start when the list is full, so the oldest guest can
+// no longer be copied without leaving and joining again.
 ModelGuest& slotGuest(const char* key) {
     for (int i = 0; i < countGuest; i++) {
         if (!strcmp(guestList[i].key, key))
             return guestList[i];
     }
-    int indeks = countGuest;
+    int index = countGuest;
     if (countGuest < kMaxGuest) {
         countGuest++;
     } else {
-        indeks = guestNext;
+        index = guestNext;
         guestNext = (guestNext + 1) % kMaxGuest;
-        releaseModelGuest(guestList[indeks]);
+        releaseModelGuest(guestList[index]);
     }
-    snprintf(guestList[indeks].key, sizeof(guestList[indeks].key), "%s", key);
-    return guestList[indeks];
+    snprintf(guestList[index].key, sizeof(guestList[index].key), "%s", key);
+    return guestList[index];
 }
 
-// Satu unit UTF-16 menjadi paling banyak tiga byte UTF-8, dan penulis UTF-8
-// menyisakan empat byte di ujung; ukuran ini pas untuk seluruh isi string.
+// One UTF-16 unit becomes at most three UTF-8 bytes, and the UTF-8 writer leaves
+// four bytes at the end; this size fits the whole string contents.
 char* copyText(void* text) {
     int32_t length = lengthString(text);
     if (length <= 0 || length > kLimitCharacterModel)
@@ -167,11 +167,10 @@ char* copyText(void* text) {
     return result;
 }
 
-// Folder model dimiliki Manager yang sama dengan pemegang daftar tamu, jadi
-// penulis milik game sendiri menaruh berkasnya di Save/Model tanpa menebak path.
-// Nama berkasnya ada di pemegang yang belum dimiliki penyimpanan setengah jadi,
-// dan pembangun path melakukan dereference ke sana, jadi penyimpanan seperti itu
-// dilaporkan tidak ada.
+// The model folder belongs to the same Manager as the guest list holder, so the
+// game's own writer places its files in Save/Model without guessing the path.
+// The file name lives on a holder that a half-built save does not own yet, and
+// the path builder dereferences it, so such a save is reported as missing.
 void* modelData(void* managerGuest) {
     if (!fieldReady)
         return nullptr;
@@ -181,8 +180,7 @@ void* modelData(void* managerGuest) {
     return readPtr(model, fieldNameFile) ? model : nullptr;
 }
 
-// Path milik game sendiri untuk sebuah slot model, jadi tata letaknya tidak
-// pernah ditebak di sini.
+// The game's own path for a model slot, so its layout is never guessed here.
 bool pathSlot(void* model, int slot) {
     auto call =
         reinterpret_cast<void* (*)(void*, int32_t, void*)>(target(T_DATA_MODEL_PATH).addr);
@@ -199,8 +197,8 @@ void writeSlot(void* model, int slot, void* text) {
         call(model, slot, text, target(T_DATA_MODEL_WRITE).method);
 }
 
-// Game menulis nama tampilan modelnya sendiri dengan cara yang sama, jadi slot
-// mendapat Name.txt biasa di samping Data.txt.
+// The game writes the model's own display name the same way, so the slot gets a
+// normal Name.txt next to Data.txt.
 void writeNameSlot(void* model, int slot, void* text) {
     auto call =
         reinterpret_cast<void (*)(void*, int32_t, void*, void*)>(target(T_DATA_MODEL_NAME).addr);
@@ -208,9 +206,9 @@ void writeNameSlot(void* model, int slot, void* text) {
         call(model, slot, text, target(T_DATA_MODEL_NAME).method);
 }
 
-// Skin dari sesi sebelumnya sudah memiliki slotnya, jadi hash setiap Data.txt di
-// disk dibaca sekali dan penulisan berikutnya melanjutkan setelahnya. Isinya
-// dibaca per potongan supaya tidak perlu buffer sebesar string model.
+// Skins from earlier sessions already own their slots, so the hash of every
+// Data.txt on disk is read once and the next write continues after it. The
+// contents are read in pieces so no buffer the size of the model string is needed.
 bool readSlot(void* model, int slot) {
     if (!pathSlot(model, slot))
         return false;
@@ -236,11 +234,11 @@ void fillInitialSlot(void* model) {
     while (slot <= kLimitSlot && readSlot(model, slot))
         slot++;
     slotNext = slot;
-    LOGI("Slot skin: %d tersimpan, berikutnya %d", countHashModel, slotNext);
+    LOGI("Skin slots: %d stored, next %d", countHashModel, slotNext);
 }
 
-// Model tamu disalin ke memori, bukan ke disk, karena menu memutuskan kapan
-// skin itu disimpan. Kuncinya adalah id tamu yang juga dipakai daftar pemain.
+// Guest models are copied into memory, not to disk, because the menu decides when
+// that skin is saved. The key is the guest id that the player list also uses.
 void saveModelGuest(void* key, void* model) {
     char keyText[kLimitByteUser];
     if (!key || !model || !toUtf8(key, keyText, sizeof(keyText)) || !keyText[0])
@@ -254,10 +252,10 @@ void saveModelGuest(void* key, void* model) {
     free(entry.model);
     entry.model = text;
     pthread_mutex_unlock(&guestKey);
-    LOGI("Model tamu dicatat: %s (%d karakter)", keyText, lengthString(model));
+    LOGI("Guest model recorded: %s (%d characters)", keyText, lengthString(model));
 }
 
-bool getGuestModel(const char* key, SalinanModel& result) {
+bool getGuestModel(const char* key, ModelCopy& result) {
     pthread_mutex_lock(&guestKey);
     for (int i = 0; i < countGuest; i++) {
         if (strcmp(guestList[i].key, key) || !guestList[i].model)
@@ -269,23 +267,23 @@ bool getGuestModel(const char* key, SalinanModel& result) {
     return result.text != nullptr;
 }
 
-// Tamu yang sudah ada di room sebelum mod dimuat tidak pernah melewati hook
-// Add. Model yang sedang dipakai bisa dibaca dari daftar hidup, lalu diubah
-// kembali menjadi string oleh Model__To__Str milik game sendiri.
-bool guestModelAlive(void* managerGuest, const char* key, SalinanModel& result) {
+// Guests already in the room before the mod loaded never pass through the Add
+// hook. The model in use can be read from the live list, then converted back to
+// a string by the game's own Model__To__Str.
+bool guestModelAlive(void* managerGuest, const char* key, ModelCopy& result) {
     if (!fieldGuestReady)
         return false;
     void* manager = readPtr(managerGuest, fieldGuest);
     void* list = readPtr(manager, guestListField);
     void* item = readPtr(list, fieldItemGuest);
     int32_t count = item ? readInt(list, guestSizeField) : 0;
-    int32_t kapasitas = item ? lengthArray(item) : 0;
-    if (count <= 0 || count > kapasitas)
+    int32_t capacity = item ? lengthArray(item) : 0;
+    if (count <= 0 || count > capacity)
         return false;
 
     auto toText = reinterpret_cast<void* (*)(void*, void*)>(target(T_MODEL_TO_STR).addr);
     if (!toText) {
-        LOGE("Target _Model.Model__To__Str tidak ditemukan, model tamu hidup tidak terbaca");
+        LOGE("Target _Model.Model__To__Str not found, live guest model unavailable");
         return false;
     }
 
@@ -306,8 +304,8 @@ bool guestModelAlive(void* managerGuest, const char* key, SalinanModel& result) 
     return false;
 }
 
-// Field daftar tamu hidup dipakai saat cache Add kosong. Namanya sama dengan
-// yang dipakai section Room, jadi keduanya menunjuk daftar yang sama.
+// The live guest list fields are used when the Add cache is empty. The names
+// match those used by the Room section, so both point at the same list.
 bool findFieldGuestAlive() {
     if (!fieldGuest.field)
         return false;
@@ -330,23 +328,23 @@ CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name,
     if (!fieldReady || !managerGuest || !key || !*key)
         return CopyResult::Failed;
 
-    SalinanModel tersalin;
-    if (!getGuestModel(key, tersalin) || !tersalin.text || !*tersalin.text) {
-        free(tersalin.text);
-        tersalin.text = nullptr;
-        if (!guestModelAlive(managerGuest, key, tersalin) || !tersalin.text) {
-            LOGI("Model tamu tidak ditemukan: %s", key);
+    ModelCopy copied;
+    if (!getGuestModel(key, copied) || !copied.text || !*copied.text) {
+        free(copied.text);
+        copied.text = nullptr;
+        if (!guestModelAlive(managerGuest, key, copied) || !copied.text) {
+            LOGI("Guest model not found: %s", key);
             return CopyResult::Missing;
         }
-        LOGI("Model tamu dibaca dari daftar: %s", key);
+        LOGI("Guest model read from live list: %s", key);
     }
-    const char* modelText = tersalin.text;
+    const char* modelText = copied.text;
 
     void* model = modelData(managerGuest);
     if (!model) {
         if (!alreadyRecordNotReady) {
             alreadyRecordNotReady = true;
-            LOGE("Model skin belum siap, salin skin dilewati");
+            LOGE("Skin model not ready, skin copy skipped");
         }
         return CopyResult::Failed;
     }
@@ -363,30 +361,30 @@ CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name,
         return CopyResult::Exists;
     }
     if (slotNext > kLimitSlot) {
-        LOGE("Slot skin penuh, %d skin tersimpan", countHashModel);
+        LOGE("Skin slots full, %d skins stored", countHashModel);
         return CopyResult::Failed;
     }
 
     void* textModel = stringFromUtf8(modelText);
     if (!textModel) {
-        LOGE("String model gagal dibuat untuk slot %d", slotNext);
+        LOGE("Failed to build model string for slot %d", slotNext);
         return CopyResult::Failed;
     }
     writeSlot(model, slotNext, textModel);
     if (!slotHas(model, slotNext)) {
-        LOGE("Penulisan skin gagal: slot %d", slotNext);
+        LOGE("Skin write failed: slot %d", slotNext);
         return CopyResult::Failed;
     }
 
     slot = slotNext++;
     recordSlot(value, slot);
-    LOGI("Skin tamu disimpan: slot %d (%zu byte)", slot, strlen(modelText));
+    LOGI("Guest skin saved: slot %d (%zu bytes)", slot, strlen(modelText));
 
     if (name && *name) {
         void* nameText = stringFromUtf8(name);
         if (nameText) {
             writeNameSlot(model, slot, nameText);
-            LOGI("Nama skin: slot %d", slot);
+            LOGI("Skin name: slot %d", slot);
         }
     }
     return CopyResult::Saved;
@@ -398,9 +396,9 @@ using FnAdd = void (*)(void*, void*, int32_t, int32_t, int32_t, int32_t, int32_t
                           void*, void*, void*, void*, bool, bool, bool, bool, bool, bool, void*);
 using FnInitModel = void (*)(void*, void*, void*);
 
-// Daftar tamu dibangun dari satu panggilan ini di host maupun client, dan
-// argumen Model-nya adalah string skin penuh. Model itu hanya disimpan di
-// memori sampai pemain memintanya lewat menu.
+// The guest list is built from this single call on both host and client, and its
+// Model argument is the full skin string. That model is only kept in memory
+// until the player requests it from the menu.
 void hookAdd(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t dir, int32_t s,
                 int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
                 bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
@@ -413,8 +411,8 @@ void hookAdd(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t di
              saveWorld, dollInteract, dollMove, dollSetting, method);
 }
 
-// Model bisa tiba lewat Init__Model setelah tamu masuk, jadi string yang
-// diterima di sini juga dicatat. Kuncinya sudah ada di tamu itu sendiri.
+// The model can arrive through Init__Model after the guest joins, so the string
+// received here is recorded too. The key already exists on the guest itself.
 void hookInitModel(void* own, void* model, void* method) {
     saveModelGuest(readPtr(own, guestKeyField), model);
     auto original = reinterpret_cast<FnInitModel>(target(T_GUEST_INIT_MODEL).orig);
@@ -433,10 +431,10 @@ void installSkinHook() {
     fieldReady = fieldReady && findField(klassData, "model", fieldModel);
     void* klassModel = fieldReady ? fieldClass(fieldModel) : nullptr;
     fieldReady = fieldReady && findField(klassModel, "_filename", fieldNameFile);
-    LOGI("Field model skin %s", fieldReady ? "OK" : "tidak ada, salin skin tidak aktif");
+    LOGI("Skin model fields %s", fieldReady ? "OK" : "missing, skin copy inactive");
 
     fieldGuestReady = findFieldGuestAlive();
-    LOGI("Field daftar tamu %s", fieldGuestReady ? "OK" : "tidak ada, salin skin hanya dari cache");
+    LOGI("Guest list fields %s", fieldGuestReady ? "OK" : "missing, skin copy from cache only");
 
     installHook(target(T_GUEST_ADD), reinterpret_cast<void*>(hookAdd));
     installHook(target(T_GUEST_INIT_MODEL), reinterpret_cast<void*>(hookInitModel));

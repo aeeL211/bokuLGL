@@ -2,9 +2,9 @@
 
 #include <jni.h>
 
-// Kelas dan method Java yang dipakai jembatan menu diikat sekali sebagai
-// referensi global. Pencarian nama karena itu tidak diulang pada setiap toast
-// atau dialog, dan kelas yang hilang hanya dicatat sekali.
+// Java classes and methods used by the menu bridge are bound once as global
+// references. Name lookups are therefore not repeated on every toast or dialog,
+// and a missing class is only logged once.
 
 struct ClassMethod {
     jclass klass;
@@ -37,28 +37,28 @@ struct ContextClass {
     jclass klass;
     jmethodID startService;
     jmethodID startActivity;
-    jmethodID packetName;
+    jmethodID packageName;
 };
 
 struct ActivityClass {
     jclass klass;
-    jmethodID managerPacket;
-    jmethodID packetName;
+    jmethodID managerPackage;
+    jmethodID packageName;
 };
 
-struct PacketManagerClass {
+struct PackageManagerClass {
     jclass klass;
-    jmethodID infoPacket;
+    jmethodID infoPackage;
 };
 
-struct PacketInfoClass {
+struct PackageInfoClass {
     jclass klass;
     jfieldID versionName;
-    jfieldID codeVersion;
+    jfieldID versionCode;
 };
 
-// Mengisi cache lebih awal dari JNI_OnLoad. Kegagalan satu kelas tidak
-// menghentikan kelas lain; pemanggil memeriksa hasilnya sendiri.
+// Fills the cache early from JNI_OnLoad. One class failing does not stop the
+// others; callers check their own result.
 void prepareJniCache(JNIEnv* env);
 
 jclass klassString(JNIEnv* env);
@@ -74,5 +74,5 @@ const BuildClass* cacheBuild(JNIEnv* env);
 const ClassMethod* cacheSettings(JNIEnv* env);
 const ContextClass* cacheContext(JNIEnv* env);
 const ActivityClass* cacheActivity(JNIEnv* env);
-const PacketManagerClass* cacheManagerPacket(JNIEnv* env);
-const PacketInfoClass* cacheInfoPacket(JNIEnv* env);
+const PackageManagerClass* cacheManagerPackage(JNIEnv* env);
+const PackageInfoClass* cacheInfoPackage(JNIEnv* env);

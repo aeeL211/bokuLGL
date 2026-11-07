@@ -8,14 +8,14 @@
 
 namespace {
 
-// Setiap pemeriksaan teks di game diputuskan di sini: daftar kata ditanyakan
-// lebih dulu, dan bila pemanggil juga meminta catatan, catatan itu dimunculkan.
-// Menjawab false melewati keduanya, jadi baris chat, nama, dan teks profil lolos.
-bool hookSensitive(void* self, void* text, int32_t bahasa, bool record, void* method) {
+// Every text check in the game is decided here: the word list is consulted
+// first, and when the caller also asks for a record, that record is created.
+// Answering false skips both, so chat lines, names, and profile text pass.
+bool hookSensitive(void* self, void* text, int32_t language, bool record, void* method) {
     auto original = reinterpret_cast<bool (*)(void*, void*, int32_t, bool, void*)>(
         target(T_SENSITIVE_WORD).orig);
-    if (!features().wordRude)
-        return original ? original(self, text, bahasa, record, method) : false;
+    if (!features().rudeWord)
+        return original ? original(self, text, language, record, method) : false;
     return false;
 }
 

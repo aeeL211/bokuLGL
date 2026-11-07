@@ -9,15 +9,16 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
- * Penggambar pola pixel-art. Satu pola didekode sekali menjadi Bitmap kecil
- * (16x16), lalu digambar dengan satu drawBitmap yang diperbesar tanpa filter,
- * jadi tepinya tetap tajam dan onDraw tidak lagi memanggil drawRect 256 kali.
+ * Pixel-art pattern renderer. A pattern is decoded once into a small Bitmap
+ * (16x16), then drawn with a single unfiltered scaled drawBitmap, so the edges
+ * stay sharp and onDraw no longer calls drawRect 256 times.
  *
- * Pola bawaan fitur memakai tiga nada tema dan disimpan di cache statis. Jumlah
- * pola terbatas (sekitar 35, masing-masing 1 KB), jadi cache tidak perlu dibersihkan.
+ * Feature default patterns use the three theme tones and are kept in a static
+ * cache. The number of patterns is limited (about 35, 1 KB each), so the cache
+ * never needs clearing.
  */
 final class PixelArt {
-    /** Jumlah kolom grid ikon. */
+    /** Number of icon grid columns. */
     static final int COLUMNS = 16;
 
     private static final char TONE_BRIGHT = '1';
@@ -29,8 +30,8 @@ final class PixelArt {
     private PixelArt() {
     }
 
-    /** Bitmap pola dengan palet ikon fitur. Null bila pola kosong. */
-    static synchronized Bitmap standar(String[] pattern) {
+    /** Pattern bitmap in the feature icon palette. Null when the pattern is empty. */
+    static synchronized Bitmap defaultPattern(String[] pattern) {
         if (pattern == null)
             return null;
         Bitmap bitmap = cache.get(pattern);
@@ -42,7 +43,7 @@ final class PixelArt {
         return bitmap;
     }
 
-    /** Mendekode pola menjadi bitmap dengan tiga warna nada. Piksel '.' dibiarkan transparan. */
+    /** Decodes a pattern into a bitmap with three tone colors. '.' pixels are left transparent. */
     static Bitmap create(String[] pattern, int bright, int current, int dark) {
         if (pattern == null || pattern.length == 0)
             return null;
@@ -54,53 +55,53 @@ final class PixelArt {
         if (width == 0)
             return null;
 
-        int[] piksel = new int[width * height];
+        int[] pixels = new int[width * height];
         for (int y = 0; y < height; y++) {
             String row = pattern[y];
             for (int x = 0; x < row.length(); x++) {
                 char content = row.charAt(x);
                 if (content == TONE_BRIGHT)
-                    piksel[y * width + x] = bright;
+                    pixels[y * width + x] = bright;
                 else if (content == TONE_MEDIUM)
-                    piksel[y * width + x] = current;
+                    pixels[y * width + x] = current;
                 else if (content == TONE_DARK)
-                    piksel[y * width + x] = dark;
+                    pixels[y * width + x] = dark;
             }
         }
 
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        bitmap.setPixels(piksel, 0, width, 0, 0, width, height);
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
         return bitmap;
     }
 
-    /** Paint untuk menggambar pola: tanpa antialias dan tanpa filter, supaya piksel tetap kotak. */
-    static Paint catTajam() {
-        Paint cat = new Paint();
-        cat.setAntiAlias(false);
-        cat.setFilterBitmap(false);
-        cat.setDither(false);
-        return cat;
+    /** Paint for drawing patterns: no antialias and no filter, so pixels stay square. */
+    static Paint crispPaint() {
+        Paint paint = new Paint();
+        paint.setAntiAlias(false);
+        paint.setFilterBitmap(false);
+        paint.setDither(false);
+        return paint;
     }
 
     /**
-     * Ukuran satu sel dalam piksel layar, selalu bilangan bulat supaya tepi ikon
-     * tajam. Pola memakai {@code fraksi} dari sisi terpendek area.
+     * Size of one cell in screen pixels, always an integer so icon edges stay
+     * sharp. The pattern uses {@code fraction} of the area's shortest side.
      */
-    static int sel(int width, int height, float fraction) {
-        int sel = (int) Math.floor(Math.min(width, height) * fraction / COLUMNS);
-        return Math.max(1, sel);
+    static int cell(int width, int height, float fraction) {
+        int cell = (int) Math.floor(Math.min(width, height) * fraction / COLUMNS);
+        return Math.max(1, cell);
     }
 
-    /** Menggambar bitmap pola di tengah area (0,0)-(lebar,tinggi) dengan sel bilangan bulat. */
-    static void image(Canvas canvas, Bitmap bitmap, Paint cat, Rect target,
-                       int width, int height, int sel) {
+    /** Draws the pattern bitmap centered in the area (0,0)-(width,height) with integer cells. */
+    static void image(Canvas canvas, Bitmap bitmap, Paint paint, Rect target,
+                       int width, int height, int cell) {
         if (bitmap == null)
             return;
-        int w = bitmap.getWidth() * sel;
-        int h = bitmap.getHeight() * sel;
+        int w = bitmap.getWidth() * cell;
+        int h = bitmap.getHeight() * cell;
         int left = Math.round((width - w) / 2f);
         int top = Math.round((height - h) / 2f);
         target.set(left, top, left + w, top + h);
-        canvas.drawBitmap(bitmap, null, target, cat);
+        canvas.drawBitmap(bitmap, null, target, paint);
     }
 }

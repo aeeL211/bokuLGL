@@ -47,25 +47,25 @@ public final class CrashHandler {
             return;
         appContext = context.getApplicationContext();
 
-        // Dipanggil dua kali (MainActivity lalu Main) tidak boleh membungkus
-        // handler milik kita sendiri, supaya tidak ada rantai handler yang bertambah.
+        // Called twice (MainActivity then Main) it must not wrap our own
+        // handler, so the handler chain does not keep growing.
         UncaughtExceptionHandler now = Thread.getDefaultUncaughtExceptionHandler();
-        if (!(now instanceof PenangkapCrash))
+        if (!(now instanceof CrashCatcher))
             defaultHandler = now;
 
         cleanOldLogs();
 
-        Thread.setDefaultUncaughtExceptionHandler(new PenangkapCrash());
+        Thread.setDefaultUncaughtExceptionHandler(new CrashCatcher());
     }
 
-    private static final class PenangkapCrash implements UncaughtExceptionHandler {
+    private static final class CrashCatcher implements UncaughtExceptionHandler {
         @Override
         public void uncaughtException(Thread thread, Throwable throwable) {
             Log.e(TAG, "Uncaught exception detected", throwable);
 
-            // Crash di dalam penanganan crash langsung diteruskan ke handler asli.
+            // A crash inside crash handling is forwarded straight to the original handler.
             if (isHandling) {
-                teruskan(thread, throwable);
+                forward(thread, throwable);
                 return;
             }
             isHandling = true;
@@ -74,12 +74,12 @@ public final class CrashHandler {
                 handleException(thread, throwable);
             } catch (Throwable e) {
                 Log.e(TAG, "Error in crash handler", e);
-                teruskan(thread, throwable);
+                forward(thread, throwable);
             }
         }
     }
 
-    private static void teruskan(Thread thread, Throwable throwable) {
+    private static void forward(Thread thread, Throwable throwable) {
         if (defaultHandler != null) {
             defaultHandler.uncaughtException(thread, throwable);
         } else {
@@ -92,23 +92,23 @@ public final class CrashHandler {
         // Save crash log
         File crashFile = saveCrashLog(throwable, thread);
 
-        // Show notification to user. Toast butuh Looper, dan thread yang crash
-        // (apalagi thread utama) tidak bisa dipakai, jadi toast dijalankan di
-        // thread pembantu dengan Looper sendiri.
-        Thread penampil = null;
+        // Show notification to user. Toast needs a Looper, and the crashing
+        // thread (especially the main thread) cannot be used, so the toast runs
+        // on a helper thread with its own Looper.
+        Thread viewer = null;
         if (showToasts && appContext != null)
-            penampil = showToast(crashFile);
+            viewer = showToast(crashFile);
 
         // Wait a bit for toast to show and log to be saved
-        if (penampil != null) {
+        if (viewer != null) {
             try {
-                penampil.join(WAIT_MAX_MS);
+                viewer.join(WAIT_MAX_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
 
-        teruskan(thread, throwable);
+        forward(thread, throwable);
     }
 
     private static File saveCrashLog(Throwable throwable, Thread source) {
@@ -162,14 +162,15 @@ public final class CrashHandler {
         report.append("Product: ").append(Build.PRODUCT).append("\n");
         report.append("Board: ").append(Build.BOARD).append("\n");
         report.append("Fingerprint: ").append(Build.FINGERPRINT).append("\n");
-        // Thread yang crash, bukan thread yang sedang menulis laporan.
+        // The thread that crashed, not the one writing the report.
         Thread origin = source != null ? source : Thread.currentThread();
         report.append("Thread: ").append(origin.getName()).append("\n");
         report.append("=============== STACK TRACE ===============\n");
 
-        // printStackTrace sudah mencetak seluruh rantai "Caused by", jadi tidak
-        // perlu menelusuri getCause() sendiri (versi lama menulisnya ke writer
-        // yang isinya sudah diambil, sehingga rantai penyebab tidak pernah masuk).
+        // printStackTrace already prints the whole "Caused by" chain, so there
+        // is no need to walk getCause() ourselves (the old version wrote it to a
+        // writer whose content had already been taken, so the cause chain never
+        // made it in).
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         throwable.printStackTrace(pw);
@@ -197,7 +198,7 @@ public final class CrashHandler {
 
     private static File getLogDirectory() {
         if (appContext == null) {
-            Log.e(TAG, "CrashHandler belum diinisialisasi");
+            Log.e(TAG, "CrashHandler is not initialized");
             return null;
         }
 
@@ -235,7 +236,7 @@ public final class CrashHandler {
         return file.getName();
     }
 
-    /** Menampilkan toast di thread pembantu ber-Looper selama {@link #TOAST_TAMPIL_MS}. */
+    /** Shows the toast on a Looper helper thread for {@link #TOAST_SHOW_MS}. */
     private static Thread showToast(final File crashFile) {
         final String message;
         if (crashFile != null && crashFile.exists()) {
@@ -259,7 +260,7 @@ public final class CrashHandler {
                     }, TOAST_SHOW_MS);
                     Looper.loop();
                 } catch (Throwable t) {
-                    Log.e(TAG, "Toast crash gagal ditampilkan", t);
+                    Log.e(TAG, "Failed to show crash toast", t);
                 }
             }
         }, "CrashToast");
@@ -304,8 +305,8 @@ public final class CrashHandler {
             Arrays.sort(logs, (f1, f2) ->
                     Long.compare(f2.lastModified(), f1.lastModified()));
 
-            // Versi lama mulai dari indeks 10, jadi yang tersisa 10 berkas
-            // padahal komentarnya "keep last 5".
+            // The old version started at index 10, leaving 10 files even though
+            // the comment says "keep last 5".
             for (int i = LOG_SAVED; i < logs.length; i++) {
                 if (!logs[i].delete()) {
                     Log.w(TAG, "Failed to delete old log: " + logs[i].getName());

@@ -1,5 +1,5 @@
 #pragma once
 
-// Menulis versi game dan build mod ke log, jadi sebuah laporan selalu membawa
-// versi yang dipakai saat itu.
+// Writes the game version and the mod build to the log, so a report always
+// carries the version in use at that time.
 void recordEnvironment();

@@ -14,10 +14,10 @@ Field limitInput = {};
 Field nameData = {};
 Field nameLimit = {};
 
-// Game menulis ulang UIInput.characterLimit (nama 38, hari 2, bulan 2, tahun 4)
-// tepat sebelum setiap edit, jadi kedua titik pemotongan harus menimpanya:
-// Insert(string) menegakkan batas per ketukan, Validate(string) memangkas nilai
-// saat Set/kirim.
+// The game rewrites UIInput.characterLimit (name 38, day 2, month 2, year 4)
+// right before every edit, so both truncation points must override it:
+// Insert(string) enforces the limit per keystroke, Validate(string) trims the
+// value on Set/send.
 void* hookValidate(void* self, void* value, void* method) {
     auto original = reinterpret_cast<void* (*)(void*, void*, void*)>(target(T_INPUT_VALIDATE).orig);
     if (!original)
@@ -36,17 +36,16 @@ void hookInsert(void* self, void* text, void* method) {
     original(self, text, method);
 }
 
-// Keyboard mengubah string ini ke UTF-8 dan menelusuri karakternya sampai
-// panjang di header-nya. String yang header-nya tidak lagi menyimpan panjang
-// wajar membuat penelusuran itu melewati heap, jadi serahkan string kosong baru
-// alih-alih membiarkan engine memindai memori yang tidak terpetakan.
+// The keyboard converts this string to UTF-8 and walks its characters up to the
+// length in the header. A string whose header no longer holds a sane length
+// makes that walk run past the heap, so hand over a fresh empty string instead
+// of letting the engine scan unmapped memory.
 constexpr int32_t kLimitKeyboard = 4096;
 
-void* stringKosong() { return stringUtf16New(reinterpret_cast<const uint16_t*>(u""), 0); }
+void* stringEmpty() { return stringUtf16New(reinterpret_cast<const uint16_t*>(u""), 0); }
 
-// Parameter Length tidak terpakai di jalur mobile, tetapi jalur Steam/gamepad
-// meneruskannya ke input teks miliknya sendiri. Nol berarti tanpa batas karakter
-// di sana.
+// The Length parameter is unused on the mobile path, but the Steam/gamepad path
+// forwards it to its own text input. Zero means no character limit there.
 void hookOpenKeyboard(void* self, int32_t s, int32_t type, void* text, int32_t lengthRequested,
                       void* method) {
     auto original = reinterpret_cast<void (*)(void*, int32_t, int32_t, void*, int32_t, void*)>(
@@ -58,20 +57,20 @@ void hookOpenKeyboard(void* self, int32_t s, int32_t type, void* text, int32_t l
         return;
     }
     int32_t length = lengthString(text);
-    // Menyebut string yang akan diubah engine, supaya pointer buruk muncul di log
-    // tepat sebelum crash, bukan hanya di alamat kesalahan.
-    LOGI("Keyboard: s=%d type=%d text=%p panjang=%d", s, type, text, length);
+    // Name the string the engine is about to touch, so a bad pointer shows up in
+    // the log right before a crash, not only in the fault address.
+    LOGI("Keyboard: s=%d type=%d text=%p length=%d", s, type, text, length);
     if (!text || length < 0 || length > kLimitKeyboard) {
-        void* kosong = stringKosong();
-        if (kosong)
-            text = kosong;
+        void* empty = stringEmpty();
+        if (empty)
+            text = empty;
     }
     original(self, s, type, text, 0, method);
 }
 
-// Name__Check memangkas nama profil sesuai _name.length_Limit dan kembali ke
-// nilai bawaan bila hasilnya kosong. Naikkan batas itu di sekitar panggilan
-// supaya pemangkasannya lolos dan sisa pemeriksaannya tetap berjalan.
+// Name__Check trims the profile name to _name.length_Limit and falls back to
+// the default when the result is empty. Raise that limit around the call so the
+// trim passes through and the rest of the check still runs.
 void hookCheckName(void* self, void** name, bool fix, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void**, bool, void*)>(target(T_NAME_CHECK).orig);
     if (!original)
@@ -95,15 +94,15 @@ void hookCheckName(void* self, void** name, bool fix, void* method) {
 
 void installTextInputHook() {
     if (!findField(classOf("UIInput"), "characterLimit", limitInput)) {
-        LOGE("Field UIInput.characterLimit tidak ditemukan; batas input tetap bawaan");
+        LOGE("Field UIInput.characterLimit not found; input limit stays vanilla");
     }
 
     void* klassAccount = classOf("Net__Account__Manager");
     if (findField(klassAccount, "_name", nameData) &&
         findField(fieldClass(nameData), "length_Limit", nameLimit)) {
-        LOGI("Batas nama field OK");
+        LOGI("Name limit field OK");
     } else {
-        LOGE("Batas nama field tidak ditemukan; nama profil tetap terbatas");
+        LOGE("Name limit field not found; profile name stays limited");
     }
 
     installHook(target(T_INPUT_VALIDATE), reinterpret_cast<void*>(hookValidate));

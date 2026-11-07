@@ -17,14 +17,14 @@ import java.net.URL;
 import java.security.MessageDigest;
 
 /**
- * Memuat ikon melayang dari URL, data URI, atau berkas, lalu mendekodenya
- * menjadi Drawable lewat {@link IkonGambar}. Tidak memakai WebView.
+ * Loads floating icons from a URL, data URI, or file, then decodes them
+ * into a Drawable via {@link IconImage}. Does not use a WebView.
  *
- * URL tidak diunduh ulang tiap menu dibuka. Urutannya memori (selama proses
- * hidup), berkas di cacheDir/ikon, lalu jaringan. Berkas yang lebih tua dari
- * {@link #UMUR_SEGAR_MS} tetap langsung dipakai dan diperbarui diam-diam untuk
- * pembukaan berikutnya. Hanya satu ikon yang disimpan: berkas URL lama dihapus
- * begitu URL baru berhasil diunduh.
+ * The URL is not downloaded again each time the menu opens. The order is memory
+ * (for the lifetime of the process), the file in cacheDir/ikon, then the network.
+ * Files older than {@link #UMUR_SEGAR_MS} are still used immediately and refreshed
+ * silently for the next open. Only one icon is stored: the old URL file is deleted
+ * as soon as the new URL is downloaded successfully.
  */
 public final class IconCache {
     private static final String TAG = BKLog.TAG;
@@ -32,10 +32,10 @@ public final class IconCache {
     private static final int LIMIT_BYTE = 3 * 1024 * 1024;
     private static final int TIMEOUT_MS = 8000;
     private static final int MAX_SWITCH = 5;
-    private static final long UMUR_SEGAR_MS = 7L * 24L * 60L * 60L * 1000L;
+    private static final long FRESH_AGE_MS = 7L * 24L * 60L * 60L * 1000L;
 
-    /** Dipanggil di thread utama. */
-    public interface Pendengar {
+    /** Called on the main thread. */
+    public interface Listener {
         void ready(Drawable icon);
 
         void fail();
@@ -48,7 +48,7 @@ public final class IconCache {
     private IconCache() {
     }
 
-    public static void load(Context context, final String source, final Pendengar pendengar) {
+    public static void load(Context context, final String source, final Listener listener) {
         final Context app = context.getApplicationContext();
         final Handler main = new Handler(Looper.getMainLooper());
 
@@ -57,27 +57,27 @@ public final class IconCache {
             public void run() {
                 Drawable result = null;
                 try {
-                    byte[] content = ambil(app, source);
+                    byte[] content = fetch(app, source);
                     if (content != null)
                         result = IconImage.create(app.getResources(), content);
                 } catch (Throwable t) {
-                    Log.d(TAG, "Ikon gagal dimuat: " + t);
+                    Log.d(TAG, "Icon failed to load: " + t);
                 }
                 final Drawable icon = result;
                 main.post(new Runnable() {
                     @Override
                     public void run() {
                         if (icon != null)
-                            pendengar.ready(icon);
+                            listener.ready(icon);
                         else
-                            pendengar.fail();
+                            listener.fail();
                     }
                 });
             }
         }, "IkonCache").start();
     }
 
-    private static byte[] ambil(Context app, String source) {
+    private static byte[] fetch(Context app, String source) {
         byte[] fromMemory = readMemory(source);
         if (fromMemory != null)
             return fromMemory;
@@ -103,15 +103,15 @@ public final class IconCache {
         if (file.isFile() && file.length() > 0) {
             byte[] content = read(file);
             if (content != null && shapeImage(content)) {
-                if (System.currentTimeMillis() - file.lastModified() > UMUR_SEGAR_MS)
+                if (System.currentTimeMillis() - file.lastModified() > FRESH_AGE_MS)
                     refreshIdle(app, url, file);
                 return content;
             }
-            // Berkas rusak: dibuang, lalu diunduh ulang.
+            // Corrupt file: discard it, then download it again.
             file.delete();
         }
 
-        byte[] content = unduh(url);
+        byte[] content = download(url);
         if (content == null || !shapeImage(content))
             return null;
         write(app, file, content);
@@ -119,24 +119,24 @@ public final class IconCache {
     }
 
     private static byte[] fromDataUri(String uri) {
-        int koma = uri.indexOf(',');
-        if (koma < 0)
+        int comma = uri.indexOf(',');
+        if (comma < 0)
             return null;
         try {
-            return Base64.decode(uri.substring(koma + 1), Base64.DEFAULT);
+            return Base64.decode(uri.substring(comma + 1), Base64.DEFAULT);
         } catch (Throwable t) {
             return null;
         }
     }
 
-    /** Memperbarui berkas lama di thread sendiri; hasilnya dipakai pada pembukaan berikutnya. */
+    /** Refreshes the old file on its own thread; the result is used on the next open. */
     private static void refreshIdle(final Context app, final String url, final File file) {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                byte[] content = unduh(url);
+                byte[] content = download(url);
                 if (content == null || !shapeImage(content)) {
-                    // Gagal: umur berkas diperpanjang supaya tidak mencoba terus tiap masuk.
+                    // Failed: extend the file's age so it is not retried on every entry.
                     file.setLastModified(System.currentTimeMillis());
                     return;
                 }
@@ -171,7 +171,7 @@ public final class IconCache {
                 temporary.delete();
                 return;
             }
-            // Hanya satu ikon yang disimpan: berkas milik URL lain dibuang.
+            // Only one icon is stored: files belonging to other URLs are deleted.
             File[] all = folder(app).listFiles();
             if (all != null) {
                 for (File f : all) {
@@ -180,7 +180,7 @@ public final class IconCache {
                 }
             }
         } catch (Throwable t) {
-            Log.d(TAG, "Ikon gagal disimpan: " + t);
+            Log.d(TAG, "Icon failed to save: " + t);
             temporary.delete();
         } finally {
             if (exit != null) {
@@ -216,35 +216,35 @@ public final class IconCache {
         }
     }
 
-    private static byte[] unduh(String address) {
-        HttpURLConnection koneksi = null;
+    private static byte[] download(String address) {
+        HttpURLConnection connection = null;
         try {
             String now = address;
             for (int i = 0; i < MAX_SWITCH; i++) {
-                koneksi = (HttpURLConnection) new URL(now).openConnection();
-                koneksi.setConnectTimeout(TIMEOUT_MS);
-                koneksi.setReadTimeout(TIMEOUT_MS);
-                koneksi.setInstanceFollowRedirects(false);
-                koneksi.setRequestProperty("User-Agent", "Mozilla/5.0");
-                int code = koneksi.getResponseCode();
+                connection = (HttpURLConnection) new URL(now).openConnection();
+                connection.setConnectTimeout(TIMEOUT_MS);
+                connection.setReadTimeout(TIMEOUT_MS);
+                connection.setInstanceFollowRedirects(false);
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+                int code = connection.getResponseCode();
 
                 if (code >= 300 && code < 400) {
-                    String lokasi = koneksi.getHeaderField("Location");
-                    koneksi.disconnect();
-                    koneksi = null;
-                    if (lokasi == null)
+                    String location = connection.getHeaderField("Location");
+                    connection.disconnect();
+                    connection = null;
+                    if (location == null)
                         return null;
-                    now = new URL(new URL(now), lokasi).toString();
+                    now = new URL(new URL(now), location).toString();
                     continue;
                 }
                 if (code != 200)
                     return null;
 
-                int length = koneksi.getContentLength();
+                int length = connection.getContentLength();
                 if (length > LIMIT_BYTE)
                     return null;
 
-                InputStream enter = koneksi.getInputStream();
+                InputStream enter = connection.getInputStream();
                 ByteArrayOutputStream exit =
                         new ByteArrayOutputStream(length > 0 ? length : 16 * 1024);
                 byte[] buf = new byte[8192];
@@ -260,15 +260,15 @@ public final class IconCache {
                 return exit.toByteArray();
             }
         } catch (Throwable t) {
-            Log.d(TAG, "Ikon gagal diunduh: " + t);
+            Log.d(TAG, "Icon failed to download: " + t);
         } finally {
-            if (koneksi != null)
-                koneksi.disconnect();
+            if (connection != null)
+                connection.disconnect();
         }
         return null;
     }
 
-    /** Memeriksa tanda awal berkas supaya halaman galat HTML tidak ikut disimpan. */
+    /** Checks the file's leading signature so an HTML error page is not stored. */
     private static boolean shapeImage(byte[] b) {
         if (b == null || b.length < 12)
             return false;

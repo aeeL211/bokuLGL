@@ -3,22 +3,22 @@
 #include <atomic>
 #include <cstdint>
 
-// Menu hanya menulis nilai di sini. Setiap hook membaca sakelar pada tiap
-// panggilan, jadi menyalakan atau mematikan fitur tidak pernah memasang atau
-// melepas hook saat game berjalan. Tulisannya datang dari thread UI dan
-// bacaannya dari thread game, jadi setiap sakelar atomik.
+// The menu only writes values here. Every hook reads the switch on each call,
+// so turning a feature on or off never installs or removes a hook while the
+// game runs. Writes come from the UI thread and reads from the game thread, so
+// every switch is atomic.
 struct Features {
     std::atomic<bool> iap{true};
     std::atomic<bool> slot{true};
     std::atomic<bool> inputText{true};
-    // Batas geser skin dalam satuan game: 5 berarti -5..+5 seperti bawaan,
-    // 25 berarti -25..+25. Menu mengirim 5..100.
+    // Skin shift limit in game units: 5 means -5..+5 as before, 25 means
+    // -25..+25. The menu sends 5..100.
     std::atomic<int32_t> skinRange{25};
-    std::atomic<bool> wordRude{true};
+    std::atomic<bool> rudeWord{true};
     std::atomic<bool> saveWorld{true};
     std::atomic<bool> roomSize{true};
-    // Izin build dan destroy di room orang lain ditembus dengan memaksa
-    // Enforce pada paket tile dan Across pada paket objek.
+    // Build and destroy permission in other rooms is bypassed by forcing
+    // Enforce on tile packets and Across on object packets.
     std::atomic<bool> permissionRoomOther{true};
     std::atomic<bool> roomPassword{true};
     std::atomic<bool> privacy{true};
@@ -27,24 +27,24 @@ struct Features {
     std::atomic<bool> busterFull{true};
     std::atomic<bool> feces{true};
     std::atomic<bool> food{true};
-    // Getar kamera dan puing tile dipisah karena getar hanya mengganggu
-    // tampilan, sedangkan puing ikut menentukan beban gambar di layar.
+    // Camera shake and tile debris are separate because shake only disturbs
+    // the view, while debris also affects the rendering load on screen.
     std::atomic<bool> shake{true};
-    std::atomic<bool> pecahan{true};
+    std::atomic<bool> debris{true};
     std::atomic<bool> knockback{true};
     std::atomic<bool> noClip{false};
-    // Nilai slider dikirim menu sebagai bilangan bulat: kecepatan 5..50 berarti
-    // 0,5x..5,0x dan gravitasi 0..30 berarti 0,0x..3,0x. Nilai 10 adalah 1,0x.
+    // Slider values are sent by the menu as integers: speed 5..50 means
+    // 0.5x..5.0x and gravity 0..30 means 0.0x..3.0x. A value of 10 is 1.0x.
     std::atomic<int32_t> speedPlayer{10};
     std::atomic<int32_t> gravityPlayer{10};
 };
 
-// Tombol menu berjalan di thread UI, sedangkan posisi dibaca hook update pemain
-// di thread game. Permintaan hanya dititipkan, lalu dipakai satu kali.
+// Menu buttons run on the UI thread, while position is read by the player
+// update hook on the game thread. A request is only parked, then used once.
 struct TeleportRequest {
     std::atomic<int32_t> x{0};
     std::atomic<int32_t> y{0};
-    std::atomic<bool> menunggu{false};
+    std::atomic<bool> waiting{false};
 };
 
 Features& features();

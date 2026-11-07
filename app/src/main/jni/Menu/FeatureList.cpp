@@ -31,10 +31,10 @@ jobjectArray copyList(JNIEnv *env, const char *const *text, int count) {
 
 } // namespace
 
-// Setiap kategori adalah satu header Collapse dan isinya memakai awalan
-// CollapseAdd_, jadi seluruh section tertutup saat menu dibuka. Nomor fitur
-// ditulis eksplisit di isi section, jadi memindahkan baris tidak menggeser nomor
-// mana pun dan Changes() tetap memakai nomor yang sama.
+// Every category is one Collapse header and its contents use the CollapseAdd_
+// prefix, so every section starts closed when the menu opens. Feature numbers
+// are written explicitly in each section body, so moving a row never shifts any
+// number and Changes() keeps using the same numbers.
 jobjectArray featureList(JNIEnv *env) {
     static const char *const features[] = {
             OBFUSCATE("Collapse_Room dan Dunia"),

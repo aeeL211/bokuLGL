@@ -20,28 +20,27 @@ Field fieldState = {};
 Field fieldCombo = {};
 Field fieldRock = {};
 Field fieldCharge = {};
-// Penghitung charge runtime adalah jumlah step 32-bit yang dibandingkan
-// pencarian id buster dengan step penuh dari konfigurasi.
+// The runtime charge counter is the number of 32-bit steps compared by the
+// buster id lookup against the full step from the configuration.
 Field fieldStep = {};
 Field fieldHhRock = {};
 Field fieldConfigCharge = {};
 Field fieldStepFull = {};
 
-// Tombol yang ditahan menembak sekali per jendela. Pistol dan buster bawaan
-// sama-sama menunggu timer aksi yang panjang, dan buster bisa menghabiskan
-// interval tembaknya sebelum state akhir mulai, setelah itu tombol yang ditahan
-// berhenti menembak.
+// A held button fires once per window. The vanilla pistol and buster both wait
+// for a long action timer, and the buster can exhaust its fire interval before
+// the end state starts, after which the held button stops firing.
 constexpr long long kRhythmPistolMs = 80;
 constexpr long long kActionBusterMs = 60;
 constexpr long long kRhythmBusterMs = 100;
 
-// Setiap pemain menjalankan state machine yang sama, jadi iramanya mengikuti
-// manajer pemain. Satu jam bersama akan membuat tamu mereset tepi tombol lokal.
+// Every player runs the same state machine, so the rhythm follows the player
+// manager. A shared clock would make a guest reset the local button edge.
 struct Rhythm {
     void* manager;
     long long shootPistolMs;
     long long shootBusterMs;
-    bool ditahan;
+    bool held;
 };
 constexpr int kCountRhythm = 32;
 Rhythm rhythmList[kCountRhythm] = {};
@@ -54,23 +53,22 @@ long long nowMs() {
 }
 
 Rhythm& rhythmFor(void* manager) {
-    Rhythm* slotKosong = nullptr;
+    Rhythm* slotEmpty = nullptr;
     for (Rhythm& rhythm : rhythmList) {
         if (rhythm.manager == manager)
             return rhythm;
-        if (!rhythm.manager && !slotKosong)
-            slotKosong = &rhythm;
+        if (!rhythm.manager && !slotEmpty)
+            slotEmpty = &rhythm;
     }
 
-    Rhythm& slot = slotKosong ? *slotKosong : rhythmList[rhythmNext];
+    Rhythm& slot = slotEmpty ? *slotEmpty : rhythmList[rhythmNext];
     rhythmNext = (rhythmNext + 1) % kCountRhythm;
     slot = {};
     slot.manager = manager;
     return slot;
 }
 
-// Bernilai benar paling sering sekali per jendela, jadi tombol yang ditahan
-// menembak dengan laju tetap.
+// Returns true at most once per window, so a held button fires at a steady rate.
 bool rhythmReady(long long& lastMs, long long rhythmMs) {
     long long now = nowMs();
     if (now - lastMs < rhythmMs)
@@ -84,22 +82,22 @@ void* statePlayer(void* own, const Field& managerField) {
     return readPtr(manager, fieldState);
 }
 
-// State machine senjata yang sama juga dijalankan untuk tamu di dalam room.
-// Semua hook di bawah hanya boleh mempercepat pemain lokal, jadi manajer pemain
-// diperiksa lebih dulu dan jalur bawaan dipakai untuk badan tamu.
+// The same weapon state machine also runs for guests inside the room.
+// Every hook below must only speed up the local player, so the player manager
+// is checked first and the vanilla path is used for guest bodies.
 bool weaponLocal(void* manager) { return isLocalPlayerHook(manager); }
 
-// Update state mengulang tembakan hanya selama flag combo-nya menyala, dan flag
-// itu mengikuti tombol yang ditahan. Menulisnya sebelum update bawaan membuat
-// semua gaya berdiri maupun bergerak ikut mengulang.
-void selaraskanCombo(void* manager) {
+// The state update repeats the shot only while its combo flag is set, and that
+// flag follows the held button. Writing it before the vanilla update makes both
+// standing and moving styles repeat.
+void alignCombo(void* manager) {
     void* state = readPtr(manager, fieldState);
     if (state)
         writeBool(state, fieldCombo, isActionButtonPressed(manager));
 }
 
-// Tekanan tombol memulai tembakan bawaan, jadi irama dihitung dari sini dan
-// pengulangan paksa pertama jatuh satu jendela kemudian, bukan seketika.
+// The button press starts the vanilla shot, so the rhythm is counted from
+// here and the first forced repeat lands one window later, not instantly.
 void hookUpdateState(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_STATE_UPDATE).orig);
     if (!original)
@@ -116,17 +114,17 @@ void hookUpdateState(void* own, void* method) {
         return;
     }
     Rhythm& rhythm = rhythmFor(manager);
-    bool ditahan = isActionButtonPressed(manager);
-    if (ditahan && !rhythm.ditahan) {
+    bool held = isActionButtonPressed(manager);
+    if (held && !rhythm.held) {
         rhythm.shootPistolMs = nowMs();
         rhythm.shootBusterMs = rhythm.shootPistolMs;
     }
-    rhythm.ditahan = ditahan;
+    rhythm.held = held;
     original(own, method);
 }
 
-// State akhir pistol adalah timer tetap. Mengakhirinya pada update pertama
-// menghilangkan jeda antar tembakan; fase aksi tetap memutar muzzle dan peluru.
+// The pistol end state is a fixed timer. Ending it on the first update
+// removes the pause between shots; the action phase still plays the muzzle and bullet.
 bool hookEndPistol(void* own, void* method) {
     auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_GUN_END).orig);
     if (!original)
@@ -136,9 +134,9 @@ bool hookEndPistol(void* own, void* method) {
     return true;
 }
 
-// Aksi pistol bawaan hanya berakhir setelah frame kedua plus timer aksi.
-// Menjawab ya pada irama pendek selama tombol ditahan menembak lagi sebelum
-// timer itu membiarkan jalur bawaan lewat.
+// The vanilla pistol action only ends after the second frame plus the action
+// timer. Answering yes on the short rhythm while the button is held shoots again
+// before that timer lets the vanilla path through.
 bool hookEndActionPistol(void* own, int image, void* method) {
     auto original = reinterpret_cast<bool (*)(void*, int, void*)>(target(T_GUN_ACTION_END).orig);
     if (!original)
@@ -160,7 +158,7 @@ bool hookEndActionPistol(void* own, int image, void* method) {
     return rhythmReady(rhythm.shootPistolMs, kRhythmPistolMs);
 }
 
-// Jaga flag combo tetap mutakhir selama aksi pistol, lalu jalankan update bawaan.
+// Keep the combo flag current during the pistol action, then run the vanilla update.
 void hookUpdatePistol(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_GUN_UPDATE).orig);
     if (!original)
@@ -168,11 +166,11 @@ void hookUpdatePistol(void* own, void* method) {
 
     void* manager = readPtr(own, fieldManagerWeapon);
     if (features().shootAutomatic && weaponLocal(manager))
-        selaraskanCombo(manager);
+        alignCombo(manager);
     original(own, method);
 }
 
-// Penyelerasan yang sama selama aksi buster.
+// The same alignment during the buster action.
 void hookUpdateBuster(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_UPDATE).orig);
     if (!original)
@@ -180,13 +178,13 @@ void hookUpdateBuster(void* own, void* method) {
 
     void* manager = readPtr(own, fieldManagerWeapon);
     if (features().shootAutomatic && weaponLocal(manager))
-        selaraskanCombo(manager);
+        alignCombo(manager);
     original(own, method);
 }
 
-// Setiap gaya mengakhiri aksi buster lewat pengecekan ini, yang menunggu timer
-// aksi panjang. Mengakhirinya satu jendela aksi setelah tembakan mulai
-// mempertahankan frame muzzle dan efek sambil membuang sisa penantiannya.
+// Every style ends the buster action through this check, which waits for the
+// long action timer. Ending it one action window after the shot starts
+// keeps the muzzle frame and effects while dropping the rest of the wait.
 bool hookEndActionBuster(void* own, void* method) {
     auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_ACTION_END).orig);
     if (!original)
@@ -205,9 +203,9 @@ bool hookEndActionBuster(void* own, void* method) {
     return nowMs() - rhythm.shootBusterMs >= kActionBusterMs;
 }
 
-// Gaya bergerak meninggalkan state akhir buster lewat pengecekan ini, yang
-// menyerah begitu interval tembakan lewat. Menjawab ya pada irama membuat
-// tembakan terus berjalan selama tombol ditahan.
+// The moving style leaves the buster end state through this check, which gives
+// up once the fire interval has passed. Answering yes on the rhythm keeps
+// firing while the button is held.
 bool hookEndToActionBuster(void* own, void* method) {
     auto original = reinterpret_cast<bool (*)(void*, void*)>(target(T_ROCK_END_TO_ACTION).orig);
     if (!original)
@@ -229,9 +227,9 @@ bool hookEndToActionBuster(void* own, void* method) {
     return rhythmReady(rhythm.shootBusterMs, kRhythmBusterMs);
 }
 
-// Buster berdiri menembak ulang di dalam update akhirnya sendiri. Menahan update
-// itu sampai iramanya jatuh tempo lalu memulai aksinya menjaga laju yang sama,
-// dan jalur bawaan tetap berjalan setiap kali tombol dilepas.
+// The standing buster re-fires inside its own end update. Holding that update
+// until the rhythm is due and then starting the action keeps the same rate,
+// and the vanilla path still runs whenever the button is released.
 void hookUpdateEndBuster(void* own, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_ROCK_END_UPDATE).orig);
     if (!original)
@@ -257,9 +255,9 @@ void hookUpdateEndBuster(void* own, void* method) {
     action(own, directionEnd(cmn, target(T_ROCK_END_DIR).method), target(T_ROCK_ACTION).method);
 }
 
-// Pencarian id hanya mengembalikan proyektil terisi bila step charge runtime
-// sama dengan step penuh dari konfigurasi. Menulis step itu sebelum pencarian
-// membuat setiap tembakan memakai amunisi terkuat.
+// The id lookup only returns a charged projectile when the runtime charge step
+// matches the full step from the configuration. Writing that step before the
+// lookup makes every shot use the strongest ammo.
 int32_t hookIdBuster(void* own, void* method) {
     auto original = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_ROCK_ID).orig);
     if (!original)
@@ -303,13 +301,13 @@ bool findFieldWeapon() {
 
 void installWeaponHook() {
     if (!findFieldWeapon()) {
-        LOGE("Field senjata tidak ditemukan; senjata tetap vanilla");
+        LOGE("Weapon field not found; weapon stays vanilla");
         return;
     }
-    LOGI("Field senjata siap");
+    LOGI("Weapon field ready");
 
     if (!target(T_ROCK_ACTION).addr || !target(T_ROCK_END_DIR).addr)
-        LOGE("Method tembak ulang buster tidak ditemukan; buster berdiri tetap vanilla");
+        LOGE("Buster re-fire method not found; standing buster stays vanilla");
 
     installHook(target(T_STATE_UPDATE), reinterpret_cast<void*>(hookUpdateState));
     installHook(target(T_GUN_END), reinterpret_cast<void*>(hookEndPistol));

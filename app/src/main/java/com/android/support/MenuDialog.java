@@ -30,51 +30,51 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 /**
- * Semua dialog menu, dibangun sendiri (bukan AlertDialog bawaan) supaya
- * tampilannya sama di semua versi dan merek Android.
+ * Every menu dialog, built by hand (not the stock AlertDialog) so they look the
+ * same on every Android version and brand.
  *
- * Susunannya mengulang panel menu: bingkai cokelat 3dp, pita header berisi
- * judul, tepi bergelombang, isi di atas BODY, tepi bergelombang, lalu footer
- * berisi tombol kayu. Tombol utama (kanan) berbingkai putih seperti kontrol
- * aktif di menu, tombol lain berbingkai krem.
+ * The layout mirrors the menu panel: 3dp brown frame, header band with the
+ * title, wavy edge, content on BODY, wavy edge, then a footer with the wood
+ * buttons. The main button (right) has a white frame like an active menu
+ * control, the other buttons have a cream frame.
  *
- * Dialog yang sedang terbuka dicatat dan ditutup di {@link #tutup()}, jadi
- * tidak ada dialog yang tertinggal menahan Context setelah menu dihancurkan.
+ * Open dialogs are tracked and closed in {@link #close()}, so no dialog is left
+ * holding a Context after the menu is destroyed.
  */
 final class MenuDialog {
     private static final String TAG = Menu.TAG;
     private static final int TYPE_OVERLAY = Build.VERSION.SDK_INT >= 26 ? 2038 : 2002;
 
-    /** Lebar maksimum sama dengan lebar menu, dengan sisa tepi layar. */
+    /** Maximum width matches the menu width, leaving a screen margin. */
     private static final float WIDTH_MAX_DP = 340f;
     private static final float MARGIN_SCREEN_DP = 16f;
-    /** Isi yang lebih tinggi dari ini digulir, supaya tombol tidak terdorong keluar layar. */
+    /** Content taller than this scrolls, so the buttons are not pushed off screen. */
     private static final float HEIGHT_CONTENT_MAX = 0.5f;
-    private static final float REDUP = 0.5f;
+    private static final float DIM = 0.5f;
     private static final float TEXT_MESSAGE_SP = Theme.ROW_SP;
 
-    /** Penerima teks yang dimasukkan pengguna. */
+    /** Receiver for the text the user enters. */
     interface Receiver {
-        void diterima(String text);
+        void onText(String text);
     }
 
-    /** Satu tombol: label dan aksi yang dijalankan sebelum dialog ditutup. */
-    static final class Button {
+    /** One button: label and the action run before the dialog closes. */
+    static final class Action {
         final String label;
         final Runnable action;
 
-        Button(String label, Runnable action) {
+        Action(String label, Runnable action) {
             this.label = label == null ? "" : label;
             this.action = action;
         }
     }
 
-    /** Dialog yang tampil beserta tombolnya (null bila tombol itu tidak ada). */
+    /** The displayed dialog with its buttons (null when that button does not exist). */
     static final class Result {
         final Dialog dialog;
-        Button positif;
-        Button neutral;
-        Button negatif;
+        Action positive;
+        Action neutral;
+        Action negative;
 
         Result(Dialog dialog) {
             this.dialog = dialog;
@@ -89,12 +89,12 @@ final class MenuDialog {
         this.context = context;
     }
 
-    /** Dialog harus memakai jendela overlay bila menu berjalan sebagai Service. */
+    /** The dialog must use an overlay window when the menu runs as a Service. */
     void setOverlay(boolean overlay) {
         this.overlay = overlay;
     }
 
-    /** Menutup dialog yang masih terbuka. Aman dipanggil berulang. */
+    /** Closes the dialog that is still open. Safe to call repeatedly. */
     void close() {
         Dialog dialog = opened;
         opened = null;
@@ -102,94 +102,94 @@ final class MenuDialog {
             try {
                 dialog.dismiss();
             } catch (Throwable t) {
-                Log.d(TAG, "Dialog gagal ditutup: " + t);
+                Log.d(TAG, "Failed to close dialog: " + t);
             }
         }
     }
 
-    /** Dialog penjelasan yang dibuka dengan menekan lama sebuah fitur. */
+    /** Explanation dialog opened by long-pressing a feature. */
     void explanation(int featNum, String featName) {
         display(Html.fromHtml(featName), Explanation.forTarget(featNum, featName), null, null,
-                new Button("Mengerti", null), null, null, true);
+                new Action("Mengerti", null), null, null, true);
     }
 
     /**
-     * Dialog dengan satu kolom isian. Enter di keyboard sama dengan menekan OK.
-     * Dialog ini tidak ditutup dengan mengetuk di luarnya supaya teks yang
-     * sedang diketik tidak hilang tanpa sengaja.
+     * Dialog with a single input field. Enter on the keyboard acts like pressing
+     * OK. This dialog does not close on an outside tap so text being typed is not
+     * lost by accident.
      *
-     * @param hint         keterangan di atas kolom (mis. batas nilai), atau null
-     * @param angka        true bila hanya boleh angka dan tanda minus
-     * @param maksKarakter batas panjang teks, 0 bila tanpa batas
-     * @param netral       label tombol ketiga, atau null bila tidak ada
+     * @param hint         caption above the field (e.g. the value range), or null
+     * @param valueText    true when only digits and a minus sign are allowed
+     * @param maxCharacter text length limit, 0 for no limit
+     * @param neutral      third button label, or null when there is none
      */
     void input(String title, String hint, String initial, boolean valueText, int maxCharacter,
                final Receiver ok, String neutral, Runnable actionNeutral) {
-        final EditText isian = new EditText(context);
-        isian.setTextColor(Theme.TEXT);
-        isian.setTextSize(Theme.ROW_SP);
-        isian.setHintTextColor(Theme.MUTED);
-        isian.setBackground(Theme.dialogInput(context));
-        isian.setMinHeight(dp(Theme.TARGET_DP));
-        isian.setPadding(dp(12), dp(8), dp(12), dp(8));
-        isian.setSingleLine(true);
-        isian.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        final EditText inputField = new EditText(context);
+        inputField.setTextColor(Theme.TEXT);
+        inputField.setTextSize(Theme.ROW_SP);
+        inputField.setHintTextColor(Theme.MUTED);
+        inputField.setBackground(Theme.dialogInput(context));
+        inputField.setMinHeight(dp(Theme.TARGET_DP));
+        inputField.setPadding(dp(12), dp(8), dp(12), dp(8));
+        inputField.setSingleLine(true);
+        inputField.setImeOptions(EditorInfo.IME_ACTION_DONE);
         if (valueText) {
-            isian.setInputType(InputType.TYPE_CLASS_NUMBER);
-            isian.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
+            inputField.setInputType(InputType.TYPE_CLASS_NUMBER);
+            inputField.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
         }
         if (maxCharacter > 0)
-            isian.setFilters(new InputFilter[]{new InputFilter.LengthFilter(maxCharacter)});
+            inputField.setFilters(new InputFilter[]{new InputFilter.LengthFilter(maxCharacter)});
         if (initial != null && initial.length() > 0) {
-            isian.setText(initial);
-            isian.setSelection(isian.length());
+            inputField.setText(initial);
+            inputField.setSelection(inputField.length());
         }
 
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
         if (hint != null && hint.length() > 0) {
-            TextView keterangan = Theme.text(context, hint, Theme.DESC_SP, Theme.MUTED);
-            keterangan.setPadding(dp(2), 0, dp(2), dp(6));
-            content.addView(keterangan, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+            TextView caption = Theme.text(context, hint, Theme.DESC_SP, Theme.MUTED);
+            caption.setPadding(dp(2), 0, dp(2), dp(6));
+            content.addView(caption, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         }
-        content.addView(isian, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        content.addView(inputField, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
 
         final Result[] result = new Result[1];
-        isian.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        inputField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE && result[0] != null
-                        && result[0].positif != null) {
-                    result[0].positif.performClick();
+                        && result[0].positive != null) {
+                    result[0].positive.performClick();
                     return true;
                 }
                 return false;
             }
         });
 
-        Button okButton = new Button("OK", new Runnable() {
+        Action okButton = new Action("OK", new Runnable() {
             @Override
             public void run() {
-                ok.diterima(isian.getText().toString());
+                ok.onText(inputField.getText().toString());
             }
         });
-        Button neutralButton = neutral != null && actionNeutral != null
-                ? new Button(neutral, actionNeutral) : null;
-        result[0] = display(title, null, content, isian, okButton, neutralButton,
-                new Button("Batal", null), false);
+        Action neutralButton = neutral != null && actionNeutral != null
+                ? new Action(neutral, actionNeutral) : null;
+        result[0] = display(title, null, content, inputField, okButton, neutralButton,
+                new Action("Batal", null), false);
     }
 
     /**
-     * Membangun dan menampilkan dialog. Mengembalikan null bila gagal tampil
-     * (tanpa izin overlay atau Context sudah mati) -- menu tidak boleh ikut
-     * crash karena dialog.
+     * Builds and shows the dialog. Returns null when it fails to show
+     * (no overlay permission or a dead Context) -- the menu must not crash
+     * because of a dialog.
      *
-     * @param pesan  teks biasa di isi dialog, boleh null
-     * @param isi    view tambahan di bawah pesan, boleh null
-     * @param fokus  kolom isian yang mendapat fokus dan keyboard, boleh null
+     * @param message plain text in the dialog body, may be null
+     * @param content extra view below the message, may be null
+     * @param focus   input field that gets focus and the keyboard, may be null
      */
     Result display(CharSequence title, CharSequence message, View content, EditText focus,
-                    Button positif, Button neutral, Button negatif, boolean closeOutside) {
+                   Action positive, Action neutral, Action negative, boolean closeOutside) {
         close();
 
         final Dialog dialog = new Dialog(context, android.R.style.Theme_DeviceDefault_Dialog);
@@ -199,21 +199,21 @@ final class MenuDialog {
         DisplayMetrics dm = context.getResources().getDisplayMetrics();
         int width = Math.min(dp(WIDTH_MAX_DP), dm.widthPixels - 2 * dp(MARGIN_SCREEN_DP));
 
-        // Bingkai luar: isi gelap 3dp, padding view membentuk garis tepi.
+        // Outer frame: 3dp dark fill, the view padding forms the border line.
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackground(Theme.panel(context));
         root.setPadding(dp(3), dp(3), dp(3), dp(3));
 
-        TextView kepala = Theme.text(context, title == null ? "" : title, Theme.SECTION_SP,
+        TextView header = Theme.text(context, title == null ? "" : title, Theme.SECTION_SP,
                 Theme.TITLE_TEXT);
-        kepala.setGravity(Gravity.CENTER);
-        kepala.setMaxLines(2);
-        kepala.setEllipsize(TextUtils.TruncateAt.END);
-        kepala.setMinHeight(dp(Theme.TARGET_DP));
-        kepala.setPadding(dp(14), dp(8), dp(14), dp(8));
-        kepala.setBackground(Theme.header(context));
-        root.addView(kepala, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        header.setGravity(Gravity.CENTER);
+        header.setMaxLines(2);
+        header.setEllipsize(TextUtils.TruncateAt.END);
+        header.setMinHeight(dp(Theme.TARGET_DP));
+        header.setPadding(dp(14), dp(8), dp(14), dp(8));
+        header.setBackground(Theme.header(context));
+        root.addView(header, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
 
         Theme.Zigzag zigTop = new Theme.Zigzag(context, Theme.HEADER, true);
         zigTop.setBackgroundColor(Theme.BODY);
@@ -232,7 +232,7 @@ final class MenuDialog {
 
         ScrollMax scroll = new ScrollMax(context, (int) (dm.heightPixels * HEIGHT_CONTENT_MAX));
         scroll.setBackgroundColor(Theme.BODY);
-        Theme.gayaScrollbar(context, scroll);
+        Theme.scrollbarStyle(context, scroll);
         scroll.addView(body, new ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         root.addView(scroll, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
 
@@ -240,15 +240,15 @@ final class MenuDialog {
         zigBottom.setBackgroundColor(Theme.BODY);
         root.addView(zigBottom, new LinearLayout.LayoutParams(MATCH_PARENT, dp(5)));
 
-        // Urutan kiri ke kanan: negatif, netral, positif (tombol utama di kanan).
-        LinearLayout kaki = new LinearLayout(context);
-        kaki.setOrientation(LinearLayout.HORIZONTAL);
-        kaki.setBackground(Theme.footer(context));
-        kaki.setPadding(dp(8), dp(6), dp(8), dp(6));
-        result.negatif = addButton(kaki, dialog, negatif, false);
-        result.neutral = addButton(kaki, dialog, neutral, false);
-        result.positif = addButton(kaki, dialog, positif, true);
-        root.addView(kaki, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        // Left-to-right order: negative, neutral, positive (main button on the right).
+        LinearLayout footer = new LinearLayout(context);
+        footer.setOrientation(LinearLayout.HORIZONTAL);
+        footer.setBackground(Theme.footer(context));
+        footer.setPadding(dp(8), dp(6), dp(8), dp(6));
+        result.negative = addButton(footer, dialog, negative, false);
+        result.neutral = addButton(footer, dialog, neutral, false);
+        result.positive = addButton(footer, dialog, positive, true);
+        root.addView(footer, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
 
         Theme.applyFont(root);
         dialog.setContentView(root, new ViewGroup.LayoutParams(width, WRAP_CONTENT));
@@ -260,7 +260,7 @@ final class MenuDialog {
             window.setLayout(width, WRAP_CONTENT);
             window.setGravity(Gravity.CENTER);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.setDimAmount(REDUP);
+            window.setDimAmount(DIM);
             if (overlay)
                 window.setType(TYPE_OVERLAY);
             if (focus != null)
@@ -271,46 +271,46 @@ final class MenuDialog {
         try {
             dialog.show();
         } catch (Throwable t) {
-            Log.d(TAG, "Dialog gagal ditampilkan: " + t);
+            Log.d(TAG, "Failed to show dialog: " + t);
             return null;
         }
         opened = dialog;
         Transition.enter(root);
         if (focus != null)
-            munculkanKeyboard(focus);
+            showKeyboard(focus);
         return result;
     }
 
-    private Button addButton(LinearLayout kaki, final Dialog dialog, final Button button,
-                                boolean main) {
-        if (button == null)
+    private Button addButton(LinearLayout footer, final Dialog dialog, final Action action,
+                             boolean primary) {
+        if (action == null)
             return null;
 
-        Button button = new Button(context);
-        button.setText(button.label);
-        button.setTextColor(Theme.TITLE_TEXT);
-        button.setTextSize(Theme.ROW_SP);
-        button.setTypeface(Theme.font(context));
-        button.setAllCaps(false);
-        button.setSingleLine(true);
-        button.setEllipsize(TextUtils.TruncateAt.END);
-        button.setGravity(Gravity.CENTER);
-        button.setBackground(main ? Theme.mainButton(context) : Theme.pressButton(context));
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setMinHeight(dp(Theme.TARGET_DP));
-        button.setMinimumHeight(dp(Theme.TARGET_DP));
-        button.setPadding(dp(8), 0, dp(8), 0);
-        button.setStateListAnimator(null);
-        button.setElevation(0f);
-        button.setOnClickListener(new View.OnClickListener() {
+        Button view = new Button(context);
+        view.setText(action.label);
+        view.setTextColor(Theme.TITLE_TEXT);
+        view.setTextSize(Theme.ROW_SP);
+        view.setTypeface(Theme.font(context));
+        view.setAllCaps(false);
+        view.setSingleLine(true);
+        view.setEllipsize(TextUtils.TruncateAt.END);
+        view.setGravity(Gravity.CENTER);
+        view.setBackground(primary ? Theme.mainButton(context) : Theme.pressButton(context));
+        view.setMinWidth(0);
+        view.setMinimumWidth(0);
+        view.setMinHeight(dp(Theme.TARGET_DP));
+        view.setMinimumHeight(dp(Theme.TARGET_DP));
+        view.setPadding(dp(8), 0, dp(8), 0);
+        view.setStateListAnimator(null);
+        view.setElevation(0f);
+        view.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Aksi jalan dulu (ia membaca isian), dialog ditutup sesudahnya
-                // walau aksinya melempar exception.
+                // The action runs first (it reads the field), the dialog closes
+                // afterwards even if the action throws.
                 try {
-                    if (button.action != null)
-                        button.action.run();
+                    if (action.action != null)
+                        action.action.run();
                 } finally {
                     dialog.dismiss();
                 }
@@ -319,27 +319,27 @@ final class MenuDialog {
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f);
-        if (kaki.getChildCount() > 0)
+        if (footer.getChildCount() > 0)
             params.leftMargin = dp(6);
-        kaki.addView(button, params);
-        return button;
+        footer.addView(view, params);
+        return view;
     }
 
-    /** Keyboard dimunculkan lewat showSoftInput, bukan toggleSoftInput yang bisa malah menyembunyikannya. */
-    private void munculkanKeyboard(final EditText isian) {
-        isian.requestFocus();
-        isian.post(new Runnable() {
+    /** The keyboard is shown through showSoftInput, not toggleSoftInput which can hide it instead. */
+    private void showKeyboard(final EditText field) {
+        field.requestFocus();
+        field.post(new Runnable() {
             @Override
             public void run() {
                 InputMethodManager imm = (InputMethodManager)
                         context.getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null)
-                    imm.showSoftInput(isian, InputMethodManager.SHOW_IMPLICIT);
+                    imm.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT);
             }
         });
     }
 
-    /** ScrollView yang tingginya dibatasi, supaya isi panjang tidak mendorong tombol keluar layar. */
+    /** Height-capped ScrollView, so long content does not push the buttons off screen. */
     private static final class ScrollMax extends ScrollView {
         private final int max;
 

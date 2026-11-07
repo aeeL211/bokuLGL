@@ -26,15 +26,15 @@ Field fieldPosPortrait = {};
 constexpr int kMaxAxis = 8;
 constexpr int kSlotRange = 2;
 int32_t skinBase[kSlotRange][kMaxAxis] = {};
-int32_t skinDiperlebar[kSlotRange][kMaxAxis] = {};
+int32_t skinWidened[kSlotRange][kMaxAxis] = {};
 int32_t skinLimit[kSlotRange][kMaxAxis] = {};
 
-// Refresh__Step mengatur ulang slider X/Y ke -5..+5 lalu menurunkan steps_Half,
-// steps_W, dan per_Step dari steps_Max. Hanya sumbu yang masih -5..+5 yang
-// dilebarkan (sumbu rotasi dibiarkan) dan nilai turunannya disusun ulang supaya
-// Value__To__Step melihat rentang -batas..+batas pada lintasan Refresh() yang
-// sama. Batas datang dari slider menu: 5 berarti tidak berubah, 25 adalah
-// bawaan lama, dan 100 adalah geseran terjauh.
+// Refresh__Step resets the X/Y slider to -5..+5 then derives steps_Half,
+// steps_W, and per_Step from steps_Max. Only axes still at -5..+5 are widened
+// (rotation axes are left alone) and the derived values are rebuilt so
+// Value__To__Step sees the -limit..+limit range on the same Refresh() path.
+// The limit comes from the menu slider: 5 means unchanged, 25 is the old
+// default, and 100 is the furthest shift.
 void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int slot) {
     int32_t limit = features().skinRange.load();
     if (limit < 5)
@@ -80,30 +80,29 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
         float minLimit = readFloat(value, fieldValueMin);
         float maxLimit = readFloat(value, fieldValueMax);
         bool stillDefault = nearValue(minLimit, -5.0f) && nearValue(maxLimit, 5.0f);
-        // Sebagian jalur Refresh mengatur ulang min/max ke -5..+5, sebagian
-        // lagi mempertahankan nilai yang sudah ditulis. Keduanya diterima supaya
-        // batas baru tetap terpakai pada lintasan mana pun.
-        bool bekasKita = skinLimit[slot][i] != 0 &&
+        // Some Refresh paths reset min/max to -5..+5, others keep the values
+        // already written. Both are accepted so the new limit still applies on
+        // either path.
+        bool ourMark = skinLimit[slot][i] != 0 &&
                          nearValue(minLimit, -static_cast<float>(skinLimit[slot][i])) &&
                          nearValue(maxLimit, static_cast<float>(skinLimit[slot][i]));
-        if (!stillDefault && !bekasKita)
+        if (!stillDefault && !ourMark)
             continue;
 
         char* addressMax = arrayData(maxStep) + i * sizeof(int32_t);
         int32_t* ptrMax = reinterpret_cast<int32_t*>(addressMax);
         int32_t now = *ptrMax;
         if (now <= 0) {
-            LOGE("Rentang skin: sumbu %d punya steps_Max=%d, dilewati", i, now);
+            LOGE("Skin range: axis %d has steps_Max=%d, skipped", i, now);
             continue;
         }
 
-        // steps_Max bisa sedang bernilai dasar (sesudah game mengatur ulang)
-        // atau nilai perluasan dari pembacaan sebelumnya. Keduanya menunjuk
-        // dasar yang sama, jadi batas slider boleh berubah tanpa kehilangan
-        // nilai asli game.
+        // steps_Max can hold the base value (after the game resets it) or the
+        // widened value from a previous read. Both point at the same base, so
+        // the slider limit can change without losing the game's original value.
         int32_t base;
         if (skinBase[slot][i] != 0 &&
-            (now == skinBase[slot][i] || now == skinDiperlebar[slot][i])) {
+            (now == skinBase[slot][i] || now == skinWidened[slot][i])) {
             base = skinBase[slot][i];
         } else {
             base = now;
@@ -111,29 +110,29 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
 
         int64_t widthNew = static_cast<int64_t>(base) * limit / 5;
         if (widthNew > INT32_MAX) {
-            LOGE("Rentang skin: sumbu %d punya %d langkah, dilewati", i, base);
+            LOGE("Skin range: axis %d has %d steps, skipped", i, base);
             continue;
         }
-        int32_t diperlebar = static_cast<int32_t>(widthNew);
-        if (diperlebar < base)
-            diperlebar = base;
+        int32_t widened = static_cast<int32_t>(widthNew);
+        if (widened < base)
+            widened = base;
 
-        if (skinBase[slot][i] != base || skinDiperlebar[slot][i] != diperlebar) {
+        if (skinBase[slot][i] != base || skinWidened[slot][i] != widened) {
             skinBase[slot][i] = base;
-            skinDiperlebar[slot][i] = diperlebar;
-            LOGI("Rentang skin: sumbu %d -%d..%d, %d -> %d langkah", i, limit, limit, base,
-                 diperlebar);
+            skinWidened[slot][i] = widened;
+            LOGI("Skin range: axis %d -%d..%d, %d -> %d steps", i, limit, limit, base,
+                 widened);
         }
         skinLimit[slot][i] = limit;
 
-        *ptrMax = diperlebar;
+        *ptrMax = widened;
         if (i < countHalf) {
             char* addressHalf = arrayData(halfStep) + i * sizeof(int32_t);
-            *reinterpret_cast<int32_t*>(addressHalf) = diperlebar / 2;
+            *reinterpret_cast<int32_t*>(addressHalf) = widened / 2;
         }
         if (i < countWidth && widthPos > 0.0f) {
             char* addressWidth = arrayData(stepWidth) + i * sizeof(float);
-            *reinterpret_cast<float*>(addressWidth) = widthPos / static_cast<float>(diperlebar);
+            *reinterpret_cast<float*>(addressWidth) = widthPos / static_cast<float>(widened);
         }
 
         writeFloat(value, fieldValueMin, -static_cast<float>(limit));
@@ -150,8 +149,8 @@ void hookStepPos(void* self, void* method) {
     widenRange(self, fieldMPos, fieldPosMain, 0);
 }
 
-// Editor potret punya instance _Pos dan array langkah sendiri, jadi ia memakai
-// slot memo kedua alih-alih menimpa milik editor model.
+// The portrait editor has its own _Pos instance and step arrays, so it uses the
+// second memo slot instead of overwriting the model editor's.
 void hookStepPortrait(void* self, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_PORTRAIT_REFRESH_STEP).orig);
     if (!original)
@@ -185,12 +184,12 @@ void installSkinRangeHook() {
     bool fieldPosHas =
         findFieldPos(rangeModel ? fieldClass(fieldPosMain) : fieldClass(fieldPosPortrait));
     if (rangeModel && fieldPosHas) {
-        LOGI("Field rentang skin OK");
+        LOGI("Skin range fields OK");
     } else {
-        LOGE("Field rentang skin tidak ditemukan; X/Y tetap -5..5");
+        LOGE("Skin range fields not found; X/Y stays -5..5");
     }
     if (!rangePortrait || !fieldPosHas) {
-        LOGE("Field rentang potret tidak ditemukan; X/Y potret tetap -5..5");
+        LOGE("Portrait range fields not found; portrait X/Y stays -5..5");
     }
 
     installHook(target(T_POS_REFRESH_STEP), reinterpret_cast<void*>(hookStepPos));

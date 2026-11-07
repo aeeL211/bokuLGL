@@ -8,18 +8,17 @@
 
 namespace {
 
-// Hh__Change menulis id pegang yang baru ke model pemain dan membangun ulang
-// sprite tangan. Fitur yang menahan itemnya menaikkan flag ini di sekitar
-// panggilan bawaan yang akan mengosongkan tangan, jadi perubahan itu menjadi
-// tanpa efek.
+// Hh__Change writes the new hold id to the player model and rebuilds the hand
+// sprite. A feature that keeps its item sets this flag around the vanilla call
+// that would empty the hand, so that change has no effect.
 thread_local bool holdHand = false;
-// Id yang terakhir diketahui ada di tangan, disimpan supaya akhir makan bisa
-// mengembalikan item yang sama setelah animasinya menyembunyikan sprite.
+// Last id known to be in the hand, kept so the end of eating can restore the
+// same item after the animation hides the sprite.
 void* ownerHand = nullptr;
 int32_t idHand = 0;
-// Akhir makan meminta tangan kembali, tapi pembangunan ulang saat state makan
-// masih aktif membangun pose makan yang tersembunyi. Pembangunan ulang menunggu
-// akhir update pemain itu, saat state machine sudah melewati animasi makan.
+// The end of eating asks for the hand back, but a rebuild while the eating state
+// is still active builds the hidden eating pose. The rebuild waits for the end
+// of that player update, when the state machine has passed the eating animation.
 bool refreshPending = false;
 int remainingLogRefresh = 12;
 
@@ -30,13 +29,13 @@ void buildReloadHand(void* own) {
     hh(own, idHand, target(T_HH_CHANGE).method);
     if (remainingLogRefresh > 0) {
         remainingLogRefresh--;
-        LOGI("Tangan disegarkan: id=%d", idHand);
+        LOGI("Hand refreshed: id=%d", idHand);
     }
 }
 
-// Membaca id yang benar-benar masih di tangan dari model pemain. Cache idTangan
-// bisa sudah 0 bila fitur makanan sempat dimatikan dan game mengosongkan tangan,
-// jadi nilai hidup ini yang dipakai saat perubahan tangan berikutnya ditahan.
+// Reads the id actually still in the hand from the player model. The hand id
+// cache can already be 0 if the food feature was turned off and the game emptied
+// the hand, so this live value is used when the next hand change is held.
 int32_t idHandFromGame(void* own) {
     auto read = reinterpret_cast<int32_t (*)(void*, void*)>(target(T_HH_ID).addr);
     if (!read)
@@ -49,16 +48,16 @@ void hookChangeHh(void* own, int32_t id, void* method) {
     if (!original)
         return;
     if (holdHand) {
-        // Game hendak mengosongkan tangan. Id yang sekarang dipakai dibaca
-        // sebelum perubahan itu hilang, lalu dipakai lagi oleh segarkanTangan.
+        // The game is about to empty the hand. The id in use now is read before
+        // that change is lost, and reused later by refreshHand.
         ownerHand = own;
         idHand = idHandFromGame(own);
         return;
     }
     original(own, id, method);
-    // Hh__Change juga dijalankan untuk tamu di dalam room. Cache tangan hanya
-    // boleh mengikuti pemain lokal, kalau tidak akhir makan tamu bisa menyusun
-    // ulang tangan pemain sendiri.
+    // Hh__Change also runs for guests inside the room. The hand cache must only
+    // follow the local player, otherwise a guest's end of eating can rebuild the
+    // local player's hand.
     if (!isLocalPlayerHook(own))
         return;
     ownerHand = own;
@@ -84,8 +83,8 @@ void setHoldHand(bool hold) { holdHand = hold; }
 void refreshHand() {
     if (!ownerHand)
         return;
-    // Tanpa hook update tidak ada tempat aman untuk membangun ulang nanti, jadi
-    // kembali ke saat akhir makan selesai.
+    // Without the update hook there is no safe place to rebuild later, so fall
+    // back to the moment eating ends.
     if (!target(T_PLAYER_UPDATE).orig) {
         buildReloadHand(ownerHand);
         return;

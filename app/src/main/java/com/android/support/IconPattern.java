@@ -3,11 +3,11 @@ package com.android.support;
 import java.util.Locale;
 
 /**
- * Data ikon pixel-art 16x16 untuk setiap fitur, tiga nada seperti ikon game:
- * '1' terang (#CCAA77), '2' sedang (#BB8855), '3' gelap (#996633), '.' kosong.
+ * 16x16 pixel-art icon data for every feature, three tones like the game icons:
+ * '1' bright (#CCAA77), '2' medium (#BB8855), '3' dark (#996633), '.' empty.
  *
- * Kelas ini hanya berisi data dan pemetaan nomor fitur ke pola. Penggambaran
- * ada di {@link Piksel} dan {@link IkonFitur}.
+ * This class only holds the data and the feature-number-to-pattern mapping.
+ * Drawing lives in {@link PixelArt} and {@link FeatureIcon}.
  */
 public final class IconPattern {
     private IconPattern() {
@@ -564,7 +564,7 @@ public final class IconPattern {
             "................",
     };
 
-    /** Muat ulang: dua busur berpanah, simetris terhadap putaran 180 derajat. */
+    /** Reload: two arcs with arrows, symmetric under a 180 degree rotation. */
     public static final String[] RELOAD = {
             "................",
             "................",
@@ -603,7 +603,7 @@ public final class IconPattern {
             "................",
     };
 
-    /** Glyph tombol minimize: segitiga menghadap kiri, simetris terhadap garis tengah horizontal. */
+    /** Minimize button glyph: left-facing triangle, symmetric about the horizontal center line. */
     public static final String[] TRIANGLE_LEFT = {
             "................",
             "................",
@@ -623,7 +623,7 @@ public final class IconPattern {
             "................",
     };
 
-    /** Ledakan: inti terang, sinar tegak dan diagonal. Simetris kiri-kanan dan atas-bawah. */
+    /** Explosion: bright core, vertical and diagonal rays. Symmetric left-right and top-bottom. */
     public static final String[] LEDAKAN = {
             "................",
             ".......33.......",
@@ -643,7 +643,7 @@ public final class IconPattern {
             "................",
     };
 
-    /** Pola untuk satu nomor fitur. Nomor yang tidak punya ikon memakai roda gigi. */
+    /** Pattern for one feature number. Numbers without a dedicated icon use the gear. */
     public static String[] pattern(int features) {
         switch (features) {
             case -1:
@@ -708,10 +708,10 @@ public final class IconPattern {
     }
 
     /**
-     * Pola untuk satu fitur. Nama fitur dicek lebih dulu untuk ikon yang
-     * maknanya jelas dari namanya (getar, terpental, pecahan, kotoran, makanan),
-     * jadi ikon tetap benar walau nomor fitur di native berubah. Bila tidak ada
-     * yang cocok, dipakai pola berdasarkan nomor.
+     * Pattern for one feature. The feature name is checked first for icons
+     * whose meaning is clear from the name (getar, terpental, pecahan, kotoran,
+     * makanan), so the icon stays correct even when the feature number changes
+     * in native. When nothing matches, the pattern by number is used.
      */
     public static String[] pattern(int features, String name) {
         if (name != null) {
@@ -730,8 +730,9 @@ public final class IconPattern {
                 return MAKANAN;
             if (n.contains("skin"))
                 return SKIN;
-            // Setelan memakai nomor negatif. Nama dicek supaya ikonnya benar walau
-            // nomornya berbeda, dan fitur game tidak ikut terpengaruh.
+            // Settings use negative numbers. The name is checked so the icon is
+            // right even when the number differs, and game features are not
+            // affected.
             if (features < 0) {
                 if (n.contains("simpan") || n.contains("save") || n.contains("preferen"))
                     return SAVE;

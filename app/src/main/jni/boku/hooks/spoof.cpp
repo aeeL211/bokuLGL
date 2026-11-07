@@ -9,9 +9,9 @@ namespace {
 
 using FnKey = void* (*)(void*, void*);
 
-// Paket khusus host lolos di penerima karena payload-nya membawa kunci pengirim,
-// dan penerima hanya membandingkan string itu. Penggantian ini hidup di thread
-// pengirim dan dibersihkan begitu paketnya pergi.
+// Host-specific packets pass through the receiver because their payload carries
+// the sender key, and the receiver only compares that string. This replacement
+// lives on the sender thread and is cleared once the packet leaves.
 thread_local bool spoofActive = false;
 thread_local void* keySpoof = nullptr;
 
@@ -26,15 +26,15 @@ void* hookKey(void* own, void* method) {
     return original ? original(own, method) : nullptr;
 }
 
-// Kedua getter kunci melempar NullReferenceException selama room belum punya
-// objek photon, dan eksepsi yang keluar dari hook mematikan proses. Pemeriksaan
-// ini memakai field, bukan getter, jadi tidak bisa melempar apa pun.
+// Both key getters throw NullReferenceException while the room has no photon
+// object yet, and an exception escaping a hook kills the process. This check
+// uses fields instead of getters, so it cannot throw.
 bool photonReady(void* multi) { return multi && fieldPhoton.field && readPtr(multi, fieldPhoton); }
 
 } // namespace
 
-// Kunci host hanya dibaca selama objek photon room sudah ada. Pemanggil di luar
-// room menerima nullptr dan melewati paketnya.
+// The host key is only read once the room's photon object exists. Callers
+// outside a room receive nullptr and skip their packet.
 void* hostKeyFrom(void* multi) {
     auto key = reinterpret_cast<FnKey>(target(T_HOST_KEY).addr);
     if (!photonReady(multi) || !key)
@@ -42,8 +42,8 @@ void* hostKeyFrom(void* multi) {
     return key(multi, target(T_HOST_KEY).method);
 }
 
-// Salinan aman dari Player__Manager.Key. Dipakai fitur yang butuh kunci pemain
-// sendiri tanpa boleh memicu eksepsi room yang belum siap.
+// Safe copy of Player__Manager.Key. Used by features that need the player's own
+// key without risking an exception from a room that is not ready.
 void* safePlayerKey(void* player) {
     auto key = reinterpret_cast<FnKey>(target(T_PLAYER_KEY).orig);
     void* manager = player ? readPtr(player, fieldManagerPlayer) : nullptr;
@@ -52,8 +52,8 @@ void* safePlayerKey(void* player) {
     return key(player, target(T_PLAYER_KEY).method);
 }
 
-// Hanya berlaku sampai hentiSpoof(), jadi pemanggil membungkus satu panggilan
-// kirim saja dan sisa permainan tetap memakai kunci pemain sendiri.
+// Only valid until stopSpoof(), so callers wrap a single send call and the rest
+// of the game keeps using the player's own key.
 void startSpoof(void* multi) {
     keySpoof = hostKeyFrom(multi);
     spoofActive = keySpoof != nullptr;
@@ -66,15 +66,15 @@ void stopSpoof() {
 
 void installSpoofHook() {
     if (!target(T_PLAYER_KEY).addr || !target(T_HOST_KEY).addr) {
-        LOGE("Target spoof pengirim tidak ditemukan");
+        LOGE("Sender spoof target not found");
         return;
     }
-    bool lengkap = findField(classOf("Player__Manager"), "a", fieldManagerPlayer) &&
+    bool complete = findField(classOf("Player__Manager"), "a", fieldManagerPlayer) &&
                    findField(fieldClass(fieldManagerPlayer), "multi", fieldMultiManager) &&
                    findField(fieldClass(fieldMultiManager), "photon", fieldPhoton);
-    if (lengkap)
-        LOGI("Field kunci pemain siap");
+    if (complete)
+        LOGI("Player key fields ready");
     else
-        LOGE("Field kunci pemain tidak lengkap; kunci dibaca hanya bila photon terbaca");
+        LOGE("Player key fields incomplete; key read only when photon is available");
     installHook(target(T_PLAYER_KEY), reinterpret_cast<void*>(hookKey));
 }

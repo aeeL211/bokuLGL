@@ -2,9 +2,9 @@
 
 #include <cstddef>
 
-// Data yang dibagi antara thread game dan thread menu. Thread game menulis
-// salinan kecil di sini, thread menu hanya membaca salinan itu; tidak ada objek
-// IL2CPP yang pernah menyeberang.
+// Data shared between the game thread and the menu thread. The game thread
+// writes a small copy here, the menu thread only reads that copy; no IL2CPP
+// object ever crosses over.
 namespace player {
 
 constexpr int kMaxPlayer = 16;
@@ -21,35 +21,35 @@ struct Summary {
 struct Action {
     enum class Kind { Kick, KickPermanent, KickHost, KickAll, Copy };
 
-    Kind jenis;
+    Kind type;
     char key[kCharacterKey];
     char name[kCharacterName];
 };
 
-// Ditulis sekali oleh hook room setelah field daftar tamu ditemukan.
+// Written once by the room hook after the guest list field is found.
 void setReady(bool ready);
 
-// Jendela pembaruan daftar pemain. Mengembalikan true bila thread game boleh
-// menyusun salinan baru sekarang; pemanggil yang menentukan isinya.
+// Player list update window. Returns true when the game thread may build a
+// fresh copy now; the caller decides its contents.
 bool serveList();
 void storeList(const Summary* data, int count);
 
-// Baris "nama<TAB>kunci<TAB>peran", dipisah newline. Aman dari thread UI.
-void copyList(char* keluaran, std::size_t size);
+// Lines of "name<TAB>key<TAB>role", separated by newlines. Safe from the UI thread.
+void copyList(char* output, std::size_t size);
 
-// Antrean aksi menu. Antrean berbatas dan tidak memblokir thread UI.
+// Menu action queue. Bounded queue that never blocks the UI thread.
 bool enqueueKick(const char* key, const char* name, bool permanent);
 bool enqueueKickHost(const char* name);
 bool enqueueKickAll();
 bool enqueueCopy(const char* key, const char* name);
 bool takeAction(Action& exit);
 
-// Jendela pembaruan posisi pemain lokal.
+// Window for updating the local player's position.
 bool servePosition();
 void storePosition(bool hasTile, float tileX, float tileY, float worldX, float worldY);
 
-// Baris "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY"; bagian tile kosong bila game
-// tidak menyediakan field tile.
-void copyPosition(char* keluaran, std::size_t size);
+// Line "tileX<TAB>tileY<TAB>worldX<TAB>worldY"; the tile part is empty when the
+// game does not provide a tile field.
+void copyPosition(char* output, std::size_t size);
 
-} // namespace pemain
+} // namespace player

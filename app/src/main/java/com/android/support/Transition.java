@@ -13,20 +13,20 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Transisi singkat untuk menu: fade saat panel atau halaman berganti dan lipat
- * halus untuk section. Semua transisi dilewati bila pengguna mematikan animasi
- * sistem (skala animasi 0), dan view selalu berakhir di keadaan akhir yang benar.
+ * Short transitions for the menu: fade when a panel or page changes and a smooth
+ * fold for sections. All transitions are skipped when the user turns off system
+ * animations (animation scale 0), and the view always ends in the correct final state.
  */
 final class Transition {
     private static final long DURATION_MS = 160L;
     private static final float INITIAL_SCALE = 0.94f;
 
-    private static final Map<View, ValueAnimator> lipatan = new WeakHashMap<View, ValueAnimator>();
+    private static final Map<View, ValueAnimator> folds = new WeakHashMap<View, ValueAnimator>();
 
     private Transition() {
     }
 
-    /** False bila animasi dimatikan di pengaturan sistem. */
+    /** False when animations are turned off in the system settings. */
     static boolean active(Context context) {
         try {
             return Settings.Global.getFloat(context.getContentResolver(),
@@ -36,8 +36,8 @@ final class Transition {
         }
     }
 
-    /** Memunculkan view dengan fade dari transparan sampai {@code alphaAkhir}. */
-    static void muncul(View view, float alphaEnd) {
+    /** Reveals the view with a fade from transparent to {@code alphaEnd}. */
+    static void appear(View view, float alphaEnd) {
         view.animate().cancel();
         if (!active(view.getContext())) {
             view.setAlpha(alphaEnd);
@@ -48,7 +48,7 @@ final class Transition {
                 .setInterpolator(new DecelerateInterpolator()).start();
     }
 
-    /** Dialog muncul dengan fade dan sedikit membesar dari tengah. */
+    /** The dialog appears with a fade and a slight scale up from the center. */
     static void enter(View view) {
         view.animate().cancel();
         if (!active(view.getContext())) {
@@ -64,9 +64,9 @@ final class Transition {
                 .setInterpolator(new DecelerateInterpolator()).start();
     }
 
-    /** Membuka atau menutup isi section dengan animasi tinggi. */
+    /** Opens or closes the section content with a height animation. */
     static void fold(final View content, final boolean open) {
-        ValueAnimator old = lipatan.remove(content);
+        ValueAnimator old = folds.remove(content);
         if (old != null)
             old.cancel();
 
@@ -96,7 +96,7 @@ final class Transition {
             end = 0;
         }
 
-        final boolean[] batal = {false};
+        final boolean[] cancelled = {false};
         ValueAnimator animator = ValueAnimator.ofInt(initial, end);
         animator.setDuration(DURATION_MS);
         animator.setInterpolator(new DecelerateInterpolator());
@@ -110,20 +110,20 @@ final class Transition {
         animator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationCancel(Animator animation) {
-                batal[0] = true;
+                cancelled[0] = true;
             }
 
             @Override
             public void onAnimationEnd(Animator animation) {
-                if (batal[0])
+                if (cancelled[0])
                     return;
-                lipatan.remove(content);
+                folds.remove(content);
                 params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
                 content.setVisibility(open ? View.VISIBLE : View.GONE);
                 content.setLayoutParams(params);
             }
         });
-        lipatan.put(content, animator);
+        folds.put(content, animator);
         animator.start();
     }
 }

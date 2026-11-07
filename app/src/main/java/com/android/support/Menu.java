@@ -59,7 +59,7 @@ import static android.widget.RelativeLayout.ALIGN_PARENT_RIGHT;
 public class Menu {
     public static final String TAG = BKLog.TAG; //Tag for logcat
 
-    // Tampilan panel kayu. Semua warna ada di Theme.
+    // Wooden panel styling. All colors live in Theme.
     int MENU_WIDTH = 340;
     int MENU_HEIGHT = 210;
     int POS_X = 0;
@@ -67,14 +67,14 @@ public class Menu {
     int ICON_SIZE = 45; //Change both width and height of image
     float ICON_ALPHA = 0.7f; //Transparent
 
-    // Selang menunggu library game dimuat (ms), dan kunci setelan tampilan
-    // yang disimpan di preferensi yang sama dengan fitur.
+    // Wait intervals for the game library to load (ms), and display setting keys
+    // stored in the same preferences as the features.
     private static final long WAIT_INITIAL_MS = 500L;
     private static final long WAIT_LIB_MS = 600L;
     private static final String KEY_X = "ui_posisi_x";
     private static final String KEY_Y = "ui_posisi_y";
     private static final String KEY_FOLD = "ui_lipat_";
-    // Chip angka slider: tinggi gambar 26dp di dalam area sentuh 48dp.
+    // Slider value chip: 26dp tall image inside a 48dp touch area.
     private static final float BUTTON_SMALL_INSET_DP = 9f;
 
     RelativeLayout mCollapsed, mRootContainer;
@@ -92,7 +92,7 @@ public class Menu {
     boolean stopChecking, overlayRequired;
     Context getContext;
     private MenuDialog menuDialog;
-    private boolean hancur;
+    private boolean destroyed;
 
     //initialize methods from the native library
     native void Init(Context context, TextView title, TextView subTitle);
@@ -107,11 +107,11 @@ public class Menu {
 
     native boolean IsGameLibLoaded();
 
-    // Section Room: daftar tamu berformat "nama<TAB>kunci<TAB>peran" per baris.
+    // Room section: guest list formatted as "name<TAB>key<TAB>role" per line.
     native String PlayerList();
 
-    // Posisi pemain lokal: "tileX<TAB>tileY<TAB>duniaX<TAB>duniaY". Bagian tile
-    // kosong bila game tidak menyediakan field tile.
+    // Local player position: "tileX<TAB>tileY<TAB>worldX<TAB>worldY". The tile part
+    // is empty when the game does not provide tile fields.
     native String PlayerPosition();
 
     native boolean KickPlayer(String key, String name, boolean permanent);
@@ -122,18 +122,18 @@ public class Menu {
 
     native boolean CopyPlayerSkin(String key, String name);
 
-    // Kunci pemain yang kartunya sedang dipilih. Pilihan disimpan sebagai teks
-    // kunci, bukan indeks, jadi tetap menunjuk pemain yang sama saat daftar
-    // berubah urutan dan otomatis dilepas saat pemain itu keluar.
+    // Key of the player whose card is currently selected. The choice is stored as
+    // key text, not an index, so it keeps pointing at the same player when the list
+    // changes order and is released automatically when that player leaves.
     String keySelected;
 
-    // Pengembali nilai bawaan untuk setelan tampilan (ukuran, opasitas, gambar ikon).
+    // Default-value restorers for display settings (size, opacity, icon image).
     private final List<Runnable> setterReload = new ArrayList<Runnable>();
 
-    // Satu detak milik Menu untuk semua isi yang harus tetap segar (daftar
-    // pemain, posisi). Detak berjalan selama menu terbuka, tidak bergantung
-    // pada urusan attach/detach tiap view, dan langsung jalan sekali saat menu
-    // dibuka supaya isi tidak basi.
+    // One tick owned by Menu for everything that must stay fresh (player list,
+    // position). The tick runs while the menu is open, independent of each
+    // view's attach/detach, and runs once right when the menu opens so the
+    // content is not stale.
     private static final long TICK_MS = 1000L;
     private final Handler handlerTick = new Handler(android.os.Looper.getMainLooper());
     private final List<Runnable> pemantau = new ArrayList<Runnable>();
@@ -144,25 +144,25 @@ public class Menu {
             if (!tickRun)
                 return;
             if (mExpanded != null && mExpanded.getVisibility() == View.VISIBLE)
-                jalankanPemantau();
+                startMonitor();
             handlerTick.postDelayed(this, TICK_MS);
         }
     };
 
-    private void jalankanPemantau() {
-        // Tanpa salinan daftar tiap detak. Pemantau hanya bertambah, dan yang
-        // mendaftar saat putaran berjalan baru ikut putaran berikutnya.
+    private void startMonitor() {
+        // No list copy on each tick. Observers only grow, and those that
+        // register during a running pass only join the next pass.
         int count = pemantau.size();
         for (int i = 0; i < count; i++) {
             try {
                 pemantau.get(i).run();
             } catch (Throwable t) {
-                Log.d(TAG, "Pemantau gagal: " + t);
+                Log.d(TAG, "Observer failed: " + t);
             }
         }
     }
 
-    private void daftarkanPemantau(Runnable r) {
+    private void registerMonitor(Runnable r) {
         pemantau.add(r);
     }
 
@@ -177,21 +177,21 @@ public class Menu {
         setAnimationIcon(false);
         mCollapsed.setVisibility(View.GONE);
         mExpanded.setVisibility(View.VISIBLE);
-        Transition.muncul(mExpanded, 1f);
-        jalankanPemantau();
+        Transition.appear(mExpanded, 1f);
+        startMonitor();
     }
 
     /**
-     * Menyamakan ukuran, opasitas, dan sumber ikon collapsed dengan setelan.
-     * Ikon bawaan tetap di startimage. Sumber dari pengguna (URL, GIF) didekode
-     * IkonGambar menjadi Drawable dan ditampilkan di ImageView biasa, tanpa WebView.
+     * Matches the collapsed icon size, opacity, and source to the settings.
+     * The built-in icon stays in startimage. A user source (URL, GIF) is decoded
+     * by IconImage into a Drawable and shown in a plain ImageView, no WebView.
      */
     private void applyIcon() {
-        int sisi = dp(ICON_SIZE);
+        int side = dp(ICON_SIZE);
         for (View icon : new View[]{startimage, iconImage}) {
             ViewGroup.LayoutParams params = icon.getLayoutParams();
-            params.width = sisi;
-            params.height = sisi;
+            params.width = side;
+            params.height = side;
             icon.setLayoutParams(params);
         }
         mCollapsed.setAlpha(ICON_ALPHA);
@@ -206,15 +206,15 @@ public class Menu {
             return;
         }
 
-        // Sumber yang sama tidak dimuat lagi, jadi geseran slider ukuran dan
-        // opasitas tidak memicu unduhan atau dekode ulang.
+        // The same source is not loaded again, so dragging the size and opacity
+        // sliders does not trigger a re-download or re-decode.
         if (!source.equals(sourceInstalled)) {
             sourceInstalled = source;
             releaseImage();
-            // Ikon bawaan tetap tampil sampai gambarnya siap. Bila gagal, tetap
-            // dipakai dan dicoba lagi saat menu dibuat berikutnya.
+            // The built-in icon stays visible until the image is ready. On
+            // failure it is kept and retried the next time the menu is created.
             final String target = source;
-            IconCache.load(getContext, target, new IconCache.Pendengar() {
+            IconCache.load(getContext, target, new IconCache.Listener() {
                 @Override
                 public void ready(Drawable icon) {
                     if (!target.equals(sourceInstalled))
@@ -230,7 +230,7 @@ public class Menu {
 
                 @Override
                 public void fail() {
-                    Log.d(TAG, "Ikon gagal dimuat, memakai ikon bawaan");
+                    Log.d(TAG, "Icon failed to load, using the built-in icon");
                 }
             });
         }
@@ -249,10 +249,10 @@ public class Menu {
         startimage.setVisibility(imageReady ? View.GONE : View.VISIBLE);
     }
 
-    /** GIF hanya berjalan saat ikon kecil terlihat; saat menu terbuka dihentikan supaya hemat CPU. */
+    /** The GIF only runs while the small icon is visible; it stops while the menu is open to save CPU. */
     private void setAnimationIcon(boolean run) {
         if (iconDrawable != null)
-            IconImage.jalankan(iconDrawable, run);
+            IconImage.setRunning(iconDrawable, run);
     }
 
     //Here we write the code for our Menu
@@ -298,7 +298,7 @@ public class Menu {
             }
         });
 
-        //********** Ikon dari sumber pilihan pengguna (URL atau GIF) **********
+        //********** Icon from the user's chosen source (URL or GIF) **********
         iconImage = new ImageView(context);
         iconImage.setLayoutParams(new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
         iconImage.getLayoutParams().height = dp(ICON_SIZE);
@@ -319,7 +319,7 @@ public class Menu {
         mSettings.setPadding(dp(10), dp(6), dp(10), dp(8));
         fillSettings(SettingsList());
 
-        //********** Header panel: judul di tengah, hanya tombol minimize di kanan **********
+        //********** Header panel: centered title, only the minimize button on the right **********
         RelativeLayout header = new RelativeLayout(context);
         header.setBackground(Theme.header(context));
         header.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(56)));
@@ -332,17 +332,17 @@ public class Menu {
         title.setPadding(dp(48), 0, dp(48), 0);
         title.setLayoutParams(rlTitle);
 
-        // Tombol sudut bergaya game: kotak hitam, garis putih, segitiga pixel
-        // menghadap kanan. Gambarnya 34dp, area sentuhnya 48dp.
-        CornerButton minimal = new CornerButton(context, IconPattern.TRIANGLE_LEFT);
-        RelativeLayout.LayoutParams rlMinimal = new RelativeLayout.LayoutParams(
+        // Game-style corner button: black box, white outline, pixel triangle
+        // facing right. The image is 34dp, the touch area is 48dp.
+        CornerButton minimize = new CornerButton(context, IconPattern.TRIANGLE_LEFT);
+        RelativeLayout.LayoutParams minimizeParams = new RelativeLayout.LayoutParams(
                 dp(Theme.TARGET_DP), dp(Theme.TARGET_DP));
-        rlMinimal.addRule(ALIGN_PARENT_RIGHT);
-        rlMinimal.addRule(RelativeLayout.CENTER_VERTICAL);
-        rlMinimal.rightMargin = dp(1);
-        minimal.setLayoutParams(rlMinimal);
-        minimal.setContentDescription("Kecilkan menu");
-        minimal.setOnClickListener(new View.OnClickListener() {
+        minimizeParams.addRule(ALIGN_PARENT_RIGHT);
+        minimizeParams.addRule(RelativeLayout.CENTER_VERTICAL);
+        minimizeParams.rightMargin = dp(1);
+        minimize.setLayoutParams(minimizeParams);
+        minimize.setContentDescription("Kecilkan menu");
+        minimize.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 mCollapsed.setVisibility(View.VISIBLE);
                 mCollapsed.setAlpha(ICON_ALPHA);
@@ -352,7 +352,7 @@ public class Menu {
         });
 
         header.addView(title);
-        header.addView(minimal);
+        header.addView(minimize);
 
         //********** Sub title **********
         final TextView subTitle = Theme.text(context, "", Theme.DESC_SP, Theme.MUTED);
@@ -368,19 +368,19 @@ public class Menu {
         scrollView = new ScrollView(context);
         scrollView.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(MENU_HEIGHT)));
         scrollView.setBackgroundColor(Theme.BODY);
-        Theme.gayaScrollbar(context, scrollView);
+        Theme.scrollbarStyle(context, scrollView);
         mods = new LinearLayout(context);
         mods.setOrientation(LinearLayout.VERTICAL);
         mods.setPadding(dp(10), dp(6), dp(10), dp(8));
 
-        //********** Footer dengan tombol kayu **********
+        //********** Footer with wooden buttons **********
         LinearLayout footer = new LinearLayout(context);
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setBackground(Theme.footer(context));
         footer.setPadding(dp(8), dp(6), dp(8), dp(6));
 
-        // Setelan di kiri, Sembunyikan di kanan, dengan gaya tombol yang sama.
-        // Tombol Setelan berganti jadi Kembali selama halaman setelan terbuka.
+        // Settings on the left, Hide on the right, with the same button style.
+        // The Settings button turns into Back while the settings page is open.
         final Button settingBtn = buttonText("Setelan");
         settingBtn.setBackground(Theme.pressButton(context));
         LinearLayout.LayoutParams paramsSetting = new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f);
@@ -400,8 +400,8 @@ public class Menu {
                         title.setText(titleOrigin);
                         subTitle.setText(subTitleOrigin);
                         settingBtn.setText("Setelan");
-                        Transition.muncul(scrollView, 1f);
-                        // Posisi gulir daftar fitur dikembalikan setelah layout selesai.
+                        Transition.appear(scrollView, 1f);
+                        // The feature list scroll position is restored after layout finishes.
                         scrollView.post(new Runnable() {
                             @Override
                             public void run() {
@@ -415,11 +415,11 @@ public class Menu {
                         scrollView.removeView(mods);
                         scrollView.addView(mSettings);
                         scrollView.scrollTo(0, 0);
-                        // Judul utama tetap "BOKU Menu"; hanya subjudul yang
-                        // menandai halaman setelan.
+                        // The main title stays "BOKU Menu"; only the subtitle
+                        // marks the settings page.
                         subTitle.setText("Menu \\ Setelan");
                         settingBtn.setText("Kembali");
-                        Transition.muncul(scrollView, 1f);
+                        Transition.appear(scrollView, 1f);
                     }
                 } catch (IllegalStateException ignored) {
                 }
@@ -469,15 +469,15 @@ public class Menu {
         if (mRootContainer.getParent() == null)
             rootFrame.addView(mRootContainer);
 
-        // Handler milik Menu (Looper utama) dipakai ulang, jadi onDestroy
-        // cukup membatalkan semuanya sekaligus dan tidak ada pemeriksa yang
-        // terus berulang setelah menu dihancurkan.
-        final Runnable pemuat = new Runnable() {
+        // The Menu's own handler (main looper) is reused, so onDestroy only
+        // has to cancel everything at once and no checker keeps repeating
+        // after the menu is destroyed.
+        final Runnable loader = new Runnable() {
             boolean viewLoaded = false;
 
             @Override
             public void run() {
-                if (hancur)
+                if (destroyed)
                     return;
                 //If the save preferences is enabled, it will check if game lib is loaded before starting menu
                 //Comment the if-else code out except startService if you want to run the app and test preferences
@@ -499,7 +499,7 @@ public class Menu {
                 }
             }
         };
-        handlerTick.postDelayed(pemuat, WAIT_INITIAL_MS);
+        handlerTick.postDelayed(loader, WAIT_INITIAL_MS);
     }
 
     @SuppressLint("WrongConstant")
@@ -549,8 +549,8 @@ public class Menu {
     }
 
     /**
-     * Posisi terakhir ikon dipulihkan dan dijepit ke layar, supaya ikon tidak
-     * hilang di luar layar bila orientasi atau ukuran layar berubah.
+     * The last icon position is restored and clamped to the screen, so the icon
+     * does not end up off-screen when the orientation or screen size changes.
      */
     private void restorePosition() {
         try {
@@ -561,7 +561,7 @@ public class Menu {
             POS_X = Math.max(0, Math.min(maxX, prefs.readInt(KEY_X, POS_X)));
             POS_Y = Math.max(0, Math.min(maxY, prefs.readInt(KEY_Y, POS_Y)));
         } catch (Throwable t) {
-            Log.d(TAG, "Posisi tersimpan gagal dibaca: " + t);
+            Log.d(TAG, "Saved position could not be read: " + t);
         }
     }
 
@@ -571,17 +571,17 @@ public class Menu {
             prefs.writeInt(KEY_X, vmParams.x);
             prefs.writeInt(KEY_Y, vmParams.y);
         } catch (Throwable t) {
-            Log.d(TAG, "Posisi gagal disimpan: " + t);
+            Log.d(TAG, "Position could not be saved: " + t);
         }
     }
 
     private View.OnTouchListener onTouchListener() {
-        // Ambang geser mengikuti kepadatan layar, bukan 10 piksel tetap.
+        // Drag threshold follows screen density instead of a fixed 10 pixels.
         final int thresholdDrag = ViewConfiguration.get(getContext).getScaledTouchSlop();
         return new View.OnTouchListener() {
             private float initialTouchX, initialTouchY;
             private int initialX, initialY;
-            private boolean bergeser;
+            private boolean moved;
 
             public boolean onTouch(View view, MotionEvent motionEvent) {
                 int action = motionEvent.getActionMasked();
@@ -591,38 +591,38 @@ public class Menu {
                         initialY = vmParams.y;
                         initialTouchX = motionEvent.getRawX();
                         initialTouchY = motionEvent.getRawY();
-                        bergeser = false;
+                        moved = false;
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         mExpanded.setAlpha(1f);
                         mCollapsed.setAlpha(ICON_ALPHA);
-                        if (bergeser) {
+                        if (moved) {
                             storePosition();
                         } else if (action == MotionEvent.ACTION_UP && isViewCollapsed()) {
-                            //Jari nyaris tidak bergeser, jadi ini ketukan: menu dibuka.
-                            //Versi lama membandingkan selisih bertanda (< 10), sehingga
-                            //geseran ke kiri atau ke atas ikut dihitung sebagai ketukan.
+                            //The finger barely moved, so this is a tap: the menu opens.
+                            //Older versions compared the signed delta (< 10), so
+                            //left or upward drags counted as taps too.
                             openMenu();
                         }
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         float dx = motionEvent.getRawX() - initialTouchX;
                         float dy = motionEvent.getRawY() - initialTouchY;
-                        if (!bergeser && Math.abs(dx) < thresholdDrag && Math.abs(dy) < thresholdDrag)
+                        if (!moved && Math.abs(dx) < thresholdDrag && Math.abs(dy) < thresholdDrag)
                             return true;
-                        bergeser = true;
+                        moved = true;
                         mExpanded.setAlpha(0.5f);
                         mCollapsed.setAlpha(0.5f);
                         //Calculate the X and Y coordinates of the view.
                         vmParams.x = initialX + (int) dx;
                         vmParams.y = initialY + (int) dy;
                         //Update the layout with new X & Y coordinate
-                        if (mWindowManager != null && !hancur) {
+                        if (mWindowManager != null && !destroyed) {
                             try {
                                 mWindowManager.updateViewLayout(rootFrame, vmParams);
                             } catch (IllegalArgumentException e) {
-                                Log.d(TAG, "Jendela menu sudah dilepas: " + e);
+                                Log.d(TAG, "Menu window already detached: " + e);
                             }
                         }
                         return true;
@@ -637,10 +637,10 @@ public class Menu {
     private static final String GROUP_ICON = "Ikon melayang";
 
     /**
-     * Halaman setelan: fitur dikelompokkan dengan judul kecil (Umum, Ikon
-     * melayang) dan diakhiri tombol setel ulang tampilan. Pengelompokan hanya
-     * dipakai bila semua entri punya nomor fitur dan native tidak membuat
-     * kategori sendiri; selain itu daftar dari native dipakai apa adanya.
+     * Settings page: features are grouped under small headings (General,
+     * Floating icon) and end with a reset display button. Grouping is only used
+     * when every entry has a feature number and native does not create its own
+     * categories; otherwise the native list is used as is.
      */
     private void fillSettings(String[] list) {
         if (list == null)
@@ -686,7 +686,7 @@ public class Menu {
         return result.toArray(new String[0]);
     }
 
-    /** Nomor fitur di awal entri, atau null bila entri tidak bernomor (kategori, teks, tautan). */
+    /** Feature number at the start of the entry, or null when the entry is not numbered (category, text, link). */
     private Integer numberEntry(String entry) {
         String f = entry.replaceFirst("_True", "").replaceFirst("CollapseAdd_", "");
         String initial = f.split("_")[0];
@@ -703,10 +703,10 @@ public class Menu {
     private void featureList(String[] listFT, LinearLayout linearLayout) {
         //Currently looks messy right now. Let me know if you have improvements
         int featNum, subFeat = 0;
-        LinearLayout llBak = linearLayout;
+        LinearLayout baseLayout = linearLayout;
 
         for (int i = 0; i < listFT.length; i++) {
-            // Satu entri rusak dari native tidak boleh menjatuhkan seluruh menu.
+            // One broken entry from native must not bring down the whole menu.
             try {
                 boolean switchedOn = false;
                 //Log.i("featureList", listFT[i]);
@@ -716,7 +716,7 @@ public class Menu {
                     feature = feature.replaceFirst("_True", "");
                 }
 
-                linearLayout = llBak;
+                linearLayout = baseLayout;
                 if (feature.contains("CollapseAdd_")) {
                     //if (collapse != null)
                     linearLayout = mCollapse;
@@ -805,7 +805,7 @@ public class Menu {
                         break;
                 }
             } catch (RuntimeException e) {
-                Log.e(TAG, "Entri fitur dilewati: " + listFT[i], e);
+                Log.e(TAG, "Feature entry skipped: " + listFT[i], e);
             }
         }
     }
@@ -838,9 +838,9 @@ public class Menu {
     }
 
     private void SeekBar(LinearLayout linLayout, final int featNum, final String featName,
-                         final int min, final int max, final int def, final int desimal) {
-        // Nilai 0 adalah nilai sah untuk gravitasi, jadi default hanya dipakai
-        // bila fitur ini belum pernah disimpan.
+                         final int min, final int max, final int def, final int decimal) {
+        // 0 is a valid value for gravity, so the default is only used when
+        // this feature was never saved.
         boolean saved = Preferences.alreadySaved(featName, featNum);
         int initialValue = saved ? Preferences.loadPrefInt(featName, featNum) : def;
         if (initialValue < min)
@@ -850,20 +850,20 @@ public class Menu {
         if (!saved)
             Preferences.changeFeatureInt(featName, featNum, initialValue);
 
-        // Opasitas dan ukuran ikon langsung dipakai saat slider dibaca.
+        // Opacity and icon size are applied directly when the slider is read.
         if (featNum == -4)
             ICON_ALPHA = initialValue / 100f;
         else if (featNum == -5)
             ICON_SIZE = initialValue;
 
-        final String unit = unitFeature(featNum);
+        final String unit = featureUnit(featNum);
 
         LinearLayout column = new LinearLayout(getContext);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Baris judul: nama fitur di kiri, angka di kanan. Ketuk angka untuk
-        // mengembalikan slider ke nilai bawaan.
+        // Title row: feature name on the left, value on the right. Tap the value
+        // to return the slider to its default.
         LinearLayout titleRow = new LinearLayout(getContext);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -873,7 +873,7 @@ public class Menu {
         title.setEllipsize(TextUtils.TruncateAt.END);
         titleRow.addView(title, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
 
-        final TextView valueText = Theme.text(getContext, textValue(initialValue, desimal) + unit,
+        final TextView valueText = Theme.text(getContext, textValue(initialValue, decimal) + unit,
                 Theme.DESC_SP, Theme.TITLE_TEXT);
         valueText.setGravity(Gravity.CENTER);
         valueText.setSingleLine(true);
@@ -887,10 +887,10 @@ public class Menu {
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
         seekBar.setThumb(Theme.seekbarThumb(getContext));
         seekBar.setThumbOffset(0);
-        // Padding mendatar setengah lebar thumb supaya thumb tidak terpotong di ujung.
+        // Half-thumb horizontal padding so the thumb is not clipped at the ends.
         seekBar.setPadding(dp(5), 0, dp(5), 0);
-        // Rentang digeser ke nol supaya setMin yang hanya ada di Oreo ke atas
-        // tidak dibutuhkan.
+        // The range is shifted to zero so setMin, which only exists on Oreo and
+        // up, is not required.
         seekBar.setMax(max - min);
         seekBar.setProgress(initialValue - min);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -907,7 +907,7 @@ public class Menu {
                 if (value > max)
                     value = max;
                 Preferences.changeFeatureInt(featName, featNum, value);
-                valueText.setText(textValue(value, desimal) + unit);
+                valueText.setText(textValue(value, decimal) + unit);
                 if (featNum == -4 || featNum == -5) {
                     if (featNum == -4)
                         ICON_ALPHA = value / 100f;
@@ -921,7 +921,7 @@ public class Menu {
         valueText.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Lewat jalur geseran yang sama, jadi native ikut menerima nilai bawaan.
+                // Goes through the same drag path, so native also receives the default value.
                 seekBar.setProgress(Math.max(0, Math.min(max, def) - min));
             }
         });
@@ -942,8 +942,8 @@ public class Menu {
         linLayout.addView(row);
     }
 
-    /** Satuan angka slider: pengali kecepatan, persen opasitas, atau dp ikon. */
-    private String unitFeature(int featNum) {
+    /** Slider value unit: speed multiplier, opacity percent, or icon dp. */
+    private String featureUnit(int featNum) {
         if (featNum == 23 || featNum == 24)
             return "x";
         if (featNum == -4)
@@ -953,11 +953,11 @@ public class Menu {
         return "";
     }
 
-    /** Angka slider ditampilkan dengan jumlah desimal yang ditulis di feature list. */
-    private String textValue(int value, int desimal) {
-        if (desimal <= 0)
+    /** The slider value is shown with the number of decimals written in the feature list. */
+    private String textValue(int value, int decimal) {
+        if (decimal <= 0)
             return String.valueOf(value);
-        return String.format(Locale.US, "%." + desimal + "f", value / 10f);
+        return String.format(Locale.US, "%." + decimal + "f", value / 10f);
     }
 
     private void Button(LinearLayout linLayout, final int featNum, final String featName) {
@@ -989,7 +989,7 @@ public class Menu {
                     intent.setData(Uri.parse(url));
                     getContext.startActivity(intent);
                 } catch (RuntimeException e) {
-                    // Tidak ada aplikasi yang bisa membuka tautan.
+                    // No app can open the link.
                     Toast.makeText(getContext, "Tautan tidak bisa dibuka", Toast.LENGTH_SHORT).show();
                 }
             }
@@ -1073,9 +1073,9 @@ public class Menu {
             @Override
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
                 Preferences.changeFeatureInt(spinner.getSelectedItem().toString(), featNum, position);
-                View anak = parentView.getChildAt(0);
-                if (anak instanceof TextView)
-                    ((TextView) anak).setTextColor(Theme.TEXT);
+                View child = parentView.getChildAt(0);
+                if (child instanceof TextView)
+                    ((TextView) child).setTextColor(Theme.TEXT);
             }
 
             @Override
@@ -1096,7 +1096,7 @@ public class Menu {
         InputNumber(linLayout, featNum, featName, maxValue, true);
     }
 
-    /** Tombol angka: Int dan Long memakai satu kode, hanya batas digit dan jalur simpannya berbeda. */
+    /** Number button: Int and Long share one code, only the digit limit and save path differ. */
     private void InputNumber(LinearLayout linLayout, final int featNum, final String featName,
                             final long maxValue, final boolean length) {
         final Button button = buttonText("");
@@ -1110,11 +1110,11 @@ public class Menu {
                 menuDialog.input("Masukkan angka", hint, null, true, length ? 20 : 10,
                         new MenuDialog.Receiver() {
                             @Override
-                            public void diterima(String text) {
+                            public void onText(String text) {
                                 long value;
                                 try {
-                                    String masukan = text.isEmpty() ? "0" : text;
-                                    value = length ? Long.parseLong(masukan) : Integer.parseInt(masukan);
+                                    String input = text.isEmpty() ? "0" : text;
+                                    value = length ? Long.parseLong(input) : Integer.parseInt(input);
                                     if (maxValue != 0 && value >= maxValue)
                                         value = maxValue;
                                 } catch (NumberFormatException ex) {
@@ -1154,7 +1154,7 @@ public class Menu {
             public void onClick(View view) {
                 menuDialog.input("Masukkan teks", null, null, false, 0, new MenuDialog.Receiver() {
                     @Override
-                    public void diterima(String str) {
+                    public void onText(String str) {
                         button.setText(Html.fromHtml(featName + ": " + str));
                         Preferences.changeFeatureString(featName, featNum, str);
                     }
@@ -1169,9 +1169,9 @@ public class Menu {
     }
 
     /**
-     * Setelan gambar ikon: baris dua tingkat (nama di atas, sumber saat ini
-     * di bawah dengan warna redup). Ketuk baris untuk mengubah, atau pilih
-     * Bawaan di dialog untuk kembali ke ikon bawaan.
+     * Icon image setting: two-level row (name on top, current source below in
+     * a dim color). Tap the row to change it, or pick Default in the dialog to
+     * return to the built-in icon.
      */
     private void InputImage(LinearLayout linLayout, final int featNum, final String featName,
                              String initial) {
@@ -1200,7 +1200,7 @@ public class Menu {
                 menuDialog.input("Sumber gambar ikon", "URL gambar atau GIF, kosongkan untuk bawaan",
                         iconSource, false, 0, new MenuDialog.Receiver() {
                             @Override
-                            public void diterima(String text) {
+                            public void onText(String text) {
                                 setIconSource(text, featNum, featName, value);
                             }
                         }, "Bawaan", new Runnable() {
@@ -1313,13 +1313,14 @@ public class Menu {
         try {
             Preferences.with(getContext).writeBoolean(key, opened);
         } catch (Throwable t) {
-            Log.d(TAG, "Keadaan section gagal disimpan: " + t);
+            Log.d(TAG, "Section state could not be saved: " + t);
         }
     }
 
     /**
-     * Section lipat. Buka-tutup dianimasikan dan keadaannya disimpan per judul
-     * section, jadi urutan terbuka yang terakhir dipakai kembali saat menu dibuka lagi.
+     * Fold-out section. Open/close is animated and the state is stored per
+     * section title, so the last open order is restored when the menu is
+     * opened again.
      */
     @SuppressLint("SetTextI18n")
     private void Collapse(LinearLayout linLayout, final String text, final boolean expanded) {
@@ -1332,23 +1333,23 @@ public class Menu {
         sectionParams.setMargins(0, dp(10), 0, 0);
         section.setLayoutParams(sectionParams);
 
-        LinearLayout kepala = new LinearLayout(getContext);
-        kepala.setOrientation(LinearLayout.HORIZONTAL);
-        kepala.setGravity(Gravity.CENTER_VERTICAL);
-        kepala.setBackground(Theme.sectionHeaderPress(getContext));
-        kepala.setPadding(dp(14), 0, dp(10), 0);
-        kepala.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP)));
+        LinearLayout header = new LinearLayout(getContext);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setBackground(Theme.sectionHeaderPress(getContext));
+        header.setPadding(dp(14), 0, dp(10), 0);
+        header.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP)));
 
         final TextView title = Theme.text(getContext, text, Theme.SECTION_SP, Theme.TITLE_TEXT);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        kepala.addView(title, titleParams);
+        header.addView(title, titleParams);
 
-        final Theme.Icon arrow = Theme.Icon.polos(getContext,
+        final Theme.Icon arrow = Theme.Icon.plain(getContext,
                 initialOpen ? Theme.Icon.ARROW_DOWN : Theme.Icon.ARROW_RIGHT,
                 Theme.TITLE_TEXT, 20);
-        kepala.addView(arrow, new LinearLayout.LayoutParams(dp(20), dp(20)));
+        header.addView(arrow, new LinearLayout.LayoutParams(dp(20), dp(20)));
 
         final LinearLayout content = new LinearLayout(getContext);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -1356,29 +1357,29 @@ public class Menu {
         content.setBackground(Theme.sectionBody(getContext));
         mCollapse = content;
 
-        final LinearLayout pembungkus = new LinearLayout(getContext);
-        pembungkus.setOrientation(LinearLayout.VERTICAL);
-        pembungkus.addView(content);
-        pembungkus.setVisibility(initialOpen ? View.VISIBLE : View.GONE);
+        final LinearLayout wrapper = new LinearLayout(getContext);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.addView(content);
+        wrapper.setVisibility(initialOpen ? View.VISIBLE : View.GONE);
 
-        kepala.setContentDescription(text);
-        kepala.setOnClickListener(new View.OnClickListener() {
+        header.setContentDescription(text);
+        header.setOnClickListener(new View.OnClickListener() {
             boolean opened = initialOpen;
 
             @Override
             public void onClick(View v) {
                 opened = !opened;
-                Transition.fold(pembungkus, opened);
-                arrow.setJenis(opened ? Theme.Icon.ARROW_DOWN : Theme.Icon.ARROW_RIGHT);
+                Transition.fold(wrapper, opened);
+                arrow.setKind(opened ? Theme.Icon.ARROW_DOWN : Theme.Icon.ARROW_RIGHT);
                 saveOpen(key, opened);
-                // Isi yang baru terlihat langsung disegarkan, tanpa menunggu detak.
+                // Newly visible content is refreshed immediately, without waiting for the tick.
                 if (opened)
-                    jalankanPemantau();
+                    startMonitor();
             }
         });
 
-        section.addView(kepala);
-        section.addView(pembungkus);
+        section.addView(header);
+        section.addView(wrapper);
         linLayout.addView(section);
     }
 
@@ -1394,11 +1395,11 @@ public class Menu {
         }
     }
 
-    /** Keadaan satu daftar pemain: kartu yang sudah ada dan isi terakhirnya. */
+    /** State of one player list: the cards that already exist and their last content. */
     private static final class ContentList {
         final Map<String, CardPlayer> card = new LinkedHashMap<String, CardPlayer>();
         String data;
-        TextView kosong;
+        TextView empty;
     }
 
     @SuppressLint("SetTextI18n")
@@ -1420,8 +1421,8 @@ public class Menu {
         titleRow.addView(new FeatureIcon(getContext, IconPattern.PLAYER, true),
                 new LinearLayout.LayoutParams(dp(FeatureIcon.WIDTH_DP), MATCH_PARENT));
 
-        // Nama fitur dengan jumlah pemain di bawahnya, jadi tombol muat ulang
-        // di kanan punya ruang untuk labelnya.
+        // Feature name with the player count below it, so the reload button on
+        // the right has room for its label.
         LinearLayout columnTitle = new LinearLayout(getContext);
         columnTitle.setOrientation(LinearLayout.VERTICAL);
         columnTitle.setGravity(Gravity.CENTER_VERTICAL);
@@ -1438,33 +1439,33 @@ public class Menu {
         titleRow.addView(columnTitle, paramsColumn);
         container.addView(titleRow);
 
-        TextView petunjuk = Theme.text(getContext,
+        TextView hint = Theme.text(getContext,
                 "Ketuk kartu untuk memilih. Ketuk Kick untuk sementara, tahan untuk permanen. "
                         + "Kick host ada di kartu host.",
                 Theme.DESC_SP, Theme.MUTED);
-        petunjuk.setPadding(dp(4), dp(2), dp(4), dp(6));
-        container.addView(petunjuk);
+        hint.setPadding(dp(4), dp(2), dp(4), dp(6));
+        container.addView(hint);
 
         final LinearLayout list = new LinearLayout(getContext);
         list.setOrientation(LinearLayout.VERTICAL);
         container.addView(list);
 
-        // Daftar sudah dibaca ulang tiap detik. Tombol ini membaca seketika dan
-        // memberi tanda jelas (memuat, lalu "Diperbarui") bahwa daftarnya baru.
+        // The list is already re-read every second. This button reads at once
+        // and gives a clear sign (loading, then "Diperbarui") that it is fresh.
         Button kickAll = smallButton("Kick semua", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                konfirmasi("Kick semua", "Tendang semua tamu secara permanen? Host dan kamu "
+                confirm("Kick semua", "Kick semua tamu secara permanen? Host dan kamu "
                                 + "tidak ikut.", "Kick semua", new Runnable() {
                     @Override
                     public void run() {
-                        boolean diterima;
+                        boolean accepted;
                         try {
-                            diterima = KickAll();
+                            accepted = KickAll();
                         } catch (Throwable t) {
-                            diterima = false;
+                            accepted = false;
                         }
-                        if (!diterima)
+                        if (!accepted)
                             Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                                     Toast.LENGTH_SHORT).show();
                     }
@@ -1489,10 +1490,11 @@ public class Menu {
         linLayout.addView(container);
         fillPlayerList(list, count);
 
-        // Daftar ikut detak Menu: dibaca ulang tiap detik hanya saat section ini
-        // benar-benar terlihat, dan langsung saat menu atau section dibuka.
-        // Perubahan (masuk, keluar, ganti nama/peran) tampil tanpa tombol muat ulang.
-        daftarkanPemantau(new Runnable() {
+        // The list follows the Menu tick: re-read every second only while this
+        // section is actually visible, and immediately when the menu or section
+        // opens. Changes (join, leave, name/role change) show without a reload
+        // button.
+        registerMonitor(new Runnable() {
             @Override
             public void run() {
                 if (list.isShown())
@@ -1523,8 +1525,9 @@ public class Menu {
             fresh.put(part[1], new String[]{part[0], part[2]});
         }
 
-        // Pemain yang keluar dibuang lebih dulu. Bila yang pergi adalah pilihan
-        // sekarang, pilihannya dilepas supaya tidak menunjuk kunci yang hilang.
+        // Players who left are removed first. When the one who left is the
+        // current choice, the choice is released so it does not point at a
+        // missing key.
         Iterator<Map.Entry<String, CardPlayer>> it = content.card.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, CardPlayer> entry = it.next();
@@ -1536,41 +1539,41 @@ public class Menu {
             }
         }
 
-        if (content.kosong != null) {
-            list.removeView(content.kosong);
-            content.kosong = null;
+        if (content.empty != null) {
+            list.removeView(content.empty);
+            content.empty = null;
         }
 
-        int indeks = 0;
+        int index = 0;
         for (Map.Entry<String, String[]> entry : fresh.entrySet()) {
             String key = entry.getKey();
             String name = entry.getValue()[0];
             String role = entry.getValue()[1];
             CardPlayer card = content.card.get(key);
             if (card != null && card.name.equals(name) && card.role.equals(role)) {
-                // Isi sama: kartunya dipakai lagi, hanya urutannya yang dirapikan.
-                if (list.getChildAt(indeks) != card.view) {
+                // Same content: the card is reused, only its order is fixed up.
+                if (list.getChildAt(index) != card.view) {
                     list.removeView(card.view);
-                    list.addView(card.view, Math.min(indeks, list.getChildCount()));
+                    list.addView(card.view, Math.min(index, list.getChildCount()));
                 }
             } else {
                 LinearLayout view = playerRow(content, key, name, role);
                 if (card != null)
                     list.removeView(card.view);
-                list.addView(view, Math.min(indeks, list.getChildCount()));
+                list.addView(view, Math.min(index, list.getChildCount()));
                 content.card.put(key, new CardPlayer(name, role, view));
             }
-            indeks++;
+            index++;
         }
 
-        count.setText(indeks == 0 ? "" : indeks + " pemain");
-        if (indeks == 0) {
-            TextView kosong = Theme.text(getContext, "Tidak ada pemain di room ini",
+        count.setText(index == 0 ? "" : index + " pemain");
+        if (index == 0) {
+            TextView empty = Theme.text(getContext, "Tidak ada pemain di room ini",
                     Theme.DESC_SP, Theme.MUTED);
-            kosong.setGravity(Gravity.CENTER);
-            kosong.setPadding(0, dp(14), 0, dp(14));
-            list.addView(kosong);
-            content.kosong = kosong;
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(0, dp(14), 0, dp(14));
+            list.addView(empty);
+            content.empty = empty;
         }
     }
 
@@ -1583,9 +1586,9 @@ public class Menu {
         }
     }
 
-    // Satu pemain menjadi satu kartu: nama dan lencana perannya di atas, aksi di
-    // bawah. Kartu sendiri tidak punya aksi karena menyalin atau menendang diri
-    // sendiri tidak berguna, dan tendang hanya ada untuk tamu.
+    // One player becomes one card: name and role badge on top, actions below.
+    // The card itself has no action because copying or kicking yourself is
+    // useless, and kick only exists for guests.
     private LinearLayout playerRow(final ContentList content, final String key,
                                      final String name, String role) {
         LinearLayout row = new LinearLayout(getContext);
@@ -1599,17 +1602,17 @@ public class Menu {
                 ? Theme.cardSelected(getContext)
                 : Theme.card(getContext));
 
-        LinearLayout kepala = new LinearLayout(getContext);
-        kepala.setOrientation(LinearLayout.HORIZONTAL);
-        kepala.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout header = new LinearLayout(getContext);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView label = Theme.text(getContext, name, Theme.ROW_SP, Theme.TEXT);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setLayoutParams(new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
-        kepala.addView(label);
-        kepala.addView(badgeRole(role));
-        row.addView(kepala);
+        header.addView(label);
+        header.addView(badgeRole(role));
+        row.addView(header);
 
         row.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1628,18 +1631,18 @@ public class Menu {
                 new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsAction.setMargins(0, dp(6), 0, 0);
         action.setLayoutParams(paramsAction);
-        action.addView(smallButton("Salin skin", new View.OnClickListener() {
+        action.addView(smallButton("Copy skin", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean diterima;
+                boolean accepted;
                 try {
-                    diterima = CopyPlayerSkin(key, name);
+                    accepted = CopyPlayerSkin(key, name);
                 } catch (Throwable t) {
-                    diterima = false;
+                    accepted = false;
                 }
-                // Hasil sebenarnya dikabarkan toast dari thread game; di sini
-                // hanya antrean yang bisa langsung ditolak.
-                if (!diterima)
+                // The real result is reported by a toast from the game thread;
+                // here only the queue can be rejected immediately.
+                if (!accepted)
                     Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                             Toast.LENGTH_SHORT).show();
             }
@@ -1648,20 +1651,20 @@ public class Menu {
             action.addView(smallButton("Kick host", new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    konfirmasiKickHost(name);
+                    confirmKickHost(name);
                 }
             }));
         } else if ("tamu".equals(role)) {
             Button kick = smallButton("Kick", new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    boolean diterima;
+                    boolean accepted;
                     try {
-                        diterima = KickPlayer(key, name, false);
+                        accepted = KickPlayer(key, name, false);
                     } catch (Throwable t) {
-                        diterima = false;
+                        accepted = false;
                     }
-                    if (!diterima)
+                    if (!accepted)
                         Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                                 Toast.LENGTH_SHORT).show();
                 }
@@ -1670,13 +1673,13 @@ public class Menu {
             kick.setOnLongClickListener(new View.OnLongClickListener() {
                 @Override
                 public boolean onLongClick(View v) {
-                    boolean diterima;
+                    boolean accepted;
                     try {
-                        diterima = KickPlayer(key, name, true);
+                        accepted = KickPlayer(key, name, true);
                     } catch (Throwable t) {
-                        diterima = false;
+                        accepted = false;
                     }
-                    Toast.makeText(Menu.this.getContext, diterima
+                    Toast.makeText(Menu.this.getContext, accepted
                                     ? "Kick permanen diantrekan"
                                     : "Antrean penuh, coba lagi",
                             Toast.LENGTH_SHORT).show();
@@ -1689,29 +1692,29 @@ public class Menu {
         return row;
     }
 
-    private void konfirmasiKickHost(final String name) {
-        konfirmasi("Kick host", "Paket kick akan dikirim berulang ke host. Host bisa lag lalu "
+    private void confirmKickHost(final String name) {
+        confirm("Kick host", "Paket kick akan dikirim berulang ke host. Host bisa lag lalu "
                 + "keluar dari room, dan room akan ditutup. Lanjutkan?", "Kick host",
                 new Runnable() {
                     @Override
                     public void run() {
-                        boolean diterima;
+                        boolean accepted;
                         try {
-                            diterima = KickHost(name);
+                            accepted = KickHost(name);
                         } catch (Throwable t) {
-                            diterima = false;
+                            accepted = false;
                         }
-                        if (!diterima)
+                        if (!accepted)
                             Toast.makeText(Menu.this.getContext, "Antrean penuh, coba lagi",
                                     Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void konfirmasi(String title, String message, String label, final Runnable action) {
+    private void confirm(String title, String message, String label, final Runnable action) {
         menuDialog.display(title, message, null, null,
-                new MenuDialog.Button(label, action), null,
-                new MenuDialog.Button("Batal", null), true);
+                new MenuDialog.Action(label, action), null,
+                new MenuDialog.Action("Batal", null), true);
     }
 
     private void refreshChoice(ContentList content) {
@@ -1722,18 +1725,18 @@ public class Menu {
         }
     }
 
-    private Button smallButton(String text, View.OnClickListener pendengar) {
-        return smallButton(text, pendengar, true);
+    private Button smallButton(String text, View.OnClickListener listener) {
+        return smallButton(text, listener, true);
     }
 
-    private Button smallButton(String text, View.OnClickListener pendengar, boolean weight) {
+    private Button smallButton(String text, View.OnClickListener listener, boolean weight) {
         Button button = new Button(getContext);
         button.setText(text);
         button.setTextSize(13f);
         button.setAllCaps(false);
         button.setTextColor(Theme.TITLE_TEXT);
         button.setTypeface(Theme.font(getContext));
-        // Tinggi sentuh 48dp, kotak yang terlihat tetap sekecil sebelumnya.
+        // 48dp touch height, the visible box stays as small as before.
         button.setBackground(Theme.smallButton(getContext, BUTTON_SMALL_INSET_DP));
         button.setMinWidth(0);
         button.setMinimumWidth(0);
@@ -1747,7 +1750,7 @@ public class Menu {
                 : new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
         params.setMargins(0, 0, dp(6), 0);
         button.setLayoutParams(params);
-        button.setOnClickListener(pendengar);
+        button.setOnClickListener(listener);
         return button;
     }
 
@@ -1775,7 +1778,7 @@ public class Menu {
 
     private void Category(LinearLayout linLayout, String text) {
         if (linLayout == mSettings) {
-            // Setelan memakai judul kelompok yang ringan, bukan pita cokelat.
+            // Settings use a light group heading, not the brown ribbon.
             TextView title = Theme.text(getContext, Html.fromHtml(text), Theme.DESC_SP, Theme.MUTED);
             title.setPadding(dp(4), dp(12), dp(4), dp(2));
             linLayout.addView(title);
@@ -1804,8 +1807,8 @@ public class Menu {
     }
 
     /**
-     * RichWebView tidak lagi memakai WebView. Tag dasar (b, i, u, font, a, br)
-     * dirender TextView biasa, dan tautan tetap bisa diketuk.
+     * RichWebView no longer uses WebView. Basic tags (b, i, u, font, a, br) are
+     * rendered by a plain TextView, and links can still be tapped.
      */
     private void WebTextView(LinearLayout linLayout, String text) {
         TextView textView = Theme.text(getContext, Html.fromHtml(text), Theme.DESC_SP, Theme.TEXT);
@@ -1816,9 +1819,9 @@ public class Menu {
     }
 
     /**
-     * Baris kontrol: kotak ikon menempel di tepi kiri (hanya sudut kiri yang
-     * melengkung), label di tengah, dan kontrol di kanan. Tinggi minimum 48dp
-     * supaya seluruh baris nyaman disentuh.
+     * Control row: icon box attached to the left edge (only the left corners
+     * are rounded), label in the middle, and control on the right. Minimum
+     * height 48dp so the whole row is comfortable to touch.
      */
     private LinearLayout row(String[] pattern, View content, View control) {
         LinearLayout row = new LinearLayout(getContext);
@@ -1831,7 +1834,7 @@ public class Menu {
         params.setMargins(0, dp(4), 0, dp(4));
         row.setLayoutParams(params);
 
-        // Kotak ikon menempel penuh di tepi kiri dan setinggi baris, tanpa margin.
+        // The icon box is fully attached to the left edge and row height, without margin.
         row.addView(new FeatureIcon(getContext, pattern, true),
                 new LinearLayout.LayoutParams(dp(FeatureIcon.WIDTH_DP), MATCH_PARENT));
 
@@ -1845,8 +1848,8 @@ public class Menu {
     }
 
     /**
-     * Baris posisi pemain: koordinat tile dan dunia dibaca ulang tiap detik
-     * selama barisnya terlihat.
+     * Player position row: tile and world coordinates are re-read every second
+     * while the row is visible.
      */
     private void RowPosition(LinearLayout linLayout, String featName) {
         LinearLayout column = new LinearLayout(getContext);
@@ -1862,7 +1865,7 @@ public class Menu {
         installExplanation(row, 0, featName);
         linLayout.addView(row);
 
-        daftarkanPemantau(new Runnable() {
+        registerMonitor(new Runnable() {
             @Override
             public void run() {
                 if (row.isShown())
@@ -1919,7 +1922,7 @@ public class Menu {
         params.setMargins(0, dp(4), 0, dp(4));
         box.setLayoutParams(params);
 
-        // Ikon menempel penuh di dalam garis tombol.
+        // The icon is attached fully inside the button outline.
         box.addView(new FeatureIcon(getContext, pattern, true),
                 new LinearLayout.LayoutParams(dp(FeatureIcon.WIDTH_DP - 3), MATCH_PARENT));
 
@@ -1929,14 +1932,14 @@ public class Menu {
     }
 
     /**
-     * Tekan lama pada baris fitur membuka dialog penjelasan. Listener dipasang
-     * di baris dan di kontrol yang bisa menelan sentuhan (tombol, sakelar,
-     * spinner), supaya tekan lama tetap bekerja di bagian mana pun.
+     * Long-pressing a feature row opens the explanation dialog. The listener is
+     * installed on the row and on controls that can swallow touches (button,
+     * switch, spinner), so long-press still works anywhere.
      */
-    private void installExplanation(View tampilan, final int featNum, final String featName) {
-        if (tampilan == null)
+    private void installExplanation(View view, final int featNum, final String featName) {
+        if (view == null)
             return;
-        tampilan.setOnLongClickListener(new View.OnLongClickListener() {
+        view.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
                 showExplanation(featNum, featName);
@@ -1964,7 +1967,7 @@ public class Menu {
     }
 
     public void onDestroy() {
-        hancur = true;
+        destroyed = true;
         tickRun = false;
         sourceInstalled = null;
         handlerTick.removeCallbacksAndMessages(null);
@@ -1975,8 +1978,8 @@ public class Menu {
             try {
                 mWindowManager.removeView(rootFrame);
             } catch (IllegalArgumentException e) {
-                // Jendela memang belum atau sudah dilepas.
-                Log.d(TAG, "removeView dilewati: " + e);
+                // The window is either not attached yet or already detached.
+                Log.d(TAG, "removeView skipped: " + e);
             }
         }
     }

@@ -8,8 +8,8 @@
 
 namespace {
 
-// Getar kamera murni visual, jadi kedua titik masuknya dibuang saat sakelar
-// getar dimatikan. Puing tile punya sakelar sendiri.
+// Camera shake is purely visual, so both entry points are dropped while the
+// shake switch is off. Tile debris has its own switch.
 void hookShake(void* self, void* method) {
     auto original = reinterpret_cast<void (*)(void*, void*)>(target(T_SHAKE).orig);
     if (!features().shake && original)
@@ -22,19 +22,19 @@ void hookShakeNumber(void* self, int32_t duration, float power, void* method) {
         original(self, duration, power, method);
 }
 
-// Puing tile dimunculkan saat tile pecah. Membuang pemunculannya membiarkan tile
-// dan rekamannya utuh sementara serpihannya tidak ada.
-void hookDebris(void* self, int32_t jenis, void* method) {
+// Tile debris is spawned when a tile breaks. Dropping the spawn leaves the tile
+// and its record intact while the fragments are gone.
+void hookDebris(void* self, int32_t type, void* method) {
     auto original = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_DEBRIS).orig);
-    if (!features().pecahan && original)
-        original(self, jenis, method);
+    if (!features().debris && original)
+        original(self, type, method);
 }
 
-void hookDebrisTile(void* self, float x, float y, int32_t jenis, void* data, void* method) {
+void hookDebrisTile(void* self, float x, float y, int32_t type, void* data, void* method) {
     auto original = reinterpret_cast<void (*)(void*, float, float, int32_t, void*, void*)>(
         target(T_DEBRIS_TILE).orig);
-    if (!features().pecahan && original)
-        original(self, x, y, jenis, data, method);
+    if (!features().debris && original)
+        original(self, x, y, type, data, method);
 }
 
 } // namespace

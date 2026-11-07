@@ -15,7 +15,7 @@ Field worldSizeLimit = {};
 Field multiSizeWorld = {};
 Field widthLimit = {};
 Field heightLimit = {};
-Field presetTeratas = {};
+Field presetTop = {};
 Field widthPreset = {};
 Field heightPreset = {};
 Field limitMulti = {};
@@ -25,12 +25,12 @@ Field managerZone = {};
 Field zoneActive = {};
 bool zoneReady = false;
 
-// Host memegang izin build dan destroy dan menolak apa pun yang dicoba guest di
-// luar itu, jadi kedua flag sekarang diteruskan apa adanya. Hanya flag simpan
-// dunia yang masih dipaksa, karena host mengirimnya sekali di awal dan guest
-// tidak mendapat kesempatan lain untuk mengaktifkannya.
+// The host holds build and destroy permission and rejects anything guests try
+// outside that, so both flags are now passed through as-is. Only the save world
+// flag is still forced, because the host sends it once at the start and the guest
+// gets no other chance to enable it.
 void hookPermissionStart(void* self, bool build, bool destroy, bool save, void* method) {
-    LOGI("Izin: mulai game build=%d destroy=%d", build, destroy);
+    LOGI("Permission: game start build=%d destroy=%d", build, destroy);
     auto original =
         reinterpret_cast<void (*)(void*, bool, bool, bool, void*)>(target(T_PERMISSION_START).orig);
     if (!original)
@@ -39,17 +39,17 @@ void hookPermissionStart(void* self, bool build, bool destroy, bool save, void* 
 }
 
 void hookPermissionSave(void* self, bool permission, void* method) {
-    LOGI("Izin: simpan dunia diterima");
+    LOGI("Permission: save world accepted");
     auto original = reinterpret_cast<void (*)(void*, bool, void*)>(target(T_PERMISSION_SAVE).orig);
     if (!original)
         return;
     original(self, features().saveWorld ? true : permission, method);
 }
 
-// Saat pemain menjadi tamu, host memutuskan sendiri apakah perubahan tile dan
-// objek diterima. Kelima hook ini memaksa flag yang dipercaya host pada paket
-// yang dikirim klien: Enforce untuk tile dan Across untuk objek. Flag lain
-// diteruskan apa adanya.
+// When the player becomes a guest, the host decides on its own whether tile and
+// object changes are accepted. These five hooks force the flag the host trusts on
+// the packets the client sends: Enforce for tiles and Across for objects. The
+// other flags are passed through as-is.
 void hookSendTileAdd(void* self, float x, float y, int id, void* str, int font, bool eff,
                       bool enforce, bool callback, void* method) {
     auto original =
@@ -101,12 +101,12 @@ void hookSendObjRemove(void* self, int id, void* key, bool eff, bool name, bool 
     original(self, id, key, eff, name, features().permissionRoomOther ? true : across, method);
 }
 
-// Ledakan TNT tidak memakai paket Tile__Remove, melainkan Explosion_Range yang
-// ditolak host saat tamu tidak punya izin destroy. Jalur admin di dalam
-// Update__Range_ justru memanggil Update__Range__ di perangkat sendiri, dan
-// dari sana game mengirim permintaan hapus tile serta objek yang sudah dipaksa
-// oleh hook di atas. Saat fitur menyala, jalur lokal itu yang dipakai; di host
-// dan single player hasilnya sama dengan bawaan.
+// The TNT explosion does not use the Tile__Remove packet but Explosion_Range,
+// which the host rejects when the guest has no destroy permission. The admin path
+// inside Update__Range_ instead calls Update__Range__ on the local device, and
+// from there the game sends the tile and object removal requests that the hooks
+// above already force. When the feature is on, that local path is used; on the
+// host and in single player the result matches vanilla.
 void hookExplodeRange(void* self, float x, float y, int step, void* method) {
     auto original =
         reinterpret_cast<void (*)(void*, float, float, int, void*)>(target(T_EXPLODE_RANGE).orig);
@@ -122,16 +122,16 @@ void hookExplodeRange(void* self, float x, float y, int step, void* method) {
         original(self, x, y, step, method);
         return;
     }
-    // addr adalah alamat kode method; method hanya MethodInfo yang menjadi
-    // argumen tersembunyi terakhir. Memanggil MethodInfo sebagai fungsi akan
-    // melompat ke data dan membuat game hang.
+    // addr is the code address of the method; method is only the MethodInfo that
+    // is the last hidden argument. Calling the MethodInfo as a function would
+    // jump into data and hang the game.
     auto local = reinterpret_cast<void (*)(void*, int, float, float, int, void*)>(apply.addr);
     local(self, readInt(zone, zoneActive), x, y, step, apply.method);
 }
 
-// Daftar room membuang setiap room yang luas dunianya di atas batas perangkat
-// ini, dan panel join serta info memakai tes yang sama. Menjawab true membuat
-// room itu tetap terdaftar berapa pun ukurannya.
+// The room list drops every room whose world size is above this device's limit,
+// and the join panel and the info panel use the same test. Answering true keeps
+// that room listed whatever its size.
 bool hookSizeRoom(void* self, int width, int height, void* method) {
     if (!features().roomSize) {
         auto original = reinterpret_cast<bool (*)(void*, int, int, void*)>(target(T_ROOM_SIZE).orig);
@@ -140,11 +140,11 @@ bool hookSizeRoom(void* self, int width, int height, void* method) {
     return true;
 }
 
-// Halaman ukuran membaca max.w dan max.h sebagai batas slider, tetapi manajer
-// tile menurunkan batas itu ke tier perangkat ini saat boot, jauh sebelum hook
-// ada. Mengembalikan preset teratas milik game setiap kali halaman dibuka
-// melonggarkan batas itu tanpa angka buatan sendiri, dan luas room mengikuti
-// batas yang baru.
+// The size page reads max.w and max.h as the slider limits, but the tile
+// manager lowers that limit to this device tier at boot, long before the hook
+// exists. Restoring the game's top preset each time the page opens loosens
+// that limit without invented numbers, and the room area follows the new
+// limit.
 void raiseLimitWorld(void* self) {
     if (!limitReady)
         return;
@@ -152,7 +152,7 @@ void raiseLimitWorld(void* self) {
     void* tile = readPtr(manager, tileManager);
     void* world = readPtr(tile, worldSizeTile);
     void* limit = readPtr(world, worldSizeLimit);
-    void* preset = readPtr(limit, presetTeratas);
+    void* preset = readPtr(limit, presetTop);
     int32_t width = readInt(preset, widthPreset);
     int32_t height = readInt(preset, heightPreset);
     if (width <= 0 || height <= 0)
@@ -164,12 +164,12 @@ void raiseLimitWorld(void* self) {
     writeInt(limit, widthLimit, width);
     writeInt(limit, heightLimit, height);
     writeInt(readPtr(world, multiSizeWorld), limitMulti, width * height);
-    LOGI("Batas ukuran dunia naik dari %dx%d ke %dx%d", widthOld, heightOld, width, height);
+    LOGI("World size limit raised from %dx%d to %dx%d", widthOld, heightOld, width, height);
 }
 
-// Halaman ini menyusun slider dan ukuran saat ini di dalam panggilan ini, jadi
-// batas dinaikkan sebelum fungsi asli berjalan dan bukaan pertama sudah
-// melihatnya.
+// This page builds the slider and the current size inside this call, so the
+// limit is raised before the original runs and the first open already
+// sees it.
 void hookLimit(void* self, void* method) {
     if (features().roomSize)
         raiseLimitWorld(self);
@@ -193,9 +193,9 @@ bool findFieldSizeWorld() {
         return false;
     void* klassLimit = fieldClass(worldSizeLimit);
     if (!findField(klassLimit, "w", widthLimit) || !findField(klassLimit, "h", heightLimit) ||
-        !findField(klassLimit, "_3", presetTeratas))
+        !findField(klassLimit, "_3", presetTop))
         return false;
-    void* klassPreset = fieldClass(presetTeratas);
+    void* klassPreset = fieldClass(presetTop);
     return findField(klassPreset, "w", widthPreset) && findField(klassPreset, "h", heightPreset) &&
            findField(fieldClass(multiSizeWorld), "max", limitMulti);
 }
@@ -215,7 +215,7 @@ void installMultiplayerHook() {
     installHook(target(T_PERMISSION_SAVE), reinterpret_cast<void*>(hookPermissionSave));
     installHook(target(T_ROOM_SIZE), reinterpret_cast<void*>(hookSizeRoom));
     limitReady = findFieldSizeWorld();
-    LOGI("Field ukuran dunia %s", limitReady ? "OK" : "tidak ada, batas tetap per perangkat");
+    LOGI("World size field %s", limitReady ? "OK" : "missing, limit stays per device");
     installHook(target(T_WORLD_CAP), reinterpret_cast<void*>(hookLimit));
     installHook(target(T_SEND_TILE_ADD), reinterpret_cast<void*>(hookSendTileAdd));
     installHook(target(T_SEND_TILE_REPLACE), reinterpret_cast<void*>(hookSendTileReplace));
@@ -223,6 +223,6 @@ void installMultiplayerHook() {
     installHook(target(T_SEND_OBJ_ADD), reinterpret_cast<void*>(hookSendObjAdd));
     installHook(target(T_SEND_OBJ_REMOVE), reinterpret_cast<void*>(hookSendObjRemove));
     zoneReady = findFieldZoneExplode();
-    LOGI("Field zona ledakan %s", zoneReady ? "OK" : "tidak ada, ledakan tetap lewat host");
+    LOGI("Explosion zone field %s", zoneReady ? "OK" : "missing, explosion still goes through host");
     installHook(target(T_EXPLODE_RANGE), reinterpret_cast<void*>(hookExplodeRange));
 }
