@@ -19,7 +19,7 @@ public class MainActivity extends Activity {
                 new Thread.UncaughtExceptionHandler() {
                     @Override
                     public void uncaughtException(Thread thread, Throwable e) {
-                        Log.e("AppCrash", "Error just lunched ");
+                        Log.e(BKLog.TAG, "Error just lunched ");
                     }
                 });*/
 
@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
                 Main.Start(this);
                 return;
             } catch (ClassNotFoundException e) {
-                Log.e("Mod_menu", "Error. Game's main activity does not exist");
+                Log.e(BKLog.TAG, "Error. Game's main activity does not exist");
                 //Uncomment this if you are following METHOD 2 to launch menu
                 //Toast.makeText(MainActivity.this, "Error. Game's main activity does not exist", Toast.LENGTH_LONG).show();
             }

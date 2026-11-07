@@ -24,7 +24,7 @@ import java.util.Map;
 
 public final class CrashHandler {
 
-    private static final String TAG = "AppCrash";
+    private static final String TAG = BKLog.TAG;
     private static final String LOG_DIR = "crash_logs";
     private static final String FILE_PREFIX = "crash_";
     private static final String FILE_EXTENSION = ".txt";

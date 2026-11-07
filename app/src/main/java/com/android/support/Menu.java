@@ -26,7 +26,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -58,7 +57,7 @@ import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
 import static android.widget.RelativeLayout.ALIGN_PARENT_RIGHT;
 
 public class Menu {
-    public static final String TAG = "Mod_Menu"; //Tag for logcat
+    public static final String TAG = BKLog.TAG; //Tag for logcat
 
     // Tampilan panel kayu. Semua warna ada di Theme.
     int MENU_WIDTH = 340;
@@ -77,7 +76,7 @@ public class Menu {
     private static final String KUNCI_LIPAT = "ui_lipat_";
     // Chip angka slider: tinggi gambar 26dp di dalam area sentuh 48dp.
     private static final float CHIP_INSET_DP = 11f;
-    private static final float SEEK_TUMPANG_DP = 12f;
+    private static final float SEEK_TUMPANG_DP = 10f;
     private static final float TOMBOL_KECIL_INSET_DP = 9f;
 
     RelativeLayout mCollapsed, mRootContainer;
@@ -333,7 +332,7 @@ public class Menu {
 
         // Tombol sudut bergaya game: kotak hitam, garis putih, segitiga pixel
         // menghadap kanan. Gambarnya 34dp, area sentuhnya 48dp.
-        TombolSudut minimal = new TombolSudut(context, PolaIkon.SEGITIGA_KANAN);
+        TombolSudut minimal = new TombolSudut(context, PolaIkon.SEGITIGA_KIRI);
         RelativeLayout.LayoutParams rlMinimal = new RelativeLayout.LayoutParams(
                 dp(Theme.TARGET_DP), dp(Theme.TARGET_DP));
         rlMinimal.addRule(ALIGN_PARENT_RIGHT);
@@ -861,16 +860,11 @@ public class Menu {
         kolom.setOrientation(LinearLayout.VERTICAL);
         kolom.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Baris judul: nama fitur di kiri, angka di kanan. Ketuk angka untuk
+        // Judul di atas; di bawahnya slider dan angka sebaris. Ketuk angka untuk
         // mengembalikan slider ke nilai bawaan.
-        LinearLayout judulBaris = new LinearLayout(getContext);
-        judulBaris.setOrientation(LinearLayout.HORIZONTAL);
-        judulBaris.setGravity(Gravity.CENTER_VERTICAL);
-
         final TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
         judul.setSingleLine(true);
         judul.setEllipsize(TextUtils.TruncateAt.END);
-        judulBaris.addView(judul, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
 
         final TextView angka = Theme.teks(getContext, nilaiTeks(nilaiAwal, desimal) + satuan,
                 Theme.DESC_SP, Theme.TITLE_TEXT);
@@ -878,21 +872,19 @@ public class Menu {
         angka.setSingleLine(true);
         angka.setMinWidth(dp(Theme.TARGET_DP));
         angka.setMinHeight(dp(Theme.TARGET_DP));
-        angka.setPadding(dp(8), 0, dp(8), 0);
+        angka.setPadding(dp(6), 0, dp(6), 0);
         // Kotaknya digambar menyusut di atas dan bawah, jadi tampilannya tetap
         // sama seperti chip kecil sementara area sentuhnya 48dp.
         angka.setBackground(Theme.tombolKecil(getContext, CHIP_INSET_DP));
         angka.setContentDescription(featName + ", ketuk untuk reset");
-        judulBaris.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        // Baris judul diberi prioritas sentuh di atas slider yang menimpanya sedikit.
-        judulBaris.setTranslationZ(1f);
 
         final SeekBar seekBar = new SeekBar(getContext);
         seekBar.setProgressDrawable(Theme.seekbarProgress(getContext));
         seekBar.setThumb(Theme.seekbarThumb(getContext));
         seekBar.setThumbOffset(0);
         // Padding mendatar setengah lebar thumb supaya thumb tidak terpotong di ujung.
-        seekBar.setPadding(dp(5), 0, dp(5), 0);
+        int padThumb = dp(Theme.SLIDER_THUMB_LEBAR_DP / 2f);
+        seekBar.setPadding(padThumb, 0, padThumb, 0);
         // Rentang digeser ke nol supaya setMin yang hanya ada di Oreo ke atas
         // tidak dibutuhkan.
         seekBar.setMax(max - min);
@@ -939,13 +931,20 @@ public class Menu {
             });
         }
 
-        kolom.addView(judulBaris, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
-        // Bagian atas SeekBar 48dp kosong (track ada di tengah), jadi sedikit
-        // ditumpangkan ke baris judul supaya baris tidak terlalu tinggi.
-        LinearLayout.LayoutParams paramsSeek =
-                new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP));
-        paramsSeek.topMargin = -dp(SEEK_TUMPANG_DP);
-        kolom.addView(seekBar, paramsSeek);
+        kolom.addView(judul, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        // Area SeekBar setinggi 48dp, tetapi garis dan thumb hanya memakai bagian
+        // tengahnya. Judul ditumpangkan sedikit ke bagian atas yang kosong itu,
+        // jadi kartu lebih pendek tanpa mengecilkan area sentuh. Judul tidak
+        // menerima sentuhan, jadi geseran di area tumpang tindih tetap sampai ke slider.
+        LinearLayout barisSlider = new LinearLayout(getContext);
+        barisSlider.setOrientation(LinearLayout.HORIZONTAL);
+        barisSlider.setGravity(Gravity.CENTER_VERTICAL);
+        barisSlider.addView(seekBar, new LinearLayout.LayoutParams(0, dp(Theme.TARGET_DP), 1f));
+        barisSlider.addView(angka, new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+        LinearLayout.LayoutParams paramsSlider =
+                new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        paramsSlider.topMargin = -dp(SEEK_TUMPANG_DP);
+        kolom.addView(barisSlider, paramsSlider);
         final LinearLayout baris = baris(PolaIkon.pola(featNum, featName), kolom, null);
         pasangPenjelasan(baris, featNum, featName);
         linLayout.addView(baris);
@@ -1421,29 +1420,30 @@ public class Menu {
         judulBaris.setGravity(Gravity.CENTER_VERTICAL);
         judulBaris.setBackground(Theme.baris(getContext));
         judulBaris.setPadding(0, 0, dp(5), 0);
-        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, dp(Theme.TARGET_DP));
+        judulBaris.setMinimumHeight(dp(Theme.TARGET_DP));
+        LinearLayout.LayoutParams paramsJudul = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
         paramsJudul.setMargins(0, dp(4), 0, dp(4));
         judulBaris.setLayoutParams(paramsJudul);
 
         judulBaris.addView(new IkonFitur(getContext, PolaIkon.PEMAIN, true),
                 new LinearLayout.LayoutParams(dp(IkonFitur.LEBAR_DP), MATCH_PARENT));
 
+        // Nama fitur dengan jumlah pemain di bawahnya, jadi tombol muat ulang
+        // di kanan punya ruang untuk labelnya.
+        LinearLayout kolomJudul = new LinearLayout(getContext);
+        kolomJudul.setOrientation(LinearLayout.VERTICAL);
+        kolomJudul.setGravity(Gravity.CENTER_VERTICAL);
+        kolomJudul.setPadding(0, dp(4), 0, dp(4));
         TextView judul = Theme.teks(getContext, featName, Theme.ROW_SP, Theme.TEXT);
-        LinearLayout.LayoutParams paramsJudulTeks = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
-        paramsJudulTeks.setMargins(dp(12), 0, dp(6), 0);
-        judulBaris.addView(judul, paramsJudulTeks);
-
+        judul.setSingleLine(true);
+        judul.setEllipsize(TextUtils.TruncateAt.END);
+        kolomJudul.addView(judul, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
         final TextView jumlah = Theme.teks(getContext, "", Theme.DESC_SP, Theme.MUTED);
-        judulBaris.addView(jumlah);
-        // Daftar dipantau tiap detik, jadi muat ulang cukup berupa tombol ikon
-        // kecil di sudut header, sejajar dengan ikon pemain di sisi kiri.
-        final IkonFitur muatUlang = new IkonFitur(getContext, PolaIkon.ULANG, false);
-        muatUlang.setContentDescription("Muat ulang daftar");
-        muatUlang.setClickable(true);
-        muatUlang.setFocusable(true);
-        LinearLayout.LayoutParams paramsMuat = new LinearLayout.LayoutParams(dp(Theme.TARGET_DP), dp(Theme.TARGET_DP));
-        paramsMuat.setMargins(dp(8), 0, 0, 0);
-        muatUlang.setLayoutParams(paramsMuat);
+        jumlah.setSingleLine(true);
+        kolomJudul.addView(jumlah, new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        LinearLayout.LayoutParams paramsKolom = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        paramsKolom.setMargins(dp(12), 0, dp(8), 0);
+        judulBaris.addView(kolomJudul, paramsKolom);
         container.addView(judulBaris);
 
         TextView petunjuk = Theme.teks(getContext,
@@ -1456,21 +1456,18 @@ public class Menu {
         daftar.setOrientation(LinearLayout.VERTICAL);
         container.addView(daftar);
 
-        muatUlang.setOnClickListener(new View.OnClickListener() {
+        // Daftar sudah dibaca ulang tiap detik. Tombol ini membaca seketika dan
+        // memberi tanda jelas (memuat, lalu "Diperbarui") bahwa daftarnya baru.
+        TombolMuatUlang muatUlang = new TombolMuatUlang(getContext, PolaIkon.ULANG, new Runnable() {
             @Override
-            public void onClick(View v) {
+            public void run() {
                 IsiDaftar isi = (IsiDaftar) daftar.getTag();
                 if (isi != null)
                     isi.data = null;
                 isiDaftarPemain(daftar, jumlah);
-                // Putaran penuh sebagai tanda daftar baru dibaca.
-                v.animate().cancel();
-                v.setRotation(0f);
-                v.animate().rotationBy(360f).setDuration(420L)
-                        .setInterpolator(new DecelerateInterpolator()).start();
             }
         });
-        judulBaris.addView(muatUlang);
+        judulBaris.addView(muatUlang, new LinearLayout.LayoutParams(WRAP_CONTENT, dp(Theme.TARGET_DP)));
         pasangPenjelasan(judulBaris, 0, featName);
 
         linLayout.addView(container);

@@ -75,7 +75,7 @@ public final class Theme {
     public static final float RADIUS_PANEL = 3f;
     public static final float RADIUS_ROW = 5f;
     public static final float RADIUS_IKON = 5f;
-    public static final float RADIUS_THUMB = 3f;
+    public static final float RADIUS_THUMB = 4f;
     public static final float RADIUS_KNOB = 10f;
 
     // Tebal garis, dalam dp.
@@ -92,7 +92,12 @@ public final class Theme {
     /** Ukuran sentuh minimum setiap kontrol, dalam dp. */
     public static final float TARGET_DP = 48f;
 
-    private static final float TRACK_TEBAL_DP = 4f;
+    // Slider: track pil 10dp, thumb tegak 14x28dp.
+    private static final float SLIDER_TRACK_DP = 10f;
+    private static final float SLIDER_GARIS_DP = 2f;
+    private static final float SLIDER_THUMB_TINGGI_DP = 28f;
+    /** Lebar thumb slider; padding mendatar SeekBar memakai setengahnya. */
+    public static final float SLIDER_THUMB_LEBAR_DP = 14f;
     private static final float ZIGZAG_JARI_DP = 3f;
     private static final float ZIGZAG_LANGKAH_DP = 8f;
 
@@ -105,7 +110,7 @@ public final class Theme {
                 sFont = Typeface.createFromAsset(context.getApplicationContext().getAssets(),
                         FONT_ASSET);
             } catch (Throwable t) {
-                Log.d("Mod_Menu", "Font gagal dimuat: " + t);
+                Log.d(BKLog.TAG, "Font gagal dimuat: " + t);
                 sFont = Typeface.DEFAULT;
             }
         }
@@ -358,27 +363,35 @@ public final class Theme {
     }
 
     /**
-     * Track tipis 4dp seperti slider game: garis #936832, bagian yang sudah
-     * terisi memakai cokelat tua #81521D supaya posisi tetap terbaca di atas
-     * baris #DCB983. SeekBar setinggi {@link #TARGET_DP}, jadi track diberi
-     * inset atas-bawah agar tetap setipis 4dp di tengah.
+     * Track slider mengikuti warna switch: bagian kosong #B28950, bagian terisi
+     * #F8B551, garis luar #936832. Terisi tetap terbaca di atas baris #DCB983.
+     * SeekBar setinggi {@link #TARGET_DP}, jadi track diberi inset atas-bawah
+     * agar tetap setebal {@link #SLIDER_TRACK_DP} di tengah.
      */
     public static Drawable seekbarProgress(Context context) {
-        GradientDrawable track = kotak(TRACK, 2f, 0f, TRACK, context);
-        GradientDrawable isi = kotak(ICON_BOX, 2f, 0f, ICON_BOX, context);
+        float radius = SLIDER_TRACK_DP / 2f;
+        GradientDrawable track = kotak(SWITCH_OFF_TRACK, radius, SLIDER_GARIS_DP, TRACK, context);
+        GradientDrawable isi = kotak(SWITCH_ON_TRACK, radius - SLIDER_GARIS_DP, 0f,
+                SWITCH_ON_TRACK, context);
         ClipDrawable clip = new ClipDrawable(isi, Gravity.LEFT, ClipDrawable.HORIZONTAL);
 
         LayerDrawable layers = new LayerDrawable(new Drawable[]{track, clip});
-        int inset = (int) dp(context, (TARGET_DP - TRACK_TEBAL_DP) / 2f);
-        layers.setLayerInset(0, 0, inset, 0, inset);
-        layers.setLayerInset(1, 0, inset, 0, inset);
+        layers.setId(0, android.R.id.background);
+        layers.setId(1, android.R.id.progress);
+        int vertikal = (int) dp(context, (TARGET_DP - SLIDER_TRACK_DP) / 2f);
+        int garis = (int) dp(context, SLIDER_GARIS_DP);
+        layers.setLayerInset(0, 0, vertikal, 0, vertikal);
+        // Isi berada di dalam garis luar, jadi tidak menimpa garisnya.
+        layers.setLayerInset(1, garis, vertikal + garis, garis, vertikal + garis);
         return layers;
     }
 
-    /** Thumb persegi panjang tegak #936832 seperti game, tanpa garis hitam. */
+    /** Thumb tegak #FFF799 dengan garis luar #B28950, sama dengan knob switch. */
     public static Drawable seekbarThumb(Context context) {
-        GradientDrawable drawable = kotak(TRACK, RADIUS_THUMB, 0f, TRACK, context);
-        drawable.setSize((int) dp(context, 10f), (int) dp(context, 24f));
+        GradientDrawable drawable = kotak(SWITCH_ON_KNOB, RADIUS_THUMB, TEBAL_KONTROL,
+                STROKE_KONTROL, context);
+        drawable.setSize((int) dp(context, SLIDER_THUMB_LEBAR_DP),
+                (int) dp(context, SLIDER_THUMB_TINGGI_DP));
         return drawable;
     }
 

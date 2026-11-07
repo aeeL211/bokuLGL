@@ -27,7 +27,7 @@ import java.security.MessageDigest;
  * begitu URL baru berhasil diunduh.
  */
 public final class IkonCache {
-    private static final String TAG = "Mod_Menu";
+    private static final String TAG = BKLog.TAG;
     private static final String FOLDER = "ikon";
     private static final int BATAS_BYTE = 3 * 1024 * 1024;
     private static final int TIMEOUT_MS = 8000;
