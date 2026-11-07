@@ -42,6 +42,59 @@ void hookIzinSimpan(void* self, bool izin, void* method) {
     asli(self, fitur().simpanDunia ? true : izin, method);
 }
 
+// Saat pemain menjadi tamu, host memutuskan sendiri apakah perubahan tile dan
+// objek diterima. Kelima hook ini memaksa flag yang dipercaya host pada paket
+// yang dikirim klien: Enforce untuk tile dan Across untuk objek. Flag lain
+// diteruskan apa adanya.
+void hookKirimTileAdd(void* self, float x, float y, int id, void* str, int font, bool eff,
+                      bool enforce, bool callback, void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool,
+                                          void*)>(target(T_SEND_TILE_ADD).orig);
+    if (!asli)
+        return;
+    asli(self, x, y, id, str, font, eff, fitur().izinRoomLain ? true : enforce, callback, method);
+}
+
+void hookKirimTileReplace(void* self, float rx, float ry, int rid, void* rstr, int rfont, float ax,
+                          float ay, int aid, void* astr, int afont, bool eff, bool enforce,
+                          bool callback, void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, float, float, int,
+                                          void*, int, bool, bool, bool, void*)>(
+        target(T_SEND_TILE_REPLACE).orig);
+    if (!asli)
+        return;
+    asli(self, rx, ry, rid, rstr, rfont, ax, ay, aid, astr, afont, eff,
+         fitur().izinRoomLain ? true : enforce, callback, method);
+}
+
+void hookKirimTileRemove(void* self, float x, float y, int id, void* str, int effType, bool enforce,
+                         bool destroy, bool callback, void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool,
+                                          void*)>(target(T_SEND_TILE_REMOVE).orig);
+    if (!asli)
+        return;
+    asli(self, x, y, id, str, effType, fitur().izinRoomLain ? true : enforce, destroy, callback,
+         method);
+}
+
+void hookKirimObjAdd(void* self, int z, int id, void* key, float x, float y, int dir, bool eff,
+                     bool name, bool across, void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, int, int, void*, float, float, int, bool, bool,
+                                          bool, void*)>(target(T_SEND_OBJ_ADD).orig);
+    if (!asli)
+        return;
+    asli(self, z, id, key, x, y, dir, eff, name, fitur().izinRoomLain ? true : across, method);
+}
+
+void hookKirimObjRemove(void* self, int id, void* key, bool eff, bool name, bool across,
+                        void* method) {
+    auto asli = reinterpret_cast<void (*)(void*, int, void*, bool, bool, bool, void*)>(
+        target(T_SEND_OBJ_REMOVE).orig);
+    if (!asli)
+        return;
+    asli(self, id, key, eff, name, fitur().izinRoomLain ? true : across, method);
+}
+
 // Daftar room membuang setiap room yang luas dunianya di atas batas perangkat
 // ini, dan panel join serta info memakai tes yang sama. Menjawab true membuat
 // room itu tetap terdaftar berapa pun ukurannya.
@@ -122,4 +175,9 @@ void pasangHookMultiplayer() {
     batasSiap = cariFieldUkuranDunia();
     LOGI("Field ukuran dunia %s", batasSiap ? "OK" : "tidak ada, batas tetap per perangkat");
     pasangHook(target(T_WORLD_CAP), reinterpret_cast<void*>(hookBatas));
+    pasangHook(target(T_SEND_TILE_ADD), reinterpret_cast<void*>(hookKirimTileAdd));
+    pasangHook(target(T_SEND_TILE_REPLACE), reinterpret_cast<void*>(hookKirimTileReplace));
+    pasangHook(target(T_SEND_TILE_REMOVE), reinterpret_cast<void*>(hookKirimTileRemove));
+    pasangHook(target(T_SEND_OBJ_ADD), reinterpret_cast<void*>(hookKirimObjAdd));
+    pasangHook(target(T_SEND_OBJ_REMOVE), reinterpret_cast<void*>(hookKirimObjRemove));
 }

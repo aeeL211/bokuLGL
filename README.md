@@ -33,6 +33,10 @@ fitur untuk membaca penjelasan singkatnya.
 - Save world tetap bisa dilakukan walaupun host mematikan izinnya di awal.
 - Room dengan ukuran di atas batas perangkat tetap terdaftar dan bisa dimasuki.
 - Ukuran dunia baru bisa dipilih sampai 600x300.
+- **Bangun dan hancurkan di room orang lain** memaksa `Enforce` pada paket tile dan `Across`
+  pada paket objek, jadi host menerima pemasangan, penggantian, dan penghapusan tile serta
+  penambahan dan pengambilan objek dari tamu. Kamu tetap harus sudah diterima sebagai tamu;
+  area yang dilindungi dan perubahan pintu yang sudah ada tidak ikut ditembus.
 - **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
   masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Menu membacanya sekali per
   detik selama barisnya terlihat; salinan di sisi native hanya disusun selama dua detik sesudah
@@ -129,6 +133,10 @@ fitur untuk membaca penjelasan singkatnya.
   pernah dilepas, jadi hook, trampolin, dan pemasangan tetap berjalan normal. Yang tidak ada
   hanya hook pada pustaka yang dimuat belakangan dan pelepasan hook otomatis saat `dlclose`.
 - Daftar pemain hanya terisi selama berada di dalam room; di luar room section itu kosong.
+- **Bangun dan hancurkan di room orang lain** hanya melewati izin build/destroy per-tamu.
+  Kamu tetap harus sudah diterima host, tile di area yang dilindungi tetap tidak bisa dihapus,
+  dan perubahan pintu yang sudah ada lewat `Tile__Modify__Door` tetap ditolak karena jalur itu
+  tidak membawa `Enforce`/`Across`.
 - Kecepatan, gravitasi, teleport, dan No Clip hanya berlaku untuk pemain lokal. Fitur yang
   berjalan pada state yang sama untuk semua pemain di dalam room — tembak berulang, amunisi
   buster penuh, kotoran, makanan tetap di tangan, dan tidak terpental — juga hanya menyentuh
@@ -171,7 +179,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 86 dari 86 metode ditemukan
+Scan selesai: 91 dari 91 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap
@@ -181,10 +189,10 @@ Field tinggi dunia siap
 Field ukuran tile siap
 Field batas kecepatan siap
 Field tembus dinding siap
-Hook terpasang: 66
+Hook terpasang: 78
 ```
 
-Bila `Hook terpasang` jauh di bawah 66, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 78, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

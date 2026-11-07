@@ -78,6 +78,9 @@ void terapkanPerubahanFitur(jint nomor, jboolean aktif, jint nilai) {
     case fitur_nomor::kPecahan:
         sakelar.pecahan = aktif;
         break;
+    case fitur_nomor::kIzinRoomLain:
+        sakelar.izinRoomLain = aktif;
+        break;
     default:
         break;
     }

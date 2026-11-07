@@ -30,6 +30,7 @@ constexpr jint kResetKecepatan = 25;
 constexpr jint kResetGravitasi = 26;
 constexpr jint kRentangSkin = 27;
 constexpr jint kPecahan = 28;
+constexpr jint kIzinRoomLain = 29;
 constexpr jint kNilaiKecepatanAwal = 10;
 constexpr jint kNilaiGravitasiAwal = 10;
 } // namespace fitur_nomor

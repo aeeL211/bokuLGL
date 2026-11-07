@@ -41,6 +41,7 @@ jobjectArray daftarFitur(JNIEnv *env) {
             OBFUSCATE("CollapseAdd_6_Toggle_True_Masuk room tanpa sandi"),
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
             OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
+            OBFUSCATE("CollapseAdd_29_Toggle_True_Bangun dan hancurkan di room orang lain"),
             OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
             OBFUSCATE("Collapse_Nama dan Profil"),

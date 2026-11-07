@@ -17,6 +17,9 @@ struct Fitur {
     std::atomic<bool> kataKasar{true};
     std::atomic<bool> simpanDunia{true};
     std::atomic<bool> ukuranRoom{true};
+    // Izin build dan destroy di room orang lain ditembus dengan memaksa
+    // Enforce pada paket tile dan Across pada paket objek.
+    std::atomic<bool> izinRoomLain{true};
     std::atomic<bool> sandiRoom{true};
     std::atomic<bool> privasi{true};
     std::atomic<bool> chatPribadi{true};

@@ -100,3 +100,11 @@ T_DETECT_SET|Physics__Detect|_Set|3|
 T_POS_CHECK|Physics__Manager|Pos__Check|1|
 # Kamera pemain. Pos__Update dipanggil sekali per frame; batas jarak kamera
 # diskalakan selama panggilan supaya kamera tetap mengejar pemain cepat.
+
+# Izin bangun dan hancurkan di room orang lain. Kelima metode ini adalah facade
+# kirim milik klien, jadi flag dipaksa sebelum paket meninggalkan perangkat.
+T_SEND_TILE_ADD|Net__Multi__Transfer__Send|Tile__Add|7|
+T_SEND_TILE_REPLACE|Net__Multi__Transfer__Send|Tile__Replace_|11|
+T_SEND_TILE_REMOVE|Net__Multi__Transfer__Send|Tile__Remove|7|
+T_SEND_OBJ_ADD|Net__Multi__Transfer__Send|Obj__Add|8|
+T_SEND_OBJ_REMOVE|Net__Multi__Transfer__Send|Obj__Remove|5|

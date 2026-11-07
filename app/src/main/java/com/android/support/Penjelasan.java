@@ -106,6 +106,12 @@ public final class Penjelasan {
             case 28:
                 return "Puing tile tidak dimunculkan saat tile pecah. Tile dan rekamannya tetap "
                         + "utuh.";
+            case 29:
+                return "Memaksa host menerima pemasangan, penggantian, dan penghapusan tile "
+                        + "serta penambahan dan pengambilan objek dari tamu. Aksi tetap dikirim "
+                        + "lewat jaringan, jadi kamu harus sudah diterima sebagai tamu di room "
+                        + "itu. Tile di area yang dilindungi dan perubahan pintu yang sudah ada "
+                        + "tetap ditolak host.";
             case -1:
                 return "Menyimpan pilihan fitur ke preferensi. Saat dimatikan, semua preferensi "
                         + "dibersihkan.";

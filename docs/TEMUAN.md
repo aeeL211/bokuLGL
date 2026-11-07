@@ -5,13 +5,11 @@ karena memperbaikinya akan mengubah kontrak Java, fitur, atau cakupan tugas.
 
 ## Kontrak dan dokumentasi
 
-1. **Jumlah hook di dokumentasi tidak sama dengan runtime.** `README.md` dan
-   `AGENTS.md` menyebut `Hook terpasang: 66`. Sumber sebenarnya memasang 73 hook
-   runtime: 65 pemanggilan `pasangHook(target(...))` langsung ditambah
-   `pasangAkhirMakan<T>` yang mengembang menjadi delapan target. Angka 66 adalah
-   jumlah call site (`pasangHook`), bukan jumlah hook yang terpasang. Log runtime
-   tetap mencetak `Hook terpasang: 73`; dokumentasi tidak diubah karena bukan
-   perilaku hook dan berada di luar refaktor native.
+1. **Jumlah hook di dokumentasi sudah disamakan.** Temuan lama `66` versus `73`
+   ditutup bersama fitur izin room: `targets.def` sekarang berisi 91 target dan
+   runtime memasang 78 hook, yaitu 70 `pasangHook(target(...))` langsung ditambah
+   delapan target `pasangAkhirMakan<T>`. `README.md`, `AGENTS.md`, dan log runtime
+   memakai angka yang sama.
 2. **Tag log Java masih `Mod_Menu`.** `Menu.TAG`, `IkonCache.TAG`, dan
    `Theme.java` masih memakai tag lama. Tag native sudah `BK_Native` sesuai
    permintaan; penyeragaman tag Java diserahkan ke agent Java.

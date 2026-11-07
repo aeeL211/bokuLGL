@@ -686,6 +686,8 @@ public final class PolaIkon {
                 return SKIN;
             case 28:
                 return PECAHAN;
+            case 29:
+                return DINDING;
             case 16:
                 return PENTAL;
             case 19:
