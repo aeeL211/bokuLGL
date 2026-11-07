@@ -17,7 +17,8 @@ void hookShake(void* self, void* method) {
 }
 
 void hookShakeNumber(void* self, int32_t duration, float power, void* method) {
-    auto original = reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
+    auto original =
+        reinterpret_cast<void (*)(void*, int32_t, float, void*)>(target(T_SHAKE_NUM).orig);
     if (!features().shake && original)
         original(self, duration, power, method);
 }

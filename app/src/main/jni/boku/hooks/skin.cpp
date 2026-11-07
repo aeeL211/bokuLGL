@@ -182,10 +182,9 @@ void* modelData(void* managerGuest) {
 
 // The game's own path for a model slot, so its layout is never guessed here.
 bool pathSlot(void* model, int slot) {
-    auto call =
-        reinterpret_cast<void* (*)(void*, int32_t, void*)>(target(T_DATA_MODEL_PATH).addr);
-    return call && toUtf8(call(model, slot, target(T_DATA_MODEL_PATH).method), textPath,
-                             sizeof(textPath));
+    auto call = reinterpret_cast<void* (*)(void*, int32_t, void*)>(target(T_DATA_MODEL_PATH).addr);
+    return call &&
+           toUtf8(call(model, slot, target(T_DATA_MODEL_PATH).method), textPath, sizeof(textPath));
 }
 
 bool slotHas(void* model, int slot) { return pathSlot(model, slot) && access(textPath, F_OK) == 0; }
@@ -393,22 +392,22 @@ CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name,
 namespace {
 
 using FnAdd = void (*)(void*, void*, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, void*,
-                          void*, void*, void*, void*, bool, bool, bool, bool, bool, bool, void*);
+                       void*, void*, void*, void*, bool, bool, bool, bool, bool, bool, void*);
 using FnInitModel = void (*)(void*, void*, void*);
 
 // The guest list is built from this single call on both host and client, and its
 // Model argument is the full skin string. That model is only kept in memory
 // until the player requests it from the menu.
 void hookAdd(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t dir, int32_t s,
-                int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
-                bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
-                bool dollSetting, void* method) {
+             int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
+             bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
+             bool dollSetting, void* method) {
     saveModelGuest(key, model);
 
     auto original = reinterpret_cast<FnAdd>(target(T_GUEST_ADD).orig);
     if (original)
-        original(self, user, z, x, y, dir, s, obj, key, dollName, parent, model, ping, build, detonate,
-             saveWorld, dollInteract, dollMove, dollSetting, method);
+        original(self, user, z, x, y, dir, s, obj, key, dollName, parent, model, ping, build,
+                 detonate, saveWorld, dollInteract, dollMove, dollSetting, method);
 }
 
 // The model can arrive through Init__Model after the guest joins, so the string

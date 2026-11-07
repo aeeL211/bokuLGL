@@ -243,7 +243,8 @@ void hookUpdateEndBuster(void* own, void* method) {
     auto action = reinterpret_cast<void (*)(void*, int32_t, void*)>(target(T_ROCK_ACTION).addr);
     void* manager = readPtr(own, fieldManagerWeapon);
     void* cmn = readPtr(own, fieldWeaponCmn);
-    if (!directionEnd || !action || !cmn || !weaponLocal(manager) || !isActionButtonPressed(manager)) {
+    if (!directionEnd || !action || !cmn || !weaponLocal(manager) ||
+        !isActionButtonPressed(manager)) {
         original(own, method);
         return;
     }
@@ -284,9 +285,8 @@ bool findFieldWeapon() {
     void* weapon = classOf("Player__State__Std__Action__Hh__Weapon");
     void* managerState = classOf("Player__State");
     return findField(managerState, "m", fieldManagerState) &&
-           findField(weapon, "m", fieldManagerWeapon) &&
-           findField(weapon, "cmn", fieldWeaponCmn) && findField(cmn, "m", fieldManagerCmn) &&
-           findField(cmn, "chr_Hh", fieldCmnHh) &&
+           findField(weapon, "m", fieldManagerWeapon) && findField(weapon, "cmn", fieldWeaponCmn) &&
+           findField(cmn, "m", fieldManagerCmn) && findField(cmn, "chr_Hh", fieldCmnHh) &&
            findField(fieldClass(fieldManagerWeapon), "__state", fieldState) &&
            findField(fieldClass(fieldState), "combo", fieldCombo) &&
            findField(fieldClass(fieldState), "_rockman__Rock_Buster", fieldRock) &&

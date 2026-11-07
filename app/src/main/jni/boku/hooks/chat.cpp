@@ -176,8 +176,8 @@ void installChatHook() {
     void* klassChat = classOf("Net__Multi__Guest__Chat");
     chatReady = findField(klassChat, "chat", fieldChat);
     bool readyNameOwn = findField(klassChat, "a", fieldManager) &&
-                           findField(fieldClass(fieldManager), "player", fieldPlayer) &&
-                           target(T_PLAYER_KEY).addr;
+                        findField(fieldClass(fieldManager), "player", fieldPlayer) &&
+                        target(T_PLAYER_KEY).addr;
     bool readyGuest = findFieldGuest();
 
     if (chatReady && readyNameOwn)

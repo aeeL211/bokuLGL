@@ -374,9 +374,9 @@ bool bindApi() {
     if (!library)
         return false;
 
-#define IKAT(member, symbol)                                                                      \
-    api.member = reinterpret_cast<decltype(api.member)>(dlsym(library, symbol));                 \
-    if (!api.member) {                                                                            \
+#define IKAT(member, symbol)                                                                       \
+    api.member = reinterpret_cast<decltype(api.member)>(dlsym(library, symbol));                   \
+    if (!api.member) {                                                                             \
         LOGE("Symbol not found: %s", symbol);                                                      \
         return false;                                                                              \
     }

@@ -38,25 +38,26 @@ bool versionApplication(char* name, size_t size, jint& code) {
     LocalRef<jstring> appPackage;
     LocalRef<jobject> manager;
     if (activityObject && activity && activity->packageName && activity->managerPackage) {
-        appPackage = LocalRef<jstring>(
-            env, static_cast<jstring>(env->CallObjectMethod(activityObject.get(), activity->packageName)));
-        manager =
-            LocalRef<jobject>(env, env->CallObjectMethod(activityObject.get(), activity->managerPackage));
+        appPackage = LocalRef<jstring>(env, static_cast<jstring>(env->CallObjectMethod(
+                                                activityObject.get(), activity->packageName)));
+        manager = LocalRef<jobject>(
+            env, env->CallObjectMethod(activityObject.get(), activity->managerPackage));
     }
 
     const PackageManagerClass* infoManager = cacheManagerPackage(env);
     LocalRef<jobject> infoObject;
     if (manager && appPackage && infoManager && infoManager->infoPackage) {
-        infoObject = LocalRef<jobject>(
-            env, env->CallObjectMethod(manager.get(), infoManager->infoPackage, appPackage.get(), 0));
+        infoObject =
+            LocalRef<jobject>(env, env->CallObjectMethod(manager.get(), infoManager->infoPackage,
+                                                         appPackage.get(), 0));
     }
 
     const PackageInfoClass* packageInfo = cacheInfoPackage(env);
     LocalRef<jstring> version;
     if (infoObject && packageInfo) {
         if (packageInfo->versionName)
-            version = LocalRef<jstring>(
-                env, static_cast<jstring>(env->GetObjectField(infoObject.get(), packageInfo->versionName)));
+            version = LocalRef<jstring>(env, static_cast<jstring>(env->GetObjectField(
+                                                 infoObject.get(), packageInfo->versionName)));
         if (packageInfo->versionCode)
             code = env->GetIntField(infoObject.get(), packageInfo->versionCode);
         if (version) {

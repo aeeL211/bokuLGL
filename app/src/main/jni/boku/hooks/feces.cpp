@@ -98,8 +98,7 @@ void clearCharge(void* manager) {
 void throwNow(void* own, bool up) {
     Target& entry = target(up ? T_FECES_ACTION_UP : T_FECES_ACTION_STD);
     if (entry.addr)
-        reinterpret_cast<void (*)(void*, float, void*)>(entry.addr)(own, kPowerFull,
-                                                                    entry.method);
+        reinterpret_cast<void (*)(void*, float, void*)>(entry.addr)(own, kPowerFull, entry.method);
 }
 
 // Straight charge is entered from every aim, and the upward charge
@@ -146,7 +145,8 @@ void hookChargeUp(void* own, void* method) {
 // Holding back that change keeps the feces in place, so the same feces can
 // fly again, and the power is forced so every throw is the strongest.
 void hookActionStd(void* own, float power, void* method) {
-    auto original = reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_STD).orig);
+    auto original =
+        reinterpret_cast<void (*)(void*, float, void*)>(target(T_FECES_ACTION_STD).orig);
     if (!original)
         return;
     if (!features().feces) {

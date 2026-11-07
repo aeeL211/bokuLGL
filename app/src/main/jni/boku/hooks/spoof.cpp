@@ -70,8 +70,8 @@ void installSpoofHook() {
         return;
     }
     bool complete = findField(classOf("Player__Manager"), "a", fieldManagerPlayer) &&
-                   findField(fieldClass(fieldManagerPlayer), "multi", fieldMultiManager) &&
-                   findField(fieldClass(fieldMultiManager), "photon", fieldPhoton);
+                    findField(fieldClass(fieldManagerPlayer), "multi", fieldMultiManager) &&
+                    findField(fieldClass(fieldMultiManager), "photon", fieldPhoton);
     if (complete)
         LOGI("Player key fields ready");
     else

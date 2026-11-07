@@ -46,8 +46,8 @@ std::atomic<double> positionRequested{0.0};
 
 bool enqueue(player::Action::Kind type, const char* key, const char* name) {
     bool needKey = type == player::Action::Kind::Kick ||
-                      type == player::Action::Kind::KickPermanent ||
-                      type == player::Action::Kind::Copy;
+                   type == player::Action::Kind::KickPermanent ||
+                   type == player::Action::Kind::Copy;
     if (!serviceReady.load() || (needKey && (!key || !*key)) ||
         (key && std::strlen(key) >= player::kCharacterKey))
         return false;
@@ -101,9 +101,8 @@ void copyList(char* output, std::size_t size) {
 
     std::size_t position = 0;
     for (int i = 0; i < count; i++) {
-        int written =
-            std::snprintf(output + position, size - position, "%s%s\t%s\t%s", i ? "\n" : "",
-                          copy[i].name, copy[i].key, copy[i].role);
+        int written = std::snprintf(output + position, size - position, "%s%s\t%s\t%s",
+                                    i ? "\n" : "", copy[i].name, copy[i].key, copy[i].role);
         if (written < 0 || static_cast<std::size_t>(written) >= size - position)
             break;
         position += static_cast<std::size_t>(written);
@@ -114,9 +113,7 @@ bool enqueueKick(const char* key, const char* name, bool permanent) {
     return enqueue(permanent ? Action::Kind::KickPermanent : Action::Kind::Kick, key, name);
 }
 
-bool enqueueKickHost(const char* name) {
-    return enqueue(Action::Kind::KickHost, nullptr, name);
-}
+bool enqueueKickHost(const char* name) { return enqueue(Action::Kind::KickHost, nullptr, name); }
 
 bool enqueueKickAll() { return enqueue(Action::Kind::KickAll, nullptr, "semua tamu"); }
 
@@ -174,8 +171,8 @@ void copyPosition(char* output, std::size_t size) {
     if (!copy.has)
         return;
     if (copy.hasTile) {
-        std::snprintf(output, size, "%.2f\t%.2f\t%.1f\t%.1f", copy.tileX, copy.tileY,
-                      copy.worldX, copy.worldY);
+        std::snprintf(output, size, "%.2f\t%.2f\t%.1f\t%.1f", copy.tileX, copy.tileY, copy.worldX,
+                      copy.worldY);
     } else {
         std::snprintf(output, size, "\t\t%.1f\t%.1f", copy.worldX, copy.worldY);
     }

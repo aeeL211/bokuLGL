@@ -143,8 +143,8 @@ const ToastClass* cacheToast(JNIEnv* env) {
         toast.klass = getClass(env, OBFUSCATE("android/widget/Toast"));
         toast.create =
             getStaticMethod(env, toast.klass, OBFUSCATE("makeText"),
-                              OBFUSCATE("(Landroid/content/Context;Ljava/lang/CharSequence;I)"
-                                        "Landroid/widget/Toast;"));
+                            OBFUSCATE("(Landroid/content/Context;Ljava/lang/CharSequence;I)"
+                                      "Landroid/widget/Toast;"));
         toast.show = getMethod(env, toast.klass, OBFUSCATE("show"), OBFUSCATE("()V"));
         toastReady.store(true, std::memory_order_release);
     }
@@ -160,7 +160,7 @@ const ClassMethod* cacheHtml(JNIEnv* env) {
     if (!htmlReady.load(std::memory_order_relaxed)) {
         html.klass = getClass(env, OBFUSCATE("android/text/Html"));
         html.method = getStaticMethod(env, html.klass, OBFUSCATE("fromHtml"),
-                                        OBFUSCATE("(Ljava/lang/String;)Landroid/text/Spanned;"));
+                                      OBFUSCATE("(Ljava/lang/String;)Landroid/text/Spanned;"));
         htmlReady.store(true, std::memory_order_release);
     }
     return html.klass ? &html : nullptr;
@@ -175,7 +175,7 @@ const ClassMethod* cacheTextView(JNIEnv* env) {
     if (!textViewReady.load(std::memory_order_relaxed)) {
         textView.klass = getClass(env, OBFUSCATE("android/widget/TextView"));
         textView.method = getMethod(env, textView.klass, OBFUSCATE("setText"),
-                                      OBFUSCATE("(Ljava/lang/CharSequence;)V"));
+                                    OBFUSCATE("(Ljava/lang/CharSequence;)V"));
         textViewReady.store(true, std::memory_order_release);
     }
     return textView.klass ? &textView : nullptr;
@@ -189,11 +189,10 @@ const IntentClass* cacheIntent(JNIEnv* env) {
     std::lock_guard<std::mutex> hold(cacheKey);
     if (!intentReady.load(std::memory_order_relaxed)) {
         intent.klass = getClass(env, OBFUSCATE("android/content/Intent"));
-        intent.fromContext =
-            getMethod(env, intent.klass, OBFUSCATE("<init>"),
-                        OBFUSCATE("(Landroid/content/Context;Ljava/lang/Class;)V"));
+        intent.fromContext = getMethod(env, intent.klass, OBFUSCATE("<init>"),
+                                       OBFUSCATE("(Landroid/content/Context;Ljava/lang/Class;)V"));
         intent.fromUri = getMethod(env, intent.klass, OBFUSCATE("<init>"),
-                                     OBFUSCATE("(Ljava/lang/String;Landroid/net/Uri;)V"));
+                                   OBFUSCATE("(Ljava/lang/String;Landroid/net/Uri;)V"));
         intentReady.store(true, std::memory_order_release);
     }
     return intent.klass ? &intent : nullptr;
@@ -221,7 +220,7 @@ const ClassMethod* cacheUri(JNIEnv* env) {
     if (!uriReady.load(std::memory_order_relaxed)) {
         uri.klass = getClass(env, OBFUSCATE("android/net/Uri"));
         uri.method = getStaticMethod(env, uri.klass, OBFUSCATE("parse"),
-                                       OBFUSCATE("(Ljava/lang/String;)Landroid/net/Uri;"));
+                                     OBFUSCATE("(Ljava/lang/String;)Landroid/net/Uri;"));
         uriReady.store(true, std::memory_order_release);
     }
     return uri.klass ? &uri : nullptr;
@@ -250,7 +249,7 @@ const ClassMethod* cacheSettings(JNIEnv* env) {
     if (!settingsReady.load(std::memory_order_relaxed)) {
         settings.klass = getClass(env, OBFUSCATE("android/provider/Settings"));
         settings.method = getStaticMethod(env, settings.klass, OBFUSCATE("canDrawOverlays"),
-                                            OBFUSCATE("(Landroid/content/Context;)Z"));
+                                          OBFUSCATE("(Landroid/content/Context;)Z"));
         settingsReady.store(true, std::memory_order_release);
     }
     return settings.klass ? &settings : nullptr;
@@ -266,9 +265,9 @@ const ContextClass* cacheContext(JNIEnv* env) {
         context.klass = getClass(env, OBFUSCATE("android/content/Context"));
         context.startService =
             getMethod(env, context.klass, OBFUSCATE("startService"),
-                        OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
+                      OBFUSCATE("(Landroid/content/Intent;)Landroid/content/ComponentName;"));
         context.startActivity = getMethod(env, context.klass, OBFUSCATE("startActivity"),
-                                             OBFUSCATE("(Landroid/content/Intent;)V"));
+                                          OBFUSCATE("(Landroid/content/Intent;)V"));
         context.packageName = getMethod(env, context.klass, OBFUSCATE("getPackageName"),
                                         OBFUSCATE("()Ljava/lang/String;"));
         contextReady.store(true, std::memory_order_release);
@@ -285,9 +284,9 @@ const ActivityClass* cacheActivity(JNIEnv* env) {
     if (!activityReady.load(std::memory_order_relaxed)) {
         activity.klass = getClass(env, OBFUSCATE("android/app/Activity"));
         activity.managerPackage = getMethod(env, activity.klass, OBFUSCATE("getPackageManager"),
-                                             OBFUSCATE("()Landroid/content/pm/PackageManager;"));
+                                            OBFUSCATE("()Landroid/content/pm/PackageManager;"));
         activity.packageName = getMethod(env, activity.klass, OBFUSCATE("getPackageName"),
-                                          OBFUSCATE("()Ljava/lang/String;"));
+                                         OBFUSCATE("()Ljava/lang/String;"));
         activityReady.store(true, std::memory_order_release);
     }
     return activity.klass ? &activity : nullptr;
@@ -303,7 +302,7 @@ const PackageManagerClass* cacheManagerPackage(JNIEnv* env) {
         managerPackage.klass = getClass(env, OBFUSCATE("android/content/pm/PackageManager"));
         managerPackage.infoPackage =
             getMethod(env, managerPackage.klass, OBFUSCATE("getPackageInfo"),
-                        OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
+                      OBFUSCATE("(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"));
         managerPackageReady.store(true, std::memory_order_release);
     }
     return managerPackage.klass ? &managerPackage : nullptr;
@@ -318,7 +317,7 @@ const PackageInfoClass* cacheInfoPackage(JNIEnv* env) {
     if (!infoPackageReady.load(std::memory_order_relaxed)) {
         infoPackage.klass = getClass(env, OBFUSCATE("android/content/pm/PackageInfo"));
         infoPackage.versionName = getField(env, infoPackage.klass, OBFUSCATE("versionName"),
-                                         OBFUSCATE("Ljava/lang/String;"));
+                                           OBFUSCATE("Ljava/lang/String;"));
         infoPackage.versionCode =
             getField(env, infoPackage.klass, OBFUSCATE("versionCode"), OBFUSCATE("I"));
         infoPackageReady.store(true, std::memory_order_release);

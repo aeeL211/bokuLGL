@@ -33,7 +33,6 @@ void hookKnockback(void* self, int32_t a, float b, float c, int32_t d, void* met
 
 void installKnockbackHook() {
     if (!findField(classOf("Player__State__Std__Air"), "m", fieldManager))
-        LOGE(
-            "Air player state field not found; knockback still applies to all players");
+        LOGE("Air player state field not found; knockback still applies to all players");
     installHook(target(T_TUMBLE_EXPLODE), reinterpret_cast<void*>(hookKnockback));
 }

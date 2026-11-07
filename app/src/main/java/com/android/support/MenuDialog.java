@@ -72,9 +72,9 @@ final class MenuDialog {
     /** The displayed dialog with its buttons (null when that button does not exist). */
     static final class Result {
         final Dialog dialog;
-        Action positive;
-        Action neutral;
-        Action negative;
+        Button positive;
+        Button neutral;
+        Button negative;
 
         Result(Dialog dialog) {
             this.dialog = dialog;

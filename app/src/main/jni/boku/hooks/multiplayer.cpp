@@ -51,49 +51,51 @@ void hookPermissionSave(void* self, bool permission, void* method) {
 // the packets the client sends: Enforce for tiles and Across for objects. The
 // other flags are passed through as-is.
 void hookSendTileAdd(void* self, float x, float y, int id, void* str, int font, bool eff,
-                      bool enforce, bool callback, void* method) {
+                     bool enforce, bool callback, void* method) {
     auto original =
         reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool, void*)>(
             target(T_SEND_TILE_ADD).orig);
     if (!original)
         return;
-    original(self, x, y, id, str, font, eff, features().permissionRoomOther ? true : enforce, callback, method);
+    original(self, x, y, id, str, font, eff, features().permissionRoomOther ? true : enforce,
+             callback, method);
 }
 
 void hookSendTileReplace(void* self, float rx, float ry, int rid, void* rstr, int rfont, float ax,
-                          float ay, int aid, void* astr, int afont, bool eff, bool enforce,
-                          bool callback, void* method) {
+                         float ay, int aid, void* astr, int afont, bool eff, bool enforce,
+                         bool callback, void* method) {
     auto original =
         reinterpret_cast<void (*)(void*, float, float, int, void*, int, float, float, int, void*,
                                   int, bool, bool, bool, void*)>(target(T_SEND_TILE_REPLACE).orig);
     if (!original)
         return;
     original(self, rx, ry, rid, rstr, rfont, ax, ay, aid, astr, afont, eff,
-         features().permissionRoomOther ? true : enforce, callback, method);
+             features().permissionRoomOther ? true : enforce, callback, method);
 }
 
 void hookSendTileRemove(void* self, float x, float y, int id, void* str, int effType, bool enforce,
-                         bool destroy, bool callback, void* method) {
+                        bool destroy, bool callback, void* method) {
     auto original =
         reinterpret_cast<void (*)(void*, float, float, int, void*, int, bool, bool, bool, void*)>(
             target(T_SEND_TILE_REMOVE).orig);
     if (!original)
         return;
-    original(self, x, y, id, str, effType, features().permissionRoomOther ? true : enforce, destroy, callback,
-         method);
+    original(self, x, y, id, str, effType, features().permissionRoomOther ? true : enforce, destroy,
+             callback, method);
 }
 
 void hookSendObjAdd(void* self, int z, int id, void* key, float x, float y, int dir, bool eff,
-                     bool name, bool across, void* method) {
+                    bool name, bool across, void* method) {
     auto original = reinterpret_cast<void (*)(void*, int, int, void*, float, float, int, bool, bool,
-                                          bool, void*)>(target(T_SEND_OBJ_ADD).orig);
+                                              bool, void*)>(target(T_SEND_OBJ_ADD).orig);
     if (!original)
         return;
-    original(self, z, id, key, x, y, dir, eff, name, features().permissionRoomOther ? true : across, method);
+    original(self, z, id, key, x, y, dir, eff, name, features().permissionRoomOther ? true : across,
+             method);
 }
 
 void hookSendObjRemove(void* self, int id, void* key, bool eff, bool name, bool across,
-                        void* method) {
+                       void* method) {
     auto original = reinterpret_cast<void (*)(void*, int, void*, bool, bool, bool, void*)>(
         target(T_SEND_OBJ_REMOVE).orig);
     if (!original)
@@ -134,7 +136,8 @@ void hookExplodeRange(void* self, float x, float y, int step, void* method) {
 // that room listed whatever its size.
 bool hookSizeRoom(void* self, int width, int height, void* method) {
     if (!features().roomSize) {
-        auto original = reinterpret_cast<bool (*)(void*, int, int, void*)>(target(T_ROOM_SIZE).orig);
+        auto original =
+            reinterpret_cast<bool (*)(void*, int, int, void*)>(target(T_ROOM_SIZE).orig);
         return original ? original(self, width, height, method) : false;
     }
     return true;
@@ -223,6 +226,7 @@ void installMultiplayerHook() {
     installHook(target(T_SEND_OBJ_ADD), reinterpret_cast<void*>(hookSendObjAdd));
     installHook(target(T_SEND_OBJ_REMOVE), reinterpret_cast<void*>(hookSendObjRemove));
     zoneReady = findFieldZoneExplode();
-    LOGI("Explosion zone field %s", zoneReady ? "OK" : "missing, explosion still goes through host");
+    LOGI("Explosion zone field %s",
+         zoneReady ? "OK" : "missing, explosion still goes through host");
     installHook(target(T_EXPLODE_RANGE), reinterpret_cast<void*>(hookExplodeRange));
 }

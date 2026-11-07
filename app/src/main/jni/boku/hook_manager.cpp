@@ -103,8 +103,8 @@ bool installProbeHook(void* address, void* replacement, void** original, const c
     if (!initializeHooks())
         return false;
 
-    void* stub =
-        shadowhook_hook_func_addr_2(address, replacement, original, SHADOWHOOK_HOOK_WITH_MULTI_MODE);
+    void* stub = shadowhook_hook_func_addr_2(address, replacement, original,
+                                             SHADOWHOOK_HOOK_WITH_MULTI_MODE);
     if (!stub) {
         int code = shadowhook_get_errno();
         LOGE("Probe failed: %s (ShadowHook %d: %s)", name, code, shadowhook_to_errmsg(code));

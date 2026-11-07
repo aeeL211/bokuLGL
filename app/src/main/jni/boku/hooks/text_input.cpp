@@ -72,7 +72,8 @@ void hookOpenKeyboard(void* self, int32_t s, int32_t type, void* text, int32_t l
 // the default when the result is empty. Raise that limit around the call so the
 // trim passes through and the rest of the check still runs.
 void hookCheckName(void* self, void** name, bool fix, void* method) {
-    auto original = reinterpret_cast<void (*)(void*, void**, bool, void*)>(target(T_NAME_CHECK).orig);
+    auto original =
+        reinterpret_cast<void (*)(void*, void**, bool, void*)>(target(T_NAME_CHECK).orig);
     if (!original)
         return;
     if (!features().inputText) {

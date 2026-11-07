@@ -52,8 +52,8 @@ void hookCheckDate(int32_t* year, int32_t* month, int32_t* day, void* method) {
         // Nothing is clamped here: free day and month values are the point of
         // this bypass, and the labels are text, so no array is indexed with
         // those values.
-        LOGI("Birth date: check skipped y=%d m=%d d=%d", year ? *year : -1,
-             month ? *month : -1, day ? *day : -1);
+        LOGI("Birth date: check skipped y=%d m=%d d=%d", year ? *year : -1, month ? *month : -1,
+             day ? *day : -1);
         return;
     }
     auto original =

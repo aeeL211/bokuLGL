@@ -329,7 +329,7 @@ Vector2 toWorld(float tileX, float tileY, const Vector2& currentWorld, const Vec
     // never computed.
     if (hasTileNow) {
         Vector2 result = {currentWorld.x + (tileX - tileNow.x) * scale,
-                         currentWorld.y + (tileY - tileNow.y) * scale};
+                          currentWorld.y + (tileY - tileNow.y) * scale};
         return result;
     }
     Vector2 result = {tileX * scale, tileY * scale};
@@ -476,7 +476,7 @@ void applyTeleport(void* manager) {
          tileX, uiY, tileX, tileY, newWorld.x, newWorld.y,
          calibration.ready ? calibration.scale : 1.0f, calibration.offsetX, calibration.offsetY);
     if (!writePositionPhysics(position, static_cast<float>(tileX), static_cast<float>(tileY),
-                           newWorld)) {
+                              newWorld)) {
         LOGE("Teleport: physics position cannot be written");
         return;
     }
@@ -654,8 +654,7 @@ bool findFieldPhysics(void* managerClass) {
         return false;
 
     void* klassSpeed = fieldClass(fieldSpeed);
-    if (!findField(klassSpeed, "x", fieldSpeedX) ||
-        !findField(klassSpeed, "y", fieldSpeedY))
+    if (!findField(klassSpeed, "x", fieldSpeedX) || !findField(klassSpeed, "y", fieldSpeedY))
         return false;
 
     // add is used by Pos__Check to compute the next step. If this field is

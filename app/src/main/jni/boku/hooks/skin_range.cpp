@@ -41,10 +41,9 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
         limit = 5;
     if (limit > 100)
         limit = 100;
-    if (!fieldOwner.field || !fieldPos.field || !fieldStepMax.field ||
-        !fieldStepHalf.field || !fieldWidthStep.field || !fieldWidthPos.field ||
-        !fieldValuePos.field || !fieldValueMin.field || !fieldValueMax.field ||
-        !fieldValuePerStep.field) {
+    if (!fieldOwner.field || !fieldPos.field || !fieldStepMax.field || !fieldStepHalf.field ||
+        !fieldWidthStep.field || !fieldWidthPos.field || !fieldValuePos.field ||
+        !fieldValueMin.field || !fieldValueMax.field || !fieldValuePerStep.field) {
         return;
     }
 
@@ -84,8 +83,8 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
         // already written. Both are accepted so the new limit still applies on
         // either path.
         bool ourMark = skinLimit[slot][i] != 0 &&
-                         nearValue(minLimit, -static_cast<float>(skinLimit[slot][i])) &&
-                         nearValue(maxLimit, static_cast<float>(skinLimit[slot][i]));
+                       nearValue(minLimit, -static_cast<float>(skinLimit[slot][i])) &&
+                       nearValue(maxLimit, static_cast<float>(skinLimit[slot][i]));
         if (!stillDefault && !ourMark)
             continue;
 
@@ -101,8 +100,7 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
         // widened value from a previous read. Both point at the same base, so
         // the slider limit can change without losing the game's original value.
         int32_t base;
-        if (skinBase[slot][i] != 0 &&
-            (now == skinBase[slot][i] || now == skinWidened[slot][i])) {
+        if (skinBase[slot][i] != 0 && (now == skinBase[slot][i] || now == skinWidened[slot][i])) {
             base = skinBase[slot][i];
         } else {
             base = now;
@@ -120,8 +118,7 @@ void widenRange(void* self, const Field& fieldOwner, const Field& fieldPos, int 
         if (skinBase[slot][i] != base || skinWidened[slot][i] != widened) {
             skinBase[slot][i] = base;
             skinWidened[slot][i] = widened;
-            LOGI("Skin range: axis %d -%d..%d, %d -> %d steps", i, limit, limit, base,
-                 widened);
+            LOGI("Skin range: axis %d -%d..%d, %d -> %d steps", i, limit, limit, base, widened);
         }
         skinLimit[slot][i] = limit;
 
@@ -175,7 +172,7 @@ bool findFieldPos(void* klassPos) {
 void installSkinRangeHook() {
     void* componentPos = classOf("UI__Menu__Model__Main__Pos");
     bool rangeModel = findField(componentPos, "m", fieldMPos) &&
-                        findField(fieldClass(fieldMPos), "_pos", fieldPosMain);
+                      findField(fieldClass(fieldMPos), "_pos", fieldPosMain);
 
     void* componentPortrait = classOf("Net__Account__Portrait__Main__Pos");
     bool rangePortrait = findField(componentPortrait, "m", fieldMPortrait) &&

@@ -438,8 +438,7 @@ void writeThread(int fd, const char* clock) {
         }
     }
     char row[192];
-    int n =
-        snprintf(row, sizeof(row), "[%s] ERROR CRASH thread=%s tid=%ld\n", clock, name, tid);
+    int n = snprintf(row, sizeof(row), "[%s] ERROR CRASH thread=%s tid=%ld\n", clock, name, tid);
     if (n > 0 && fd >= 0)
         write(fd, row, static_cast<size_t>(n));
 }
@@ -478,9 +477,8 @@ void handleCrash(int sig, siginfo_t* info, void* context) {
     if (n > 0 && fd >= 0)
         write(fd, row, static_cast<size_t>(n));
 
-    n = snprintf(row, sizeof(row),
-                 "[%s] ERROR CRASH regs lr=0x%lx x19=0x%lx x20=0x%lx sp=0x%lx\n", clock,
-                 static_cast<unsigned long>(withoutPac(lr)),
+    n = snprintf(row, sizeof(row), "[%s] ERROR CRASH regs lr=0x%lx x19=0x%lx x20=0x%lx sp=0x%lx\n",
+                 clock, static_cast<unsigned long>(withoutPac(lr)),
                  static_cast<unsigned long>(uc->uc_mcontext.regs[19]),
                  static_cast<unsigned long>(uc->uc_mcontext.regs[20]),
                  static_cast<unsigned long>(uc->uc_mcontext.sp));
@@ -489,8 +487,7 @@ void handleCrash(int sig, siginfo_t* info, void* context) {
 
     writeThread(fd, clock);
     if (messageAbort[0]) {
-        n = snprintf(row, sizeof(row), "[%s] ERROR CRASH abort message=%s\n", clock,
-                     messageAbort);
+        n = snprintf(row, sizeof(row), "[%s] ERROR CRASH abort message=%s\n", clock, messageAbort);
         if (n > 0 && fd >= 0)
             write(fd, row, static_cast<size_t>(n));
     }
@@ -499,7 +496,7 @@ void handleCrash(int sig, siginfo_t* info, void* context) {
     // that matters when IL2CPP or the C++ runtime decides to end the process.
     writeMarker(fd, clock, "abort caller", pemanggilAbort.load(std::memory_order_relaxed));
     writeMarker(fd, clock, "stack check caller",
-                 pemanggilStackCheck.load(std::memory_order_relaxed));
+                pemanggilStackCheck.load(std::memory_order_relaxed));
 
     // Only words that fall inside an executable module segment are printed, so
     // heap values, module data and stale stack words stay out of the log.
@@ -571,8 +568,8 @@ void openLogFile() {
         write(fd, row, static_cast<size_t>(n));
     if (diperbaiki) {
         n = snprintf(row, sizeof(row),
-                     "[%s] ERROR Log directory not writable (%d %s), mode repaired\n",
-                     clock, error, strerror(error));
+                     "[%s] ERROR Log directory not writable (%d %s), mode repaired\n", clock, error,
+                     strerror(error));
         if (n > 0)
             write(fd, row, static_cast<size_t>(n));
     }
@@ -589,7 +586,8 @@ void printLog(char level, const char* fmt, ...) {
 
     va_list argument;
     va_start(argument, fmt);
-    int content = vsnprintf(row + initial, sizeof(row) - static_cast<size_t>(initial) - 1, fmt, argument);
+    int content =
+        vsnprintf(row + initial, sizeof(row) - static_cast<size_t>(initial) - 1, fmt, argument);
     va_end(argument);
     if (content < 0)
         return;
@@ -630,13 +628,13 @@ void installCrashProbe() {
     void* addressAbort = dlsym(RTLD_DEFAULT, "abort");
     installProbeHook(addressAbort, reinterpret_cast<void*>(probeAbort), &abortOriginal, "abort");
     void* addressStackCheck = dlsym(RTLD_DEFAULT, "__stack_chk_fail");
-    installProbeHook(addressStackCheck, reinterpret_cast<void*>(probeStackCheck), &stackCheckOriginal,
-                    "__stack_chk_fail");
+    installProbeHook(addressStackCheck, reinterpret_cast<void*>(probeStackCheck),
+                     &stackCheckOriginal, "__stack_chk_fail");
     // libc exports this function as a weak symbol, so its absence only removes
     // one message line from the crash block.
     void* addressMessage = dlsym(RTLD_DEFAULT, "android_set_abort_message");
-    installProbeHook(addressMessage, reinterpret_cast<void*>(probeMessageAbort), &messageAbortOriginal,
-                    "android_set_abort_message");
+    installProbeHook(addressMessage, reinterpret_cast<void*>(probeMessageAbort),
+                     &messageAbortOriginal, "android_set_abort_message");
 }
 
 #else

@@ -307,7 +307,7 @@ bool findFieldMenu() {
 
 void installRoomHook() {
     readyMenu = findFieldMenu() && target(T_GUEST_UPDATE).addr && target(T_KICK_SEND).addr &&
-               target(T_HOST_KEY).addr && target(T_PLAYER_KEY).orig;
+                target(T_HOST_KEY).addr && target(T_PLAYER_KEY).orig;
     player::setReady(readyMenu);
     if (!readyMenu) {
         LOGE("Player list field not found; Room section inactive");

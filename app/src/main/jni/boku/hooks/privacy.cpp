@@ -98,8 +98,7 @@ void fillUserEmail(void* refUser) {
     fillEmail(refUser ? *reinterpret_cast<void**>(refUser) : nullptr, userEmail);
 }
 
-void hookSet(void* own, void* refUser, void* uid, void* document, bool overwrite,
-               void* method) {
+void hookSet(void* own, void* refUser, void* uid, void* document, bool overwrite, void* method) {
     auto original = reinterpret_cast<FnSet>(target(T_USER_SET).orig);
     if (original)
         original(own, refUser, uid, document, overwrite, method);
@@ -155,7 +154,7 @@ void* guestAccount(void* own, void* user) {
 // The profile packet builds the guest account and a privacy message can replace
 // its email again, so both paths end in the same fill.
 void hookPublic(void* own, void* user, bool login, void* uid, void* email, void* date,
-              void* portrait, void* introduction, void* method) {
+                void* portrait, void* introduction, void* method) {
     auto original = reinterpret_cast<FnPublic>(target(T_GUEST_COMMON).orig);
     if (original)
         original(own, user, login, uid, email, date, portrait, introduction, method);
@@ -198,22 +197,21 @@ void installPrivacyHook() {
         LOGE("Guest account fields not found; emails inside the room stay empty");
 
     const TargetId setter[] = {T_USER_SET, T_USER_SET_LOCAL, T_USER_SET_LOCAL_ARRAY,
-                                 T_USER_SET_LOCAL_LIST};
+                               T_USER_SET_LOCAL_LIST};
     int found = 0;
     for (TargetId id : setter)
         found += target(id).addr ? 1 : 0;
     LOGI("Email setters: %d of 4", found);
 
     installHook(target(T_PRIVACY_MANAGER), reinterpret_cast<void*>(hookManager));
-    installHook(target(T_PRIVACY_BLACKLIST),
-               reinterpret_cast<void*>(hookRow<T_PRIVACY_BLACKLIST>));
+    installHook(target(T_PRIVACY_BLACKLIST), reinterpret_cast<void*>(hookRow<T_PRIVACY_BLACKLIST>));
     installHook(target(T_PRIVACY_ADD_FRIEND),
-               reinterpret_cast<void*>(hookRow<T_PRIVACY_ADD_FRIEND>));
+                reinterpret_cast<void*>(hookRow<T_PRIVACY_ADD_FRIEND>));
     installHook(target(T_PRIVACY_FRIEND_PROFILE),
-               reinterpret_cast<void*>(hookRow<T_PRIVACY_FRIEND_PROFILE>));
+                reinterpret_cast<void*>(hookRow<T_PRIVACY_FRIEND_PROFILE>));
     installHook(target(T_PRIVACY_VERIFY), reinterpret_cast<void*>(hookRow<T_PRIVACY_VERIFY>));
     installHook(target(T_PRIVACY_VERIFY_EMAIL),
-               reinterpret_cast<void*>(hookRow<T_PRIVACY_VERIFY_EMAIL>));
+                reinterpret_cast<void*>(hookRow<T_PRIVACY_VERIFY_EMAIL>));
     installHook(target(T_USER_SET), reinterpret_cast<void*>(hookSet));
     installHook(target(T_USER_SET_LOCAL), reinterpret_cast<void*>(hookSetString));
     installHook(target(T_USER_SET_LOCAL_ARRAY), reinterpret_cast<void*>(hookSetArray));

@@ -42,10 +42,10 @@ void showOnScreen(JNIEnv* env, const char* text) {
     const ToastClass* toast = cacheToast(env);
     LocalRef<jstring> message(env, env->NewStringUTF(text));
     LocalRef<jobject> toastObject(
-        env,
-        (toast && toast->create && toast->show && message && activity)
-            ? env->CallStaticObjectMethod(toast->klass, toast->create, activity.get(), message.get(), 0)
-            : nullptr);
+        env, (toast && toast->create && toast->show && message && activity)
+                 ? env->CallStaticObjectMethod(toast->klass, toast->create, activity.get(),
+                                               message.get(), 0)
+                 : nullptr);
     if (toastObject)
         env->CallVoidMethod(toastObject.get(), toast->show);
     if (env->ExceptionCheck()) {
@@ -206,8 +206,7 @@ bool readUtf16(const unsigned char* s, size_t len, bool littleEndian, BufferName
             uint32_t low = 0;
             if (i + 3 < len) {
                 const unsigned char* next = s + i + 2;
-                low = littleEndian ? (next[0] | (next[1] << 8))
-                                      : ((next[0] << 8) | next[1]);
+                low = littleEndian ? (next[0] | (next[1] << 8)) : ((next[0] << 8) | next[1]);
             }
             if (low >= 0xDC00 && low <= 0xDFFF) {
                 code = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
