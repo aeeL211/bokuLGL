@@ -61,27 +61,28 @@ Pemeriksaan tambahan:
   nomor 3, 8, 10, 17, 18 dan nilai negatif tetap jatuh ke default.
 - Nilai awal di `boku/fitur.h` sama dengan baseline.
 - `IconWebViewData()` tetap `nullptr`; toast ganda dan `exit(0)` tetap ada.
-- `git diff --stat` untuk `app/src/main/java` tidak pernah di-stage.
+- Commit refaktor `38b87ee` hanya menyentuh native dan docs; perubahan UI Java
+  masuk terpisah di commit `7fc107b`.
 
 ## Status CI
 
-Run GitHub Actions `42324784403` untuk commit `7fc107b` (refaktor native,
-perbaikan `kelasString`, dan pembaruan UI Java):
+Run GitHub Actions `42326940382` untuk commit `47337e9` (refaktor native,
+perbaikan `kelasString`, pembaruan UI Java, dan perbaikan No Clip):
 
-- Build `build`: **sukses** dalam 1m22s.
+- Build `build`: **sukses** dalam 1m24s.
 - `Verify native library inside the APK`: **sukses**; ELF64 AArch64, hanya
   `JNI_OnLoad` yang diekspor, tidak ada simbol ShadowHook, dan tidak bergantung
   pada `libshadowhook.so`.
-- Format `format`: **sukses** dalam 15s.
+- Format `format`: **sukses** dalam 14s.
 - APK: `bokuLGL-debug.apk`, 553.325 byte,
-  SHA-256 `af1352b9025a600a8bf4e564b052da35f3ca395f45983ffd603ed5fc8faa7cf2`.
+  SHA-256 `1da35bb944c3937cd2c221712a0d9e717b36ab16f5fd522c5ec9f23da2dfbc01`.
 
 Artefak di `artifacts/bokuLGL/` sudah diperbarui dari run yang sama:
 
 | Berkas | Ukuran | SHA-256 |
 |---|---|---|
-| `bokuLGL-debug.apk` | 553.325 | `af1352b9025a600a8bf4e564b052da35f3ca395f45983ffd603ed5fc8faa7cf2` |
-| `lib/arm64-v8a/libboku.so` | 269.792 | `221b94796a2c0b7ee9156ace5c08f2a1080fe39f4478c09f78a54d9f98acfade` |
+| `bokuLGL-debug.apk` | 553.325 | `1da35bb944c3937cd2c221712a0d9e717b36ab16f5fd522c5ec9f23da2dfbc01` |
+| `lib/arm64-v8a/libboku.so` | 269.792 | `6535ca459dc95b87daa4b792e81701b8faacc977303ba4ceb832c3dd54834a83` |
 | `classes5.dex` | 2.388 | `83958a35a57363fb9ad49988ce5b91e0d1fd01a1d64ca1d10d4c2685db95c87c` |
 | `classes6.dex` | 140.912 | `29447d80fb93d8687de4a2b53b16aba1d3d5bfde9238387effb3e7e2a3e4b5eb` |
 
@@ -89,13 +90,18 @@ Artefak di `artifacts/bokuLGL/` sudah diperbarui dari run yang sama:
 `classes2.dex`, dan `lib/` diekstrak apa adanya dari APK. Tidak ada salinan
 `libboku.so` kedua di akar `artifacts/bokuLGL/`. APK ini juga memuat perubahan
 UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
-`TombolSudut`, `Transisi`).
+`TombolSudut`, `Transisi`) dan perbaikan No Clip pada commit `47337e9`.
+
+Perbaikan No Clip: `bebaskanDinding` sekarang hanya memperlebar entri
+`margin[waktu]` yang sedang dihitung `Physics__Detect._Set`. Sebelumnya semua
+entri ditimpa nilai bebas, padahal `_Set` hanya menghitung ulang satu entri,
+sehingga sisa entri tetap terbuka setelah sakelar dimatikan.
 
 ## Kriteria selesai
 
 | Kriteria | Status | Bukti |
 |---|---|---|
-| Build CI bersih | Lulus | Run `42324784403` sukses; `build` 1m22s dan `format` 15s |
+| Build CI bersih | Lulus | Run `42326940382` sukses; `build` 1m24s dan `format` 14s |
 | `libboku.so` tetap satu-satunya pustaka native | Lulus | Langkah verifikasi APK CI sukses; APK hanya memuat `lib/arm64-v8a/libboku.so` |
 | Tabel JNI sama | Lulus lokal | 12 metode di 3 kelas, `verify_refactor.py` |
 | Urutan hook sama | Lulus lokal | 73 pemasangan runtime, `verify_refactor.py` |
@@ -105,7 +111,7 @@ UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
 | Tidak ada alokasi/JNI/log per frame | Lulus audit sumber | `THREADING.md`; jalur frame hanya membaca atomik dan salinan stack |
 | Tidak ada data race | Lulus audit sumber | Tabel state di `THREADING.md`; TSan manual belum dijalankan |
 | Tidak ada kebocoran referensi lokal | Lulus audit sumber | `LocalRef`/`StringUtf`; dua jalur lama di `log.cpp`/`jni_bridge.cpp` menghapus manual |
-| Tidak ada perubahan Java/resource | Lulus | Working tree Java tidak di-stage; hanya native/docs yang di-commit |
+| Tidak ada perubahan hook saat refaktor | Lulus | Commit `38b87ee` hanya native/docs; UI Java terpisah di `7fc107b` |
 | Feature ID dan signature JNI tetap | Lulus lokal | Baseline JNI + verifier |
 | README/AGENTS tidak diubah | Lulus | Tidak ada diff README/AGENTS |
 
@@ -117,14 +123,17 @@ UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
    `Scan selesai: 86 dari 86 metode ditemukan`, `Field ... siap`, `Hook gagal:`,
    dan `Hook terpasang:`.
 3. Buka menu, periksa ikon bunga baru, lalu uji setiap section dan slider.
-4. Uji `DaftarPemain`/`PosisiPemain` di room, tendang tamu, dan salin skin.
-5. Paksa satu hook gagal (misalnya dengan mengubah sementara nama target di
+4. Uji No Clip: nyalakan `Tembus dinding`, lewati satu dinding, lalu matikan
+   sakelar tanpa menutup menu. Pastikan tabrakan dinding kembali pada langkah
+   berikutnya dan pemain tidak bisa menembus dinding lagi.
+5. Uji `DaftarPemain`/`PosisiPemain` di room, tendang tamu, dan salin skin.
+6. Paksa satu hook gagal (misalnya dengan mengubah sementara nama target di
    build uji) dan pastikan game tetap berjalan serta log mencatat
    `Hook gagal: ... ShadowHook <kode>`. Jangan memakai build uji itu untuk
    rilis.
-6. Jalankan dengan CheckJNI bila memungkinkan dan pantau log untuk
+7. Jalankan dengan CheckJNI bila memungkinkan dan pantau log untuk
    `Eksepsi JNI dibersihkan`, `Toast gagal`, atau `Hook gagal:` yang berulang.
-7. TSan penuh tidak tersedia untuk proses Unity/IL2CPP; gunakan tabel
+8. TSan penuh tidak tersedia untuk proses Unity/IL2CPP; gunakan tabel
    `THREADING.md` sebagai pengganti audit.
 
 ## Risiko yang tersisa
@@ -137,4 +146,5 @@ UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
   `BK_Menu`. Lihat `docs/TEMUAN.md`.
 - Jumlah hook di `README.md`/`AGENTS.md` masih 66, sedangkan runtime mencetak
   73. Tidak diubah karena di luar refaktor perilaku.
-- Uji on-device dan TSan belum dilakukan di sesi ini.
+- Uji on-device dan TSan belum dilakukan di sesi ini; perbaikan No Clip baru
+  diverifikasi lewat build CI dan audit sumber.
