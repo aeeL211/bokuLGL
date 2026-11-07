@@ -83,7 +83,6 @@ void* pekerja(void*) {
     pasangHookTangan();
     pasangHookMakanan();
     pasangHookPrivasi();
-    pasangHookAkun();
     cariFieldAksi();
     pasangHookSenjata();
     pasangHookEfek();

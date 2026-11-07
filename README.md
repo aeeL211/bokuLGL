@@ -49,7 +49,8 @@ fitur untuk membaca penjelasan singkatnya.
 
 **Nama dan Profil**
 
-- Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room dinaikkan.
+- Batas nama profil, tanggal lahir, dan kotak sandi room dinaikkan. Teks perkenalan tetap
+  memakai batas bawaan game.
 - **Jarak geser skin** 5 sampai 100 dengan bawaan 25, berlaku untuk slider posisi X/Y model dan
   potret. Nilai 25 berarti -25..+25 seperti sebelumnya, 5 berarti rentang bawaan game -5..+5,
   dan 100 adalah geseran terjauh. Nilai baru dipakai saat editor skin atau potret dibuka lagi.
@@ -170,7 +171,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook siap (shadowhook version 2.0.1, mode multi)
 Pemantau dlopen tidak dipakai
-Scan selesai: 87 dari 87 metode ditemukan
+Scan selesai: 86 dari 86 metode ditemukan
 Field model skin OK
 Field daftar tamu OK
 Field nama tamu siap
@@ -180,10 +181,10 @@ Field tinggi dunia siap
 Field ukuran tile siap
 Field batas kecepatan siap
 Field tembus dinding siap
-Hook terpasang: 67
+Hook terpasang: 66
 ```
 
-Bila `Hook terpasang` jauh di bawah 67, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hook terpasang` jauh di bawah 66, baris `Hook gagal:` atau `Target tidak ditemukan:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

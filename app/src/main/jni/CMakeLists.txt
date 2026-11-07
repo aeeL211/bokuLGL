@@ -128,7 +128,6 @@ set(MOD_SOURCES
   "${BOKU_ROOT}/hooks/food.cpp"
   "${BOKU_ROOT}/hooks/hand.cpp"
   "${BOKU_ROOT}/hooks/privacy.cpp"
-  "${BOKU_ROOT}/hooks/account.cpp"
   "${BOKU_ROOT}/hooks/weapon.cpp"
   "${BOKU_ROOT}/hooks/effects.cpp"
   "${BOKU_ROOT}/hooks/knockback.cpp"

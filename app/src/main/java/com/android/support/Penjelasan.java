@@ -36,8 +36,8 @@ public final class Penjelasan {
                 return "Semua jenis slot penyimpanan terbuka tanpa batas, termasuk slot model "
                         + "dan melody.";
             case 2:
-                return "Batas nama profil, tanggal lahir, teks perkenalan, dan kotak sandi room "
-                        + "dinaikkan.";
+                return "Batas nama profil, tanggal lahir, dan kotak sandi room dinaikkan. Teks "
+                        + "perkenalan tetap memakai batas bawaan game.";
             case 4:
                 return "Kata terlarang tidak disaring lagi di perangkat ini. Pemain lain tetap "
                         + "memakai filter mereka sendiri.";

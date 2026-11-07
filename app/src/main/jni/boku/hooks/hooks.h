@@ -14,7 +14,6 @@ void pasangHookTentang();
 void pasangHookMakanan();
 void pasangHookSkin();
 void pasangHookPrivasi();
-void pasangHookAkun();
 void pasangHookSenjata();
 void pasangHookEfek();
 void pasangHookTerpental();

@@ -24,7 +24,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
             OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
             OBFUSCATE("Collapse_Nama dan Profil"),
-            OBFUSCATE("CollapseAdd_2_Toggle_True_Nama dan bio tanpa batas"),
+            OBFUSCATE("CollapseAdd_2_Toggle_True_Nama, tanggal lahir, dan sandi tanpa batas"),
             OBFUSCATE("CollapseAdd_27_SeekBar_Jarak geser skin_5_100_25_0"),
             OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
             OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
