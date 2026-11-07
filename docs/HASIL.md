@@ -65,35 +65,37 @@ Pemeriksaan tambahan:
 
 ## Status CI
 
-Run GitHub Actions `42323945159` untuk commit `ad7d594` (perbaikan nama lokal
-`kelasString` dan patch clang-format):
+Run GitHub Actions `42324784403` untuk commit `7fc107b` (refaktor native,
+perbaikan `kelasString`, dan pembaruan UI Java):
 
-- Build `build`: **sukses** dalam 1m33s.
+- Build `build`: **sukses** dalam 1m22s.
 - `Verify native library inside the APK`: **sukses**; ELF64 AArch64, hanya
   `JNI_OnLoad` yang diekspor, tidak ada simbol ShadowHook, dan tidak bergantung
   pada `libshadowhook.so`.
-- Format `format`: **sukses**.
+- Format `format`: **sukses** dalam 15s.
 - APK: `bokuLGL-debug.apk`, 553.325 byte,
-  SHA-256 `3a9c3db5c97172a1d3307ef845a827253e68b515029090dc517ecd64a0ebd74b`.
+  SHA-256 `af1352b9025a600a8bf4e564b052da35f3ca395f45983ffd603ed5fc8faa7cf2`.
 
 Artefak di `artifacts/bokuLGL/` sudah diperbarui dari run yang sama:
 
 | Berkas | Ukuran | SHA-256 |
 |---|---|---|
-| `bokuLGL-debug.apk` | 553.325 | `3a9c3db5c97172a1d3307ef845a827253e68b515029090dc517ecd64a0ebd74b` |
-| `lib/arm64-v8a/libboku.so` | 269.792 | `7aa1e3818dfb7a6d1f5055262b67d0e863ac94ea8b8fec3e84dc22eec2b28d8e` |
+| `bokuLGL-debug.apk` | 553.325 | `af1352b9025a600a8bf4e564b052da35f3ca395f45983ffd603ed5fc8faa7cf2` |
+| `lib/arm64-v8a/libboku.so` | 269.792 | `221b94796a2c0b7ee9156ace5c08f2a1080fe39f4478c09f78a54d9f98acfade` |
 | `classes5.dex` | 2.388 | `83958a35a57363fb9ad49988ce5b91e0d1fd01a1d64ca1d10d4c2685db95c87c` |
-| `classes6.dex` | 128.700 | `7a27341a788000a8ac63313927c71a80300f9f599960b7774d4e26ae5569a857` |
+| `classes6.dex` | 140.912 | `29447d80fb93d8687de4a2b53b16aba1d3d5bfde9238387effb3e7e2a3e4b5eb` |
 
 `classes5.dex` adalah `classes.dex` dari APK menu, `classes6.dex` adalah
 `classes2.dex`, dan `lib/` diekstrak apa adanya dari APK. Tidak ada salinan
-`libboku.so` kedua di akar `artifacts/bokuLGL/`.
+`libboku.so` kedua di akar `artifacts/bokuLGL/`. APK ini juga memuat perubahan
+UI Java pada commit `7fc107b` (`DialogMenu`, `Piksel`, `PolaIkon`,
+`TombolSudut`, `Transisi`).
 
 ## Kriteria selesai
 
 | Kriteria | Status | Bukti |
 |---|---|---|
-| Build CI bersih | Lulus | Run `42323945159` sukses; `build` 1m33s dan `format` 12s |
+| Build CI bersih | Lulus | Run `42324784403` sukses; `build` 1m22s dan `format` 15s |
 | `libboku.so` tetap satu-satunya pustaka native | Lulus | Langkah verifikasi APK CI sukses; APK hanya memuat `lib/arm64-v8a/libboku.so` |
 | Tabel JNI sama | Lulus lokal | 12 metode di 3 kelas, `verify_refactor.py` |
 | Urutan hook sama | Lulus lokal | 73 pemasangan runtime, `verify_refactor.py` |
