@@ -572,21 +572,25 @@ void hookPosCheck(void* sendiri, void** fisika, void* metode) {
 
 // Kotak gerak dari tile dipakai pemain saat melangkah, jadi sisi kiri, kanan,
 // dan atas dibuka selebar mungkin. Sisi bawah dibiarkan supaya lantai tetap
-// dipijak.
-void bebaskanDinding(void* fisika) {
+// dipijak. Hanya entri milik `waktu` yang diubah: setiap panggilan _Set
+// menghitung ulang satu entri itu, sedangkan entri lain dipakai fase fisika
+// lain dan harus tetap berisi kotak gerak aslinya. Mengubah semua entri membuat
+// tembus dinding tetap aktif setelah sakelar dimatikan karena entri yang tidak
+// pernah dihitung ulang menyimpan nilai bebas.
+void bebaskanDinding(void* fisika, int32_t waktu) {
     void* margin = fisika ? bacaPtr(fisika, fieldMargin) : nullptr;
     if (!margin)
         return;
     int32_t jumlah = panjangArray(margin);
+    if (waktu < 0 || waktu >= jumlah)
+        return;
     char* data = dataArray(margin);
-    for (int32_t i = 0; i < jumlah; i++) {
-        void* entri = *reinterpret_cast<void**>(data + static_cast<size_t>(i) * sizeof(void*));
-        if (!entri)
-            continue;
-        tulisFloat(entri, fieldMarginAtas, kBatasBebas);
-        tulisFloat(entri, fieldMarginKiri, -kBatasBebas);
-        tulisFloat(entri, fieldMarginKanan, kBatasBebas);
-    }
+    void* entri = *reinterpret_cast<void**>(data + static_cast<size_t>(waktu) * sizeof(void*));
+    if (!entri)
+        return;
+    tulisFloat(entri, fieldMarginAtas, kBatasBebas);
+    tulisFloat(entri, fieldMarginKiri, -kBatasBebas);
+    tulisFloat(entri, fieldMarginKanan, kBatasBebas);
 }
 
 // Deteksi fisika berjalan untuk setiap badan di dunia, jadi hanya badan yang
@@ -608,7 +612,7 @@ void hookDeteksiFisika(void* sendiri, void** fisika, int32_t waktu, float posX, 
     asli(sendiri, fisika, waktu, posX, posY, metode);
     if (!fitur().noClip || !fisikaPemainSendiri(sendiri, fisika))
         return;
-    bebaskanDinding(fisika ? *fisika : nullptr);
+    bebaskanDinding(fisika ? *fisika : nullptr, waktu);
 }
 
 void periksaTipeTile() {
