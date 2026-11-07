@@ -108,8 +108,8 @@ void hookKirimObjRemove(void* self, int id, void* key, bool eff, bool name, bool
 // oleh hook di atas. Saat fitur menyala, jalur lokal itu yang dipakai; di host
 // dan single player hasilnya sama dengan bawaan.
 void hookLedakRentang(void* self, float x, float y, int step, void* method) {
-    auto asli = reinterpret_cast<void (*)(void*, float, float, int, void*)>(
-        target(T_EXPLODE_RANGE).orig);
+    auto asli =
+        reinterpret_cast<void (*)(void*, float, float, int, void*)>(target(T_EXPLODE_RANGE).orig);
     if (!asli)
         return;
     Target& terapkan = target(T_EXPLODE_APPLY);
