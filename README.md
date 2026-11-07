@@ -67,6 +67,11 @@ fitur untuk membaca penjelasan singkatnya.
 - **Jarak geser skin** 5 sampai 100 dengan bawaan 25, berlaku untuk slider posisi X/Y model dan
   potret. Nilai 25 berarti -25..+25 seperti sebelumnya, 5 berarti rentang bawaan game -5..+5,
   dan 100 adalah geseran terjauh. Nilai baru dipakai saat editor skin atau potret dibuka lagi.
+- **Skin & Portrait Auto Dump** mati secara bawaan. Saat dinyalakan, menu menampilkan
+  peringatan lebih dulu karena setiap tamu yang masuk berarti satu berkas skin dan satu berkas
+  potret baru. Skin ditulis ke slot model kosong pertama beserta `Name.txt` pemiliknya, potret
+  ditulis ke slot potret kosong pertama. Keduanya memakai penulis bawaan game, dan potret yang
+  sudah pernah tersimpan tidak ditulis dua kali.
 - Kata terlarang tidak disaring lagi di perangkat ini.
 - Label versi selalu diberi akhiran ` (modded)`; tidak ada sakelar untuk mematikannya.
 - **Tampilkan detail akun yang disembunyikan** membuat baris privasi akun menampilkan detail
@@ -193,23 +198,23 @@ Parameter CMake yang dipakai CI:
 Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting saat start:
 
 ```
-ShadowHook siap (shadowhook version 2.0.1, mode multi)
-Pemantau dlopen tidak dipakai
-Scan selesai: 93 dari 93 metode ditemukan
-Field model skin OK
-Field daftar tamu OK
-Field nama tamu siap
-Field daftar pemain siap
-Field pemain OK
-Field tinggi dunia siap
-Field ukuran tile siap
-Field batas kecepatan siap
-Field tembus dinding siap
-Field zona ledakan OK
-Hook terpasang: 79
+ShadowHook ready (shadowhook version 2.0.1, multi mode)
+dlopen monitor not used
+Scan complete: 95 of 95 methods found
+Skin model fields OK
+Portrait data field OK
+Guest list fields OK
+Guest name field ready
+Player list field ready
+Player field OK
+World height field ready
+Tile size field ready
+Speed limit field ready
+Wall clip field ready
+Hooks installed: 79
 ```
 
-Bila `Hook terpasang` jauh di bawah 79, baris `Hook gagal:` atau `Target tidak ditemukan:` di
+Bila `Hooks installed` jauh di bawah 79, baris `Hook failed:` atau `Target not found:` di
 atasnya menyebut method yang tidak cocok dengan build game.
 
 Saat proses mati karena sinyal, log yang sama menyimpan blok `ERROR CRASH`:

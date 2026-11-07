@@ -31,6 +31,9 @@ struct Features {
     // the view, while debris also affects the rendering load on screen.
     std::atomic<bool> shake{true};
     std::atomic<bool> debris{true};
+    // Off by default: every guest that joins writes a model and portrait file,
+    // so the user is warned about the extra work before turning it on.
+    std::atomic<bool> autoDump{false};
     std::atomic<bool> knockback{true};
     std::atomic<bool> noClip{false};
     // Slider values are sent by the menu as integers: speed 5..50 means

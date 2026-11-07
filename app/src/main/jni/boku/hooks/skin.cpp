@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "feature_flags.h"
 #include "hook_manager.h"
 #include "il2cpp_api.h"
 #include "log.h"
@@ -25,6 +26,9 @@ constexpr int kLimitHash = 512;
 constexpr int kSizeTableHash = 1024;
 constexpr int kMaskTableHash = kSizeTableHash - 1;
 constexpr int kLimitSlot = 1000;
+// Portrait files hold a short field list, so a smaller cap keeps the startup
+// scan short while still leaving room for a full room history.
+constexpr int kLimitPortrait = 500;
 constexpr size_t kLimitBytePath = 1024;
 // Guest keys are short; longer ones are not worth a cache entry.
 constexpr size_t kLimitByteUser = 64;
@@ -49,17 +53,29 @@ int countHashModel = 0;
 int slotNext = 1;
 bool slotReady = false;
 
+// Guest portraits reuse the same idea: one open table of already stored
+// portraits, plus the first free slot for the next one.
+SlotModel tablePortrait[kSizeTableHash];
+int countHashPortrait = 0;
+int portraitNext = 1;
+bool portraitSlotReady = false;
+
 // Guest models are kept in memory when they enter the room. Writing to a slot
-// only happens when the player asks for it from the menu, so no skin is saved
-// without the user's consent.
+// only happens when the player asks for it from the menu or when auto dump is
+// on, so no skin is saved without the user's consent.
 struct ModelGuest {
     char key[kLimitByteUser];
     char* model;
+    char* portrait;
 };
 
 ModelGuest guestList[kMaxGuest];
 int countGuest = 0;
 int guestNext = 0;
+
+// Set by the Add hook. The same manager instance serves every guest, so the
+// model and portrait writers can reach the save holders from either hook.
+void* managerLast = nullptr;
 
 // The guest join hook and the guest update hook can run on different threads,
 // so the cache is guarded by a lock. Readers copy the model and then release the
@@ -77,14 +93,17 @@ Field fieldGuest = {};
 Field fieldDataManager = {};
 Field fieldModel = {};
 Field fieldNameFile = {};
+Field fieldPortraitData = {};
 Field guestListField = {};
 Field fieldItemGuest = {};
 Field guestSizeField = {};
 Field guestKeyField = {};
 Field fieldModelGuest = {};
 bool fieldReady = false;
+bool fieldPortraitReady = false;
 bool fieldGuestReady = false;
 bool alreadyRecordNotReady = false;
+bool alreadyPortraitNotReady = false;
 
 uint64_t hashText(const char* text, size_t length, uint64_t initial = kInitialHash) {
     uint64_t result = initial;
@@ -97,37 +116,40 @@ uint64_t hashText(const char* text, size_t length, uint64_t initial = kInitialHa
 
 // Open table indexed by the hash itself, so an existing skin is found without
 // scanning a list. A zero hash is moved to one so it is never read as an empty
-// slot.
-int findSlot(uint64_t value) {
+// slot. The same table layout serves skins and portraits.
+int findSlot(const SlotModel* table, uint64_t value) {
     if (!value)
         value = 1;
     int i = static_cast<int>(value & kMaskTableHash);
-    while (tableHash[i].hash != 0) {
-        if (tableHash[i].hash == value)
-            return tableHash[i].slot;
+    while (table[i].hash != 0) {
+        if (table[i].hash == value)
+            return table[i].slot;
         i = (i + 1) & kMaskTableHash;
     }
     return 0;
 }
 
-void recordSlot(uint64_t value, int slot) {
-    if (countHashModel >= kLimitHash)
-        return;
+bool recordSlot(SlotModel* table, int& count, uint64_t value, int slot) {
+    if (count >= kLimitHash)
+        return false;
     if (!value)
         value = 1;
     int i = static_cast<int>(value & kMaskTableHash);
-    while (tableHash[i].hash != 0 && tableHash[i].hash != value)
+    while (table[i].hash != 0 && table[i].hash != value)
         i = (i + 1) & kMaskTableHash;
-    if (tableHash[i].hash == value)
-        return;
-    tableHash[i].hash = value;
-    tableHash[i].slot = slot;
-    countHashModel++;
+    if (table[i].hash == value)
+        return true;
+    table[i].hash = value;
+    table[i].slot = slot;
+    count++;
+    return true;
 }
 
 void releaseModelGuest(ModelGuest& entry) {
     free(entry.model);
     entry.model = nullptr;
+    free(entry.portrait);
+    entry.portrait = nullptr;
     entry.key[0] = '\0';
 }
 
@@ -167,16 +189,20 @@ char* copyText(void* text) {
     return result;
 }
 
-// The model folder belongs to the same Manager as the guest list holder, so the
-// game's own writer places its files in Save/Model without guessing the path.
-// The file name lives on a holder that a half-built save does not own yet, and
-// the path builder dereferences it, so such a save is reported as missing.
-void* modelData(void* managerGuest) {
+// The save holders hang off Manager.data. The guest list holder and the save
+// holder share that Manager instance, so the game's own writers place their
+// files under the real save folder without guessing the path.
+void* dataManager(void* managerGuest) {
     if (!fieldReady)
         return nullptr;
     void* manager = readPtr(managerGuest, fieldGuest);
-    void* data = readPtr(manager, fieldDataManager);
-    void* model = readPtr(data, fieldModel);
+    return readPtr(manager, fieldDataManager);
+}
+
+// The model comes from a holder that a half-built save does not own yet, and
+// the path builder dereferences it, so such a save is reported as missing.
+void* modelData(void* managerGuest) {
+    void* model = readPtr(dataManager(managerGuest), fieldModel);
     return readPtr(model, fieldNameFile) ? model : nullptr;
 }
 
@@ -205,26 +231,33 @@ void writeNameSlot(void* model, int slot, void* text) {
         call(model, slot, text, target(T_DATA_MODEL_NAME).method);
 }
 
-// Skins from earlier sessions already own their slots, so the hash of every
-// Data.txt on disk is read once and the next write continues after it. The
-// contents are read in pieces so no buffer the size of the model string is needed.
-bool readSlot(void* model, int slot) {
-    if (!pathSlot(model, slot))
-        return false;
+// Hashes the current textPath in pieces, so no buffer the size of the whole
+// file is needed. Returns false when the file is missing.
+bool readTextPath(uint64_t& value) {
     int fd = open(textPath, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return false;
     char piece[kLimitBytePiece];
-    uint64_t value = kInitialHash;
+    uint64_t hash = kInitialHash;
     bool hasContent = false;
     ssize_t n = 0;
     while ((n = read(fd, piece, sizeof(piece))) > 0) {
-        value = hashText(piece, static_cast<size_t>(n), value);
+        hash = hashText(piece, static_cast<size_t>(n), hash);
         hasContent = true;
     }
     close(fd);
-    if (hasContent)
-        recordSlot(value, slot);
+    value = hash;
+    return hasContent;
+}
+
+// Skins from earlier sessions already own their slots, so the hash of every
+// Data.txt on disk is read once and the next write continues after it.
+bool readSlot(void* model, int slot) {
+    if (!pathSlot(model, slot))
+        return false;
+    uint64_t value = 0;
+    if (readTextPath(value))
+        recordSlot(tableHash, countHashModel, value, slot);
     return true;
 }
 
@@ -236,9 +269,67 @@ void fillInitialSlot(void* model) {
     LOGI("Skin slots: %d stored, next %d", countHashModel, slotNext);
 }
 
+// Writes one model string into the first free slot, with the owner's name next
+// to it. Both the menu copy and auto dump end here.
+CopyResult saveModelText(void* managerGuest, const char* name, const char* modelText, int& slot) {
+    slot = 0;
+    if (!fieldReady || !managerGuest || !modelText || !*modelText)
+        return CopyResult::Failed;
+
+    void* model = modelData(managerGuest);
+    if (!model) {
+        if (!alreadyRecordNotReady) {
+            alreadyRecordNotReady = true;
+            LOGE("Skin model not ready, skin copy skipped");
+        }
+        return CopyResult::Failed;
+    }
+
+    if (!slotReady) {
+        slotReady = true;
+        fillInitialSlot(model);
+    }
+
+    uint64_t value = hashText(modelText, strlen(modelText));
+    int saved = findSlot(tableHash, value);
+    if (saved) {
+        slot = saved;
+        return CopyResult::Exists;
+    }
+    if (slotNext > kLimitSlot) {
+        LOGE("Skin slots full, %d skins stored", countHashModel);
+        return CopyResult::Failed;
+    }
+
+    void* textModel = stringFromUtf8(modelText);
+    if (!textModel) {
+        LOGE("Failed to build model string for slot %d", slotNext);
+        return CopyResult::Failed;
+    }
+    writeSlot(model, slotNext, textModel);
+    if (!slotHas(model, slotNext)) {
+        LOGE("Skin write failed: slot %d", slotNext);
+        return CopyResult::Failed;
+    }
+
+    slot = slotNext++;
+    recordSlot(tableHash, countHashModel, value, slot);
+    LOGI("Guest skin saved: slot %d (%zu bytes)", slot, strlen(modelText));
+
+    if (name && *name) {
+        void* nameText = stringFromUtf8(name);
+        if (nameText) {
+            writeNameSlot(model, slot, nameText);
+            LOGI("Skin name: slot %d", slot);
+        }
+    }
+    return CopyResult::Saved;
+}
+
 // Guest models are copied into memory, not to disk, because the menu decides when
-// that skin is saved. The key is the guest id that the player list also uses.
-void saveModelGuest(void* key, void* model) {
+// that skin is saved, or written at once when auto dump is on. The key is the
+// guest id that the player list also uses.
+void saveModelGuest(void* key, void* model, void* name) {
     char keyText[kLimitByteUser];
     if (!key || !model || !toUtf8(key, keyText, sizeof(keyText)) || !keyText[0])
         return;
@@ -246,12 +337,31 @@ void saveModelGuest(void* key, void* model) {
     if (!text)
         return;
 
+    // Auto dump gets its own copy: the cache entry may be replaced by a later
+    // guest on another thread while the game writer runs.
+    bool dump = features().autoDump && managerLast;
+    char* dumpText = dump ? strdup(text) : nullptr;
+
     pthread_mutex_lock(&guestKey);
     ModelGuest& entry = slotGuest(keyText);
     free(entry.model);
     entry.model = text;
     pthread_mutex_unlock(&guestKey);
     LOGI("Guest model recorded: %s (%d characters)", keyText, lengthString(model));
+
+    if (!dumpText)
+        return;
+    char nameText[kLimitByteUser];
+    const char* guestName = nullptr;
+    if (name && toUtf8(name, nameText, sizeof(nameText)) && nameText[0])
+        guestName = nameText;
+    int slot = 0;
+    CopyResult result = saveModelText(managerLast, guestName, dumpText, slot);
+    if (result == CopyResult::Saved)
+        LOGI("Auto dump skin: %s slot %d", keyText, slot);
+    else if (result == CopyResult::Failed)
+        LOGE("Auto dump skin failed: %s", keyText);
+    free(dumpText);
 }
 
 bool getGuestModel(const char* key, ModelCopy& result) {
@@ -320,6 +430,90 @@ bool findFieldGuestAlive() {
            findField(klassGuest, "model", fieldModelGuest);
 }
 
+// The portrait holder sits next to the model holder on the same save data, so
+// the game's own path builder and writer keep the file layout intact.
+void* portraitDataHolder(void* managerGuest) {
+    if (!fieldPortraitReady)
+        return nullptr;
+    return readPtr(dataManager(managerGuest), fieldPortraitData);
+}
+
+bool pathPortraitSlot(void* data, int slot) {
+    auto call =
+        reinterpret_cast<void* (*)(void*, int32_t, void*)>(target(T_DATA_PORTRAIT_PATH).addr);
+    return call && toUtf8(call(data, slot, target(T_DATA_PORTRAIT_PATH).method), textPath,
+                          sizeof(textPath));
+}
+
+bool portraitSlotHas(void* data, int slot) {
+    return pathPortraitSlot(data, slot) && access(textPath, F_OK) == 0;
+}
+
+void writePortraitSlot(void* data, int slot, void* text) {
+    auto call = reinterpret_cast<void (*)(void*, int32_t, void*, void*)>(
+        target(T_DATA_PORTRAIT_WRITE).addr);
+    if (call)
+        call(data, slot, text, target(T_DATA_PORTRAIT_WRITE).method);
+}
+
+bool readPortraitSlot(void* data, int slot) {
+    if (!pathPortraitSlot(data, slot))
+        return false;
+    uint64_t value = 0;
+    if (readTextPath(value))
+        recordSlot(tablePortrait, countHashPortrait, value, slot);
+    return true;
+}
+
+void fillInitialPortraitSlot(void* data) {
+    int slot = 1;
+    while (slot <= kLimitPortrait && readPortraitSlot(data, slot))
+        slot++;
+    portraitNext = slot;
+    LOGI("Portrait slots: %d stored, next %d", countHashPortrait, portraitNext);
+}
+
+// Writes one portrait string into the first free slot. A portrait already seen
+// in this session or on disk is not written again.
+void dumpGuestPortrait(void* managerGuest, const char* text) {
+    void* data = portraitDataHolder(managerGuest);
+    if (!data) {
+        if (!alreadyPortraitNotReady) {
+            alreadyPortraitNotReady = true;
+            LOGE("Portrait data not ready, portrait dump skipped");
+        }
+        return;
+    }
+
+    if (!portraitSlotReady) {
+        portraitSlotReady = true;
+        fillInitialPortraitSlot(data);
+    }
+
+    uint64_t value = hashText(text, strlen(text));
+    if (findSlot(tablePortrait, value))
+        return;
+    if (portraitNext > kLimitPortrait) {
+        LOGE("Portrait slots full, %d portraits stored", countHashPortrait);
+        return;
+    }
+
+    void* portraitText = stringFromUtf8(text);
+    if (!portraitText) {
+        LOGE("Failed to build portrait string for slot %d", portraitNext);
+        return;
+    }
+    writePortraitSlot(data, portraitNext, portraitText);
+    if (!portraitSlotHas(data, portraitNext)) {
+        LOGE("Portrait write failed: slot %d", portraitNext);
+        return;
+    }
+
+    int slot = portraitNext++;
+    recordSlot(tablePortrait, countHashPortrait, value, slot);
+    LOGI("Guest portrait saved: slot %d (%zu bytes)", slot, strlen(text));
+}
+
 } // namespace
 
 CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name, int& slot) {
@@ -337,56 +531,36 @@ CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name,
         }
         LOGI("Guest model read from live list: %s", key);
     }
-    const char* modelText = copied.text;
+    return saveModelText(managerGuest, name, copied.text, slot);
+}
 
-    void* model = modelData(managerGuest);
-    if (!model) {
-        if (!alreadyRecordNotReady) {
-            alreadyRecordNotReady = true;
-            LOGE("Skin model not ready, skin copy skipped");
-        }
-        return CopyResult::Failed;
-    }
-
-    if (!slotReady) {
-        slotReady = true;
-        fillInitialSlot(model);
-    }
-
-    uint64_t value = hashText(modelText, strlen(modelText));
-    int saved = findSlot(value);
-    if (saved) {
-        slot = saved;
-        return CopyResult::Exists;
-    }
-    if (slotNext > kLimitSlot) {
-        LOGE("Skin slots full, %d skins stored", countHashModel);
-        return CopyResult::Failed;
+// Called from the account packet hook on the game thread. The portrait string
+// stays in the guest cache for the avatar copy, and auto dump writes it at once.
+void recordGuestPortrait(void* managerGuest, void* user, void* portrait) {
+    char keyText[kLimitByteUser];
+    if (!managerGuest || !user || !portrait || !toUtf8(user, keyText, sizeof(keyText)) ||
+        !keyText[0])
+        return;
+    char* text = copyText(portrait);
+    if (!text || !*text) {
+        free(text);
+        return;
     }
 
-    void* textModel = stringFromUtf8(modelText);
-    if (!textModel) {
-        LOGE("Failed to build model string for slot %d", slotNext);
-        return CopyResult::Failed;
-    }
-    writeSlot(model, slotNext, textModel);
-    if (!slotHas(model, slotNext)) {
-        LOGE("Skin write failed: slot %d", slotNext);
-        return CopyResult::Failed;
-    }
+    bool dump = features().autoDump;
+    char* dumpText = dump ? strdup(text) : nullptr;
 
-    slot = slotNext++;
-    recordSlot(value, slot);
-    LOGI("Guest skin saved: slot %d (%zu bytes)", slot, strlen(modelText));
+    pthread_mutex_lock(&guestKey);
+    ModelGuest& entry = slotGuest(keyText);
+    free(entry.portrait);
+    entry.portrait = text;
+    pthread_mutex_unlock(&guestKey);
+    LOGI("Guest portrait recorded: %s", keyText);
 
-    if (name && *name) {
-        void* nameText = stringFromUtf8(name);
-        if (nameText) {
-            writeNameSlot(model, slot, nameText);
-            LOGI("Skin name: slot %d", slot);
-        }
-    }
-    return CopyResult::Saved;
+    if (!dumpText)
+        return;
+    dumpGuestPortrait(managerGuest, dumpText);
+    free(dumpText);
 }
 
 namespace {
@@ -402,7 +576,8 @@ void hookAdd(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t di
              int32_t obj, void* key, void* dollName, void* parent, void* model, void* ping,
              bool build, bool detonate, bool saveWorld, bool dollInteract, bool dollMove,
              bool dollSetting, void* method) {
-    saveModelGuest(key, model);
+    managerLast = self;
+    saveModelGuest(key, model, dollName);
 
     auto original = reinterpret_cast<FnAdd>(target(T_GUEST_ADD).orig);
     if (original)
@@ -413,7 +588,7 @@ void hookAdd(void* self, void* user, int32_t z, int32_t x, int32_t y, int32_t di
 // The model can arrive through Init__Model after the guest joins, so the string
 // received here is recorded too. The key already exists on the guest itself.
 void hookInitModel(void* own, void* model, void* method) {
-    saveModelGuest(readPtr(own, guestKeyField), model);
+    saveModelGuest(readPtr(own, guestKeyField), model, nullptr);
     auto original = reinterpret_cast<FnInitModel>(target(T_GUEST_INIT_MODEL).orig);
     if (original)
         original(own, model, method);
@@ -431,6 +606,10 @@ void installSkinHook() {
     void* klassModel = fieldReady ? fieldClass(fieldModel) : nullptr;
     fieldReady = fieldReady && findField(klassModel, "_filename", fieldNameFile);
     LOGI("Skin model fields %s", fieldReady ? "OK" : "missing, skin copy inactive");
+
+    fieldPortraitReady = klassData && findField(klassData, "portrait", fieldPortraitData);
+    LOGI("Portrait data field %s",
+         fieldPortraitReady ? "OK" : "missing, auto dump portrait inactive");
 
     fieldGuestReady = findFieldGuestAlive();
     LOGI("Guest list fields %s", fieldGuestReady ? "OK" : "missing, skin copy from cache only");

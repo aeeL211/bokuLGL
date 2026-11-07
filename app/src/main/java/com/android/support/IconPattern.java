@@ -688,6 +688,8 @@ public final class IconPattern {
                 return PECAHAN;
             case 29:
                 return DINDING;
+            case 30:
+                return SKIN;
             case 16:
                 return PENTAL;
             case 19:

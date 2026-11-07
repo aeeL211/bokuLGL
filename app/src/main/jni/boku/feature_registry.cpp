@@ -81,6 +81,9 @@ void applyFeatureChange(jint number, jboolean active, jint value) {
     case feature_number::kPermissionRoomOther:
         switchFlag.permissionRoomOther = active;
         break;
+    case feature_number::kAutoDump:
+        switchFlag.autoDump = active;
+        break;
     default:
         break;
     }

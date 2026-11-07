@@ -116,6 +116,12 @@ public final class Explanation {
                         + "TNT. Aksi tetap dikirim lewat jaringan, jadi kamu harus sudah "
                         + "diterima sebagai tamu di room itu. Tile di area yang dilindungi dan "
                         + "perubahan pintu yang sudah ada tetap ditolak host.";
+            case 30:
+                return "Menyimpan skin dan potret setiap tamu yang masuk room secara otomatis. "
+                        + "Skin ditulis ke slot model kosong pertama, potret ke slot potret "
+                        + "kosong pertama, memakai penulis bawaan game. Setiap tamu baru berarti "
+                        + "berkas baru, jadi room ramai bisa membuat game terasa lebih berat. "
+                        + "Mati secara bawaan dan hanya menyala setelah konfirmasi.";
             case -1:
                 return "Menyimpan pilihan fitur ke preferensi. Saat dimatikan, semua preferensi "
                         + "dibersihkan.";

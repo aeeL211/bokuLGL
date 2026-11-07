@@ -76,6 +76,9 @@ public class Menu {
     private static final String KEY_FOLD = "ui_lipat_";
     // Slider value chip: 26dp tall image inside a 48dp touch area.
     private static final float BUTTON_SMALL_INSET_DP = 9f;
+    // Auto dump writes files for every guest that joins, so it needs a warning
+    // before it is switched on.
+    private static final int FEATURE_AUTO_DUMP = 30;
 
     RelativeLayout mCollapsed, mRootContainer;
     LinearLayout mExpanded, mods, mSettings, mCollapse;
@@ -814,8 +817,21 @@ public class Menu {
         final AnimatedSwitch switchR = new AnimatedSwitch(getContext);
         switchR.setContentDescription(featName);
         switchR.setChecked(Preferences.loadPrefBool(featName, featNum, swiOn));
+        // The switch reports a change a few frames after the tap, so the guard
+        // is cleared by the next report instead of right after the dialog.
+        final boolean[] dumpConfirmed = {false};
         switchR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton compoundButton, boolean bool) {
+                if (featNum == FEATURE_AUTO_DUMP && !dumpConfirmed[0]) {
+                    if (bool) {
+                        switchR.setChecked(false);
+                        confirmDump(switchR, dumpConfirmed);
+                    } else {
+                        Preferences.changeFeatureBool(featName, featNum, false);
+                    }
+                    return;
+                }
+                dumpConfirmed[0] = false;
                 Preferences.changeFeatureBool(featName, featNum, bool);
                 if (featNum == -1) {
                     Preferences.with(switchR.getContext()).writeBoolean(-1, bool);
@@ -1715,6 +1731,21 @@ public class Menu {
         menuDialog.display(title, message, null, null,
                 new MenuDialog.Action(label, action), null,
                 new MenuDialog.Action("Batal", null), true);
+    }
+
+    /** Warning shown before auto dump is switched on; the switch stays off until accepted. */
+    private void confirmDump(final AnimatedSwitch target, final boolean[] confirmed) {
+        confirm("Skin & Portrait Auto Dump",
+                "Setiap tamu yang masuk akan disimpan otomatis: skin ke slot model kosong dan "
+                        + "potret ke slot potret kosong. Room yang ramai berarti banyak berkas "
+                        + "baru, jadi game bisa terasa lebih berat saat tamu bergabung. Aktifkan?",
+                "Aktifkan", new Runnable() {
+                    @Override
+                    public void run() {
+                        confirmed[0] = true;
+                        target.setChecked(true);
+                    }
+                });
     }
 
     private void refreshChoice(ContentList content) {

@@ -69,6 +69,11 @@ enum class CopyResult { Failed, Saved, Exists, Missing };
 // key and the guest name. Called on the game thread.
 CopyResult copyGuestModel(void* managerGuest, const char* key, const char* name, int& slot);
 
+// Keeps a guest portrait string from the account packet in the guest cache, and
+// writes it with the game's own portrait writer when auto dump is on. Called on
+// the game thread from the account packet hook.
+void recordGuestPortrait(void* managerGuest, void* user, void* portrait);
+
 // The player list copy, action queue, and local player position live in
 // boku/player_service.h. The room hooks only fill that copy, and the menu only
 // reads it.

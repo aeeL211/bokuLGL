@@ -23,8 +23,8 @@ T_TITLE_VERSION|Title__Cmn|Version__Text|0|
 T_HELP_VERSION|UI__Menu__Net__Multi__Help|Refresh__Version__Text|0|
 T_PASSWORD_BUTTON|UI__Menu__Net__Multi__Join__Room_List__Detail__Password|Term__Bottom_Button|0|
 T_HH_CHANGE|Player__Manager|Hh__Change|1|
-# Id pegang pemain lokal. Hook makanan membacanya sebelum game mengosongkan
-# tangan, jadi makanan tetap dikenali setelah fitur sempat dimatikan.
+# Id held by the local player. The food hook reads it before the game empties
+# the hand, so a held food stays recognized after the feature was switched off.
 T_HH_ID|Player__Manager|Hh__Id|0|
 T_PLAYER_UPDATE|Player__Manager|_Update|0|
 T_EAT_END_KNEEL|Player__State__Sp__Tile__Kneel|Gingerbread_Man__Eat__End|0|
@@ -85,31 +85,36 @@ T_DATA_MODEL_NAME|Data__Model|File__Write__Name|2|
 T_KICK_SEND|Net__Multi__Transfer__Pipe|Host__Client__Connect__Kick__Send|1|
 T_GUEST_UPDATE|Guest__Manager|_Update|0|
 T_HOST_KEY|Net__Multi|Host__Key|0|
-# Model tamu. Init__Model menerima string skin yang sama dengan argumen Add,
-# sedangkan Model__To__Str mengembalikan string dari model yang sudah dipakai
-# tamu. Keduanya dipakai salin skin saat cache Add kosong.
+# Guest model. Init__Model receives the same skin string as the Add argument,
+# while Model__To__Str returns the string of the model a guest already wears.
+# Both are used by skin copy when the Add cache is empty.
 T_GUEST_INIT_MODEL|Guest__Main|Init__Model|1|
 T_MODEL_TO_STR|_Model|Model__To__Str|1|
-# Fisika pemain. Kotak gerak dari tile dihitung di sini tiap frame, jadi No Clip
-# melonggarkan sisi kiri, kanan, dan atasnya setelah perhitungan itu selesai.
+# Player physics. The motion box from tiles is computed here every frame, so No
+# Clip relaxes its left, right, and top sides once that computation is done.
 T_DETECT_SET|Physics__Detect|_Set|3|
-# Gerak pemain. Pos__Check menghitung _world.check = pos.world + speed.add,
-# jadi speed.add.x dan komponen turun speed.add.y diskalakan tepat sebelum
-# pemeriksaan lalu dikembalikan sesudahnya. Satu titik ini menangkap semua
-# gerakan, termasuk terbang, berenang, dan meluncur.
+# Player motion. Pos__Check computes _world.check = pos.world + speed.add, so
+# speed.add.x and the falling part of speed.add.y are scaled right before that
+# check and restored afterwards. This single point catches every movement,
+# including flying, swimming, and sliding.
 T_POS_CHECK|Physics__Manager|Pos__Check|1|
-# Kamera pemain. Pos__Update dipanggil sekali per frame; batas jarak kamera
-# diskalakan selama panggilan supaya kamera tetap mengejar pemain cepat.
+# Player camera. Pos__Update runs once per frame; the camera distance limit is
+# scaled for the duration of the call so the camera keeps up with a fast player.
 
-# Izin bangun dan hancurkan di room orang lain. Kelima metode ini adalah facade
-# kirim milik klien, jadi flag dipaksa sebelum paket meninggalkan perangkat.
+# Build and destroy permission in other rooms. These five methods are the
+# client's send facades, so the flag is forced before a packet leaves the device.
 T_SEND_TILE_ADD|Net__Multi__Transfer__Send|Tile__Add|7|
 T_SEND_TILE_REPLACE|Net__Multi__Transfer__Send|Tile__Replace_|11|
 T_SEND_TILE_REMOVE|Net__Multi__Transfer__Send|Tile__Remove|7|
 T_SEND_OBJ_ADD|Net__Multi__Transfer__Send|Obj__Add|8|
 T_SEND_OBJ_REMOVE|Net__Multi__Transfer__Send|Obj__Remove|5|
-# Ledakan TNT tidak lewat facade kirim tile, melainkan paket Explosion_Range
-# yang ditolak host. Update__Range_ memilih antara jalur admin lokal dan paket
-# itu, sedangkan Update__Range__ adalah jalur lokal yang dipakai admin.
+# A TNT explosion does not use the tile send facade but the Explosion_Range
+# packet the host rejects. Update__Range_ picks between the local admin path and
+# that packet, while Update__Range__ is the local path the admin uses.
 T_EXPLODE_RANGE|Tile__Explode|Update__Range_|2|
 T_EXPLODE_APPLY|Tile__Explode|Update__Range__|3|
+# Guest portrait. The account packet carries the portrait string, and the save
+# holder writes it with the game's own path builder so auto dump never guesses
+# the file layout.
+T_DATA_PORTRAIT_PATH|Data__Portrait|File__Path|1|
+T_DATA_PORTRAIT_WRITE|Data__Portrait|File__Write|2|

@@ -158,6 +158,7 @@ void hookPublic(void* own, void* user, bool login, void* uid, void* email, void*
     auto original = reinterpret_cast<FnPublic>(target(T_GUEST_COMMON).orig);
     if (original)
         original(own, user, login, uid, email, date, portrait, introduction, method);
+    recordGuestPortrait(own, user, portrait);
     fillEmail(guestAccount(own, user), emailGuest);
 }
 

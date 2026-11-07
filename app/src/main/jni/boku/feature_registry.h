@@ -31,6 +31,7 @@ constexpr jint kResetGravity = 26;
 constexpr jint kRangeSkin = 27;
 constexpr jint kDebris = 28;
 constexpr jint kPermissionRoomOther = 29;
+constexpr jint kAutoDump = 30;
 constexpr jint kValueSpeedInitial = 10;
 constexpr jint kValueGravityInitial = 10;
 } // namespace feature_number

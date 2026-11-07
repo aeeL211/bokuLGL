@@ -47,6 +47,7 @@ jobjectArray featureList(JNIEnv *env) {
             OBFUSCATE("Collapse_Nama dan Profil"),
             OBFUSCATE("CollapseAdd_2_Toggle_True_Nama, tanggal lahir, dan sandi tanpa batas"),
             OBFUSCATE("CollapseAdd_27_SeekBar_Jarak geser skin_5_100_25_0"),
+            OBFUSCATE("CollapseAdd_30_Toggle_Skin & Portrait Auto Dump"),
             OBFUSCATE("CollapseAdd_4_Toggle_True_Tanpa sensor kata kasar"),
             OBFUSCATE("CollapseAdd_7_Toggle_True_Tampilkan detail akun yang disembunyikan"),
 
