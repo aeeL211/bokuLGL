@@ -1469,7 +1469,7 @@ public class Menu {
         container.addView(list);
 
         // The list is already re-read every second. This button reads at once
-        // and gives a clear sign (loading, then "Diperbarui") that it is fresh.
+        // and marks a fresh copy by turning the box bright for a moment.
         Button kickAll = smallButton("Kick semua", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
