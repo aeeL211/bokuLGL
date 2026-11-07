@@ -32,6 +32,10 @@ constexpr jint kRangeSkin = 27;
 constexpr jint kDebris = 28;
 constexpr jint kPermissionRoomOther = 29;
 constexpr jint kAutoDump = 30;
+constexpr jint kWorldLocal = 31;
+constexpr jint kWorldBackground = 32;
+constexpr jint kWorldPeriod = 33;
+constexpr jint kWorldWeather = 34;
 constexpr jint kValueSpeedInitial = 10;
 constexpr jint kValueGravityInitial = 10;
 } // namespace feature_number

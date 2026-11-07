@@ -92,6 +92,7 @@ void* worker(void*) {
     installSlotHook();
     installSpoofHook();
     installRoomHook();
+    installWorldHook();
     installPlayerHook();
     refreshModules();
     LOGI("Hooks installed: %d", countHookInstalled());

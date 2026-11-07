@@ -26,7 +26,8 @@ sesudah proses dibuang di latar belakang.
 
 ## Yang diubah
 
-Semua fitur menyala sejak awal kecuali **No Clip**. Sakelar di menu hanya mengubah nilai yang
+Semua fitur menyala sejak awal kecuali **No Clip**, **Skin & Portrait Auto Dump**, dan
+**Atur dunia sendiri**. Sakelar di menu hanya mengubah nilai yang
 dibaca hook pada tiap panggilan; hook tidak pernah dipasang atau dilepas saat game berjalan.
 Menu dikelompokkan per kategori, dan setiap kategori adalah section yang bisa dibuka-tutup.
 Semuanya tertutup saat menu dibuka, jadi daftar fitur tetap ringkas. Tekan lama pada baris
@@ -49,6 +50,16 @@ menyalakan menu lewat provider `AutoStart`.
   ledakan di perangkatnya sendiri lalu mengirim permintaan hapus per tile dan objek, bukan
   paket `Explosion_Range` yang ditolak host. Kamu tetap harus sudah diterima sebagai tamu;
   area yang dilindungi dan perubahan pintu yang sudah ada tidak ikut ditembus.
+- **Atur dunia sendiri** menimpa latar, waktu, dan cuaca dunia hanya di perangkat ini. Ketiga
+  pilihan memanggil setter lokal game (`Background__Bg._Set`, `Background__Period._Set`,
+  `Background__Weather._Set`) yang juga dipakai klien saat menerima perubahan dari host, jadi
+  tidak lewat pemeriksaan admin dan tidak mengirim paket. Host dan tamu lain tetap memakai
+  dunia masing-masing; bila host sendiri yang memakai fitur ini, perubahan tetap disiarkan
+  seperti perubahan host biasa. Pilihan **Bawaan** membiarkan bagian itu mengikuti host, dan
+  saat sakelar dimatikan setiap bagian yang diubah dikembalikan ke pilihan sebelum fitur
+  dipakai. Nilai asli dicatat per zona; saat zona berganti, nilai asli diambil ulang dari zona
+  yang sedang dimuat. Perubahan host yang masuk sesudahnya ditimpa lagi setelah jeda sekitar
+  dua detik, jadi animasi tidak direstart tiap frame.
 - **Daftar pemain** di menu menampilkan host, pemain sendiri, dan tamu yang sedang ada di room,
   masing-masing dengan lencana peran `host`, `kamu`, atau `tamu`. Menu membacanya sekali per
   detik selama barisnya terlihat; salinan di sisi native hanya disusun selama dua detik sesudah
@@ -214,7 +225,7 @@ Setiap sesi menulis `Android/data/<package>/files/bokumods-N.log`. Baris penting
 ```
 ShadowHook ready (shadowhook version 2.0.1, multi mode)
 dlopen monitor not used
-Scan complete: 96 of 96 methods found
+Scan complete: 99 of 99 methods found
 Skin model fields OK
 Portrait data field OK
 Guest list fields OK
@@ -223,6 +234,7 @@ Guest name field ready
 Player list field ready
 Player field OK
 World height field ready
+World override fields ready
 Tile size field ready
 Speed limit field ready
 Wall clip field ready

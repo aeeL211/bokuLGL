@@ -34,6 +34,13 @@ struct Features {
     // Off by default: every guest that joins writes a model and portrait file,
     // so the user is warned about the extra work before turning it on.
     std::atomic<bool> autoDump{false};
+    // World override is local to this device: the three selections call the
+    // game's own local setter instead of the host-only network path. A zero
+    // selection means that part is left alone.
+    std::atomic<bool> worldLocal{false};
+    std::atomic<int32_t> worldBackground{0};
+    std::atomic<int32_t> worldPeriod{0};
+    std::atomic<int32_t> worldWeather{0};
     std::atomic<bool> knockback{true};
     std::atomic<bool> noClip{false};
     // Slider values are sent by the menu as integers: speed 5..50 means

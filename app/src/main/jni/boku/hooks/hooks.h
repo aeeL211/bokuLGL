@@ -23,6 +23,7 @@ void installSlotHook();
 void installSpoofHook();
 void installRoomHook();
 void installPlayerHook();
+void installWorldHook();
 
 // True when this player manager is the local player. Used by hooks that run for
 // every player so a feature never touches a guest body. While the comparison
@@ -36,6 +37,10 @@ void findLocalPlayerFields();
 // Called from the player update hook, on the game thread. Handles Teleport and
 // No Clip for the local player only.
 void onPlayerUpdate(void* manager);
+
+// Local background, period, and weather override. Called from the player update
+// hook so the game methods run on the game thread, never from the menu thread.
+void applyWorldOverride(void* playerManager);
 
 // Packets only the host receives are sent with the room's host key, and the
 // replacement lives for exactly one send call.

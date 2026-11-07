@@ -84,6 +84,18 @@ void applyFeatureChange(jint number, jboolean active, jint value) {
     case feature_number::kAutoDump:
         switchFlag.autoDump = active;
         break;
+    case feature_number::kWorldLocal:
+        switchFlag.worldLocal = active;
+        break;
+    case feature_number::kWorldBackground:
+        switchFlag.worldBackground.store(value);
+        break;
+    case feature_number::kWorldPeriod:
+        switchFlag.worldPeriod.store(value);
+        break;
+    case feature_number::kWorldWeather:
+        switchFlag.worldWeather.store(value);
+        break;
     default:
         break;
     }

@@ -42,6 +42,12 @@ jobjectArray featureList(JNIEnv *env) {
             OBFUSCATE("CollapseAdd_9_Toggle_True_Pesan pribadi ikut tampil di chat"),
             OBFUSCATE("CollapseAdd_5_Toggle_True_Simpan dunia dan room besar"),
             OBFUSCATE("CollapseAdd_29_Toggle_True_Bangun dan hancurkan di room orang lain"),
+            OBFUSCATE("CollapseAdd_31_Toggle_Atur dunia sendiri"),
+            OBFUSCATE("CollapseAdd_32_Spinner_Latar dunia_Bawaan,Gunung,Hutan,Kota,Gurun,"
+                      "Hutan mati,Planet"),
+            OBFUSCATE("CollapseAdd_33_Spinner_Musim dunia_Bawaan,Pagi,Senja,Malam"),
+            OBFUSCATE("CollapseAdd_34_Spinner_Cuaca dunia_Bawaan,Cerah,Hujan,Badai,Salju,Daun,"
+                      "Sakura,Cahaya,Bintang,Virus hijau,Virus ungu"),
             OBFUSCATE("CollapseAdd_PlayerList_Pemain di room ini"),
 
             OBFUSCATE("Collapse_Nama dan Profil"),

@@ -121,3 +121,10 @@ T_DATA_PORTRAIT_WRITE|Data__Portrait|File__Write|2|
 # The live room list keeps the parsed portrait object, so the copy button can
 # still read a guest whose packet arrived before the mod loaded.
 T_PORTRAIT_TO_STR|_Portrait|Portrait__To__Str|1|
+# Local world override. The public Change methods only run for the room admin
+# and then notify the network, while _Set is the local implementation clients
+# run when a change arrives. Calling _Set directly lets a guest change only
+# their own view.
+T_BG_SET|Background__Bg|_Set|3|
+T_PERIOD_SET|Background__Period|_Set|2|
+T_WEATHER_SET|Background__Weather|_Set|3|

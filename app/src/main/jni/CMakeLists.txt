@@ -140,6 +140,7 @@ set(MOD_SOURCES
   "${BOKU_ROOT}/hooks/slots.cpp"
   "${BOKU_ROOT}/hooks/spoof.cpp"
   "${BOKU_ROOT}/hooks/room.cpp"
+  "${BOKU_ROOT}/hooks/world.cpp"
   "${BOKU_ROOT}/hooks/player.cpp"
 )
 

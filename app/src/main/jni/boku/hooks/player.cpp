@@ -738,6 +738,8 @@ bool isLocalPlayerHook(void* manager) {
 // Called at the end of the local player update, on the game thread, because
 // game position and physics must not be touched from the menu thread.
 void onPlayerUpdate(void* manager) {
+    if (isLocalPlayerHook(manager))
+        applyWorldOverride(manager);
     if (!fieldActorPlayer.field || !localPlayerField.field || !fieldPhysics.field)
         return;
     if (!localPlayer(manager))

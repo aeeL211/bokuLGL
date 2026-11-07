@@ -690,6 +690,14 @@ public final class IconPattern {
                 return DINDING;
             case 30:
                 return SKIN;
+            case 31:
+                return WORLD;
+            case 32:
+                return WORLD;
+            case 33:
+                return WORLD;
+            case 34:
+                return WORLD;
             case 16:
                 return PENTAL;
             case 19:

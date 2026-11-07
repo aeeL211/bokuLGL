@@ -124,6 +124,25 @@ public final class Explanation {
                         + "kosong pertama, memakai penulis bawaan game. Setiap tamu baru berarti "
                         + "berkas baru, jadi room ramai bisa membuat game terasa lebih berat. "
                         + "Mati secara bawaan dan hanya menyala setelah konfirmasi.";
+            case 31:
+                return "Menimpa latar, waktu, dan cuaca dunia hanya di perangkat ini. Pilihan "
+                        + "berlaku tanpa izin host dan tidak dikirim ke pemain lain, jadi host "
+                        + "dan tamu tetap melihat dunia mereka sendiri. Saat dimatikan, setiap "
+                        + "bagian yang pernah diubah dikembalikan ke nilai sebelum fitur ini "
+                        + "dipakai. Mati secara bawaan.";
+            case 32:
+                return "Latar dunia yang dipakai hanya di perangkat ini: Gunung, Hutan, Kota, "
+                        + "Gurun, Hutan mati, atau Planet. Bawaan membiarkan bagian ini "
+                        + "mengikuti host. Pilihan ini hanya berlaku saat Atur dunia sendiri "
+                        + "menyala.";
+            case 33:
+                return "Waktu dunia yang dipakai hanya di perangkat ini: Pagi, Senja, atau "
+                        + "Malam. Bawaan membiarkan bagian ini mengikuti host. Warna latar dan "
+                        + "cuaca menyesuaikan pilihan ini, dan hanya layar kamu yang berubah.";
+            case 34:
+                return "Cuaca yang dipakai hanya di perangkat ini, dari Cerah sampai Virus "
+                        + "ungu. Bawaan membiarkan bagian ini mengikuti host. Hujan, salju, dan "
+                        + "partikel lain hanya muncul di layar kamu, bukan di layar pemain lain.";
             case -1:
                 return "Menyimpan pilihan fitur ke preferensi. Saat dimatikan, semua preferensi "
                         + "dibersihkan.";
